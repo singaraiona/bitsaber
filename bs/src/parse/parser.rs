@@ -577,7 +577,7 @@ impl<'a> Parser<'a> {
         match self.parse_expr() {
             Ok(expr) => Ok(Function {
                 prototype: Prototype {
-                    name: "main".to_string(),
+                    name: "anonymous".to_string(),
                     args: vec![],
                     is_op: false,
                     prec: 0,

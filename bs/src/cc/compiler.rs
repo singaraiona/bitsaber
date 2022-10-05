@@ -2,22 +2,21 @@ use crate::parse::parser::{Expr, Function, Prototype};
 use std::borrow::Borrow;
 use std::collections::HashMap;
 
-use inkwell::builder::Builder;
-use inkwell::context::Context;
-use inkwell::module::Module;
-use inkwell::passes::PassManager;
-use inkwell::types::BasicMetadataTypeEnum;
-use inkwell::values::{BasicMetadataValueEnum, FloatValue, FunctionValue, PointerValue};
-use inkwell::{FloatPredicate, OptimizationLevel};
+pub(crate) use inkwell::builder::Builder;
+pub(crate) use inkwell::context::Context;
+pub(crate) use inkwell::module::Module;
+pub(crate) use inkwell::passes::PassManager;
+pub(crate) use inkwell::types::BasicMetadataTypeEnum;
+pub(crate) use inkwell::values::{BasicMetadataValueEnum, FloatValue, FunctionValue, PointerValue};
+pub(crate) use inkwell::{FloatPredicate, OptimizationLevel};
 
 /// Defines the `Expr` compiler.
 pub struct Compiler<'a, 'ctx> {
-    pub context: &'ctx Context,
-    pub builder: &'a Builder<'ctx>,
-    pub fpm: &'a PassManager<FunctionValue<'ctx>>,
-    pub module: &'a Module<'ctx>,
-    pub function: &'a Function,
-
+    context: &'ctx Context,
+    builder: &'a Builder<'ctx>,
+    fpm: &'a PassManager<FunctionValue<'ctx>>,
+    module: &'a Module<'ctx>,
+    function: &'a Function,
     variables: HashMap<String, PointerValue<'ctx>>,
     fn_value_opt: Option<FunctionValue<'ctx>>,
 }
