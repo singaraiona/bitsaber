@@ -1,6 +1,7 @@
 use crate::cc::compiler::*;
 use crate::parse::parser::*;
 use std::collections::HashMap;
+use std::fmt;
 
 #[no_mangle]
 pub extern "C" fn printd(x: f64) -> f64 {
@@ -8,14 +9,9 @@ pub extern "C" fn printd(x: f64) -> f64 {
     x
 }
 
-// Adding the functions above to a global array,
-// so Rust compiler won't remove them.
-#[used]
-static EXTERNAL_FNS: [extern "C" fn(f64) -> f64; 1] = [printd];
-
 struct ModuleExecutionEngine {
     module: Module<'static>,
-    executor: Box<dyn FnMut(FunctionValue) -> Result<String, String>>,
+    executor: Box<dyn FnMut(FunctionValue) -> Result<Box<dyn fmt::Display>, String>>,
 }
 
 impl ModuleExecutionEngine {
@@ -28,8 +24,11 @@ impl ModuleExecutionEngine {
             let name = compiled_fn.get_name().to_str().unwrap();
             let maybe_fn = unsafe { ee.get_function::<unsafe extern "C" fn() -> f64>(name) };
             match maybe_fn {
-                Ok(f) => unsafe { Ok(format!("{}", f.call())) },
-                Err(err) => Err(format!("EE get function `{}`: {:?}", name, err)),
+                Ok(f) => unsafe { Ok(Box::new(f.call()) as _) },
+                Err(err) => Err(format!(
+                    "Execution engine get function `{}`: {:?}",
+                    name, err
+                )),
             }
         };
 
@@ -39,9 +38,12 @@ impl ModuleExecutionEngine {
         }
     }
 
-    fn execute(&mut self, name: &str) -> Result<String, String> {
-        let main = self.module.get_function(name).unwrap();
-        (self.executor)(main)
+    fn execute(&mut self, name: &str) -> Result<Box<dyn fmt::Display>, String> {
+        if let Some(main) = self.module.get_function(name) {
+            (self.executor)(main)
+        } else {
+            Err(format!("Function `{}` not found", name))
+        }
     }
 }
 
@@ -51,7 +53,6 @@ pub struct Runtime {
     fpm: PassManager<FunctionValue<'static>>,
     prec: HashMap<char, i32>,
     context: Box<Context>,
-    parsed_exprs: Vec<Function>,
 }
 
 impl Runtime {
@@ -86,12 +87,11 @@ impl Runtime {
         modules.insert("_main_", ModuleExecutionEngine::new(main_module));
 
         Self {
-            context,
             builder,
             modules,
             fpm,
             prec,
-            parsed_exprs: Default::default(),
+            context,
         }
     }
 
@@ -99,42 +99,22 @@ impl Runtime {
         &self.modules[name].module
     }
 
-    pub fn parse_eval(&mut self, input: String) -> Result<String, String> {
-        self.modules.entry("_main_").or_insert_with(|| {
-            let module: Module<'static> =
-                unsafe { std::mem::transmute(self.context.create_module("_main_")) };
-            ModuleExecutionEngine::new(module)
-        });
-
-
-        let module = self.context.create_module("tmp");
-        let parsed_fn = Parser::new(input, &mut self.prec).parse()?;
+    pub fn parse_eval(&mut self, input: String) -> Result<Box<dyn fmt::Display>, String> {
+        let pseudonim = input.clone();
+        let parsed_fn = Parser::new(input, &mut self.prec).parse(pseudonim.trim())?;
         let ctx = unsafe { std::mem::transmute(self.context.as_ref()) };
-        let module = self.modules[name].module;
+        let module_executor = &mut self.modules.get_mut("_main_").unwrap();
+        let module = &module_executor.module;
         let builder = &mut self.builder;
         let fpm = &mut self.fpm;
 
-        // recompile every previously parsed function into the new module
-        for prev in &self.parsed_exprs {
-            Compiler::compile(ctx, builder, fpm, &module, prev)
-                .expect("Cannot re-add previously compiled function.");
-        }
-
-        let compiled_fn = Compiler::compile(ctx, builder, fpm, &module, &parsed_fn)?;
+        let compiled_fn = Compiler::compile(ctx, builder, fpm, module, &parsed_fn)?;
 
         if parsed_fn.is_anon {
-            let ee = module
-                .create_jit_execution_engine(OptimizationLevel::Aggressive)
-                .unwrap();
             let name = compiled_fn.get_name().to_str().unwrap();
-            let maybe_fn = unsafe { ee.get_function::<unsafe extern "C" fn() -> f64>(name) };
-            match maybe_fn {
-                Ok(f) => unsafe { Ok(format!("{}", f.call())) },
-                Err(err) => Err(format!("EE get function `{}`: {:?}", name, err)),
-            }
+            module_executor.execute(name)
         } else {
-            self.parsed_exprs.push(parsed_fn);
-            Ok("".to_string())
+            Ok(Box::new("".to_string()))
         }
     }
 }

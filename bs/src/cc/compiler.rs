@@ -404,6 +404,11 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         module: &'a Module<'ctx>,
         function: &Function,
     ) -> Result<FunctionValue<'ctx>, &'static str> {
+        // if such function already exists, return it
+        if let Some(fun) = module.get_function(function.prototype.name.as_str()) {
+            return Ok(fun);
+        }
+
         let mut compiler = Compiler {
             context,
             builder,

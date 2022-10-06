@@ -7,7 +7,7 @@ use std::io::{self, Write};
 pub fn main() {
     let mut runtime = Runtime::new();
     loop {
-        print!("\n?> ");
+        print!("\nbs>");
         let _ = io::stdout().flush();
 
         // Read input from stdin
@@ -16,7 +16,11 @@ pub fn main() {
             .read_line(&mut input)
             .expect("Could not read from standard input.");
 
-        let res = runtime.parse_eval(input).unwrap();
-        println!("=> {}", res);
+        let res = match runtime.parse_eval(input) {
+            Ok(result) => format!("{}", result),
+            Err(err) => format!("Error: {}", err),
+        };
+
+        println!("{}", res);
     }
 }

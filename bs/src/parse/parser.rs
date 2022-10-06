@@ -81,11 +81,11 @@ impl<'a> Parser<'a> {
     }
 
     /// Parses the content of the parser.
-    pub fn parse(&mut self) -> Result<Function, &'static str> {
+    pub fn parse(&mut self, pseudonim: &str) -> Result<Function, &'static str> {
         let result = match self.current()? {
             Token::Def => self.parse_def(),
             Token::Extern => self.parse_extern(),
-            _ => self.parse_toplevel_expr(),
+            _ => self.parse_toplevel_expr(pseudonim),
         };
 
         match result {
@@ -573,11 +573,11 @@ impl<'a> Parser<'a> {
 
     /// Parses a top-level expression and makes an anonymous function out of it,
     /// for easier compilation.
-    fn parse_toplevel_expr(&mut self) -> Result<Function, &'static str> {
+    fn parse_toplevel_expr(&mut self, pseudonim: &str) -> Result<Function, &'static str> {
         match self.parse_expr() {
             Ok(expr) => Ok(Function {
                 prototype: Prototype {
-                    name: "anonymous".to_string(),
+                    name: pseudonim.to_string(),
                     args: vec![],
                     is_op: false,
                     prec: 0,
