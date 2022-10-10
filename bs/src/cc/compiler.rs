@@ -4,8 +4,10 @@ use std::collections::HashMap;
 
 pub(crate) use inkwell::builder::Builder;
 pub(crate) use inkwell::context::Context;
+pub(crate) use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 pub(crate) use inkwell::module::Module;
 pub(crate) use inkwell::passes::PassManager;
+pub(crate) use inkwell::targets::{InitializationConfig, Target};
 pub(crate) use inkwell::types::BasicMetadataTypeEnum;
 pub(crate) use inkwell::values::{BasicMetadataValueEnum, FloatValue, FunctionValue, PointerValue};
 pub(crate) use inkwell::{FloatPredicate, OptimizationLevel};
@@ -404,11 +406,6 @@ impl<'a, 'ctx> Compiler<'a, 'ctx> {
         module: &'a Module<'ctx>,
         function: &Function,
     ) -> Result<FunctionValue<'ctx>, &'static str> {
-        // if such function already exists, return it
-        if let Some(fun) = module.get_function(function.prototype.name.as_str()) {
-            return Ok(fun);
-        }
-
         let mut compiler = Compiler {
             context,
             builder,

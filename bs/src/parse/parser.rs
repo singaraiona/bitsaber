@@ -1,5 +1,4 @@
 use crate::parse::lexer::{Lexer, Token};
-use std::collections::HashMap;
 
 /// Defines a primitive expression.
 #[derive(Debug)]
@@ -45,7 +44,6 @@ pub struct Prototype {
     pub name: String,
     pub args: Vec<String>,
     pub is_op: bool,
-    pub prec: usize,
 }
 
 /// Defines a user-defined or external function.
@@ -57,35 +55,29 @@ pub struct Function {
 }
 
 /// Represents the `Expr` parser.
-pub struct Parser<'a> {
+pub struct Parser {
     tokens: Vec<Token>,
     pos: usize,
-    prec: &'a mut HashMap<char, i32>,
 }
 
 // I'm ignoring the 'must_use' lint in order to call 'self.advance' without checking
 // the result when an EOF is acceptable.
 #[allow(unused_must_use)]
-impl<'a> Parser<'a> {
+impl Parser {
     /// Creates a new parser, given an input `str` and a `HashMap` binding
-    /// an operator and its precedence in binary expressions.
-    pub fn new(input: String, op_precedence: &'a mut HashMap<char, i32>) -> Self {
+    pub fn new(input: String) -> Self {
         let mut lexer = Lexer::new(input.as_str());
         let tokens = lexer.by_ref().collect();
 
-        Parser {
-            tokens,
-            prec: op_precedence,
-            pos: 0,
-        }
+        Parser { tokens, pos: 0 }
     }
 
     /// Parses the content of the parser.
-    pub fn parse(&mut self, pseudonim: &str) -> Result<Function, &'static str> {
+    pub fn parse(&mut self) -> Result<Function, &'static str> {
         let result = match self.current()? {
             Token::Def => self.parse_def(),
             Token::Extern => self.parse_extern(),
-            _ => self.parse_toplevel_expr(pseudonim),
+            _ => self.parse_toplevel_expr(),
         };
 
         match result {
@@ -139,20 +131,16 @@ impl<'a> Parser<'a> {
 
     /// Returns the precedence of the current `Token`, or 0 if it is not recognized as a binary operator.
     fn get_tok_precedence(&self) -> i32 {
-        if let Ok(Token::Op(op)) = self.current() {
-            *self.prec.get(&op).unwrap_or(&100)
-        } else {
-            -1
-        }
+        100
     }
 
     /// Parses the prototype of a function, whether external or user-defined.
     fn parse_prototype(&mut self) -> Result<Prototype, &'static str> {
-        let (id, is_operator, precedence) = match self.curr() {
+        let (id, is_operator) = match self.curr() {
             Token::Ident(id) => {
                 self.advance()?;
 
-                (id, false, 0)
+                (id, false)
             }
 
             Token::Binary => {
@@ -169,17 +157,9 @@ impl<'a> Parser<'a> {
 
                 name.push(op);
 
-                let prec = if let Token::Number(prec) = self.curr() {
-                    self.advance()?;
+                self.advance()?;
 
-                    prec as usize
-                } else {
-                    0
-                };
-
-                self.prec.insert(op, prec as i32);
-
-                (name, true, prec)
+                (name, true)
             }
 
             Token::Unary => {
@@ -196,7 +176,7 @@ impl<'a> Parser<'a> {
 
                 self.advance()?;
 
-                (name, true, 0)
+                (name, true)
             }
 
             _ => return Err("Expected identifier in prototype declaration."),
@@ -216,7 +196,6 @@ impl<'a> Parser<'a> {
                 name: id,
                 args: vec![],
                 is_op: is_operator,
-                prec: precedence,
             });
         }
 
@@ -246,7 +225,6 @@ impl<'a> Parser<'a> {
             name: id,
             args,
             is_op: is_operator,
-            prec: precedence,
         })
     }
 
@@ -573,14 +551,13 @@ impl<'a> Parser<'a> {
 
     /// Parses a top-level expression and makes an anonymous function out of it,
     /// for easier compilation.
-    fn parse_toplevel_expr(&mut self, pseudonim: &str) -> Result<Function, &'static str> {
+    fn parse_toplevel_expr(&mut self) -> Result<Function, &'static str> {
         match self.parse_expr() {
             Ok(expr) => Ok(Function {
                 prototype: Prototype {
-                    name: pseudonim.to_string(),
+                    name: "anonymous".to_string(),
                     args: vec![],
                     is_op: false,
-                    prec: 0,
                 },
                 body: Some(expr),
                 is_anon: true,

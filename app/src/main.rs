@@ -7,7 +7,7 @@ use std::io::{self, Write};
 pub fn main() {
     let mut runtime = Runtime::new();
     loop {
-        print!("\nbs>");
+        print!("\nbs> ");
         let _ = io::stdout().flush();
 
         // Read input from stdin
