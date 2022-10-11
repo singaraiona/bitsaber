@@ -84,8 +84,12 @@ impl Runtime {
 
             let res = f(x, y, z);
 
-            // LLVMDeleteFunction(addr as _);
-            Ok(Box::new(format!("{} + {} + {} = {}", x, y, z, res)))
+            LLVMDeleteFunction(addr as _);
+
+            Ok(Box::new(format!(
+                "{} + {} + {} = {} addr: {}",
+                x, y, z, res, addr
+            )))
         }
     }
 }
