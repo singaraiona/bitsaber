@@ -1,4 +1,6 @@
 use crate::parse::lexer::{Lexer, Token};
+use std::collections::HashMap;
+use Token::*;
 
 /// Defines a primitive expression.
 #[derive(Debug)]
@@ -44,6 +46,7 @@ pub struct Prototype {
     pub name: String,
     pub args: Vec<String>,
     pub is_op: bool,
+    pub prec: usize,
 }
 
 /// Defines a user-defined or external function.
@@ -55,28 +58,35 @@ pub struct Function {
 }
 
 /// Represents the `Expr` parser.
-pub struct Parser {
+pub struct Parser<'a> {
     tokens: Vec<Token>,
     pos: usize,
+    prec: &'a mut HashMap<char, i32>,
 }
 
 // I'm ignoring the 'must_use' lint in order to call 'self.advance' without checking
 // the result when an EOF is acceptable.
 #[allow(unused_must_use)]
-impl Parser {
+#[allow(unused_must_use)]
+impl<'a> Parser<'a> {
     /// Creates a new parser, given an input `str` and a `HashMap` binding
-    pub fn new(input: String) -> Self {
+    /// an operator and its precedence in binary expressions.
+    pub fn new(input: String, op_precedence: &'a mut HashMap<char, i32>) -> Self {
         let mut lexer = Lexer::new(input.as_str());
         let tokens = lexer.by_ref().collect();
 
-        Parser { tokens, pos: 0 }
+        Parser {
+            tokens,
+            prec: op_precedence,
+            pos: 0,
+        }
     }
 
     /// Parses the content of the parser.
     pub fn parse(&mut self) -> Result<Function, &'static str> {
         let result = match self.current()? {
-            Token::Def => self.parse_def(),
-            Token::Extern => self.parse_extern(),
+            Def => self.parse_def(),
+            Extern => self.parse_extern(),
             _ => self.parse_toplevel_expr(),
         };
 
@@ -131,23 +141,27 @@ impl Parser {
 
     /// Returns the precedence of the current `Token`, or 0 if it is not recognized as a binary operator.
     fn get_tok_precedence(&self) -> i32 {
-        100
+        if let Ok(Op(op)) = self.current() {
+            *self.prec.get(&op).unwrap_or(&100)
+        } else {
+            -1
+        }
     }
 
     /// Parses the prototype of a function, whether external or user-defined.
     fn parse_prototype(&mut self) -> Result<Prototype, &'static str> {
-        let (id, is_operator) = match self.curr() {
-            Token::Ident(id) => {
+        let (id, is_operator, precedence) = match self.curr() {
+            Ident(id) => {
                 self.advance()?;
 
-                (id, false)
+                (id, false, 0)
             }
 
-            Token::Binary => {
+            Binary => {
                 self.advance()?;
 
                 let op = match self.curr() {
-                    Token::Op(ch) => ch,
+                    Op(ch) => ch,
                     _ => return Err("Expected operator in custom operator declaration."),
                 };
 
@@ -157,16 +171,24 @@ impl Parser {
 
                 name.push(op);
 
-                self.advance()?;
+                let prec = if let Number(prec) = self.curr() {
+                    self.advance()?;
 
-                (name, true)
+                    prec as usize
+                } else {
+                    0
+                };
+
+                self.prec.insert(op, prec as i32);
+
+                (name, true, prec)
             }
 
-            Token::Unary => {
+            Unary => {
                 self.advance()?;
 
                 let op = match self.curr() {
-                    Token::Op(ch) => ch,
+                    Op(ch) => ch,
                     _ => return Err("Expected operator in custom operator declaration."),
                 };
 
@@ -176,26 +198,27 @@ impl Parser {
 
                 self.advance()?;
 
-                (name, true)
+                (name, true, 0)
             }
 
             _ => return Err("Expected identifier in prototype declaration."),
         };
 
         match self.curr() {
-            Token::LParen => (),
+            LParen => (),
             _ => return Err("Expected '(' character in prototype declaration."),
         }
 
         self.advance()?;
 
-        if let Token::RParen = self.curr() {
+        if let RParen = self.curr() {
             self.advance();
 
             return Ok(Prototype {
                 name: id,
                 args: vec![],
                 is_op: is_operator,
+                prec: precedence,
             });
         }
 
@@ -203,18 +226,18 @@ impl Parser {
 
         loop {
             match self.curr() {
-                Token::Ident(name) => args.push(name),
+                Ident(name) => args.push(name),
                 _ => return Err("Expected identifier in parameter declaration."),
             }
 
             self.advance()?;
 
             match self.curr() {
-                Token::RParen => {
+                RParen => {
                     self.advance();
                     break;
                 }
-                Token::Comma => {
+                Comma => {
                     self.advance();
                 }
                 _ => return Err("Expected ',' or ')' character in prototype declaration."),
@@ -225,6 +248,7 @@ impl Parser {
             name: id,
             args,
             is_op: is_operator,
+            prec: precedence,
         })
     }
 
@@ -274,7 +298,7 @@ impl Parser {
     fn parse_nb_expr(&mut self) -> Result<Expr, &'static str> {
         // Simply convert Token::Number to Expr::Number
         match self.curr() {
-            Token::Number(nb) => {
+            Number(nb) => {
                 self.advance();
                 Ok(Expr::Number(nb))
             }
@@ -285,7 +309,7 @@ impl Parser {
     /// Parses an expression enclosed in parenthesis.
     fn parse_paren_expr(&mut self) -> Result<Expr, &'static str> {
         match self.current()? {
-            Token::LParen => (),
+            LParen => (),
             _ => return Err("Expected '(' character at start of parenthesized expression."),
         }
 
@@ -294,7 +318,7 @@ impl Parser {
         let expr = self.parse_expr()?;
 
         match self.current()? {
-            Token::RParen => (),
+            RParen => (),
             _ => return Err("Expected ')' character at end of parenthesized expression."),
         }
 
@@ -306,7 +330,7 @@ impl Parser {
     /// Parses an expression that starts with an identifier (either a variable or a function call).
     fn parse_id_expr(&mut self) -> Result<Expr, &'static str> {
         let id = match self.curr() {
-            Token::Ident(id) => id,
+            Ident(id) => id,
             _ => return Err("Expected identifier."),
         };
 
@@ -315,10 +339,10 @@ impl Parser {
         }
 
         match self.curr() {
-            Token::LParen => {
+            LParen => {
                 self.advance()?;
 
-                if let Token::RParen = self.curr() {
+                if let RParen = self.curr() {
                     return Ok(Expr::Call {
                         fn_name: id,
                         args: vec![],
@@ -331,8 +355,8 @@ impl Parser {
                     args.push(self.parse_expr()?);
 
                     match self.current()? {
-                        Token::Comma => (),
-                        Token::RParen => break,
+                        Comma => (),
+                        RParen => break,
                         _ => return Err("Expected ',' character in function call."),
                     }
 
@@ -351,7 +375,7 @@ impl Parser {
     /// Parses an unary expression.
     fn parse_unary_expr(&mut self) -> Result<Expr, &'static str> {
         let op = match self.current()? {
-            Token::Op(ch) => {
+            Op(ch) => {
                 self.advance()?;
                 ch
             }
@@ -378,7 +402,7 @@ impl Parser {
             }
 
             let op = match self.curr() {
-                Token::Op(op) => op,
+                Op(op) => op,
                 _ => return Err("Invalid operator."),
             };
 
@@ -409,7 +433,7 @@ impl Parser {
 
         // eat 'then' token
         match self.current() {
-            Ok(Token::Then) => self.advance()?,
+            Ok(Then) => self.advance()?,
             _ => return Err("Expected 'then' keyword."),
         }
 
@@ -417,7 +441,7 @@ impl Parser {
 
         // eat 'else' token
         match self.current() {
-            Ok(Token::Else) => self.advance()?,
+            Ok(Else) => self.advance()?,
             _ => return Err("Expected 'else' keyword."),
         }
 
@@ -436,7 +460,7 @@ impl Parser {
         self.advance()?;
 
         let name = match self.curr() {
-            Token::Ident(n) => n,
+            Ident(n) => n,
             _ => return Err("Expected identifier in for loop."),
         };
 
@@ -445,7 +469,7 @@ impl Parser {
 
         // eat '=' token
         match self.curr() {
-            Token::Op('=') => self.advance()?,
+            Op('=') => self.advance()?,
             _ => return Err("Expected '=' character in for loop."),
         }
 
@@ -453,7 +477,7 @@ impl Parser {
 
         // eat ',' token
         match self.current()? {
-            Token::Comma => self.advance()?,
+            Comma => self.advance()?,
             _ => return Err("Expected ',' character in for loop."),
         }
 
@@ -461,7 +485,7 @@ impl Parser {
 
         // parse (optional) step expression
         let step = match self.current()? {
-            Token::Comma => {
+            Comma => {
                 self.advance()?;
 
                 Some(self.parse_expr()?)
@@ -472,7 +496,7 @@ impl Parser {
 
         // eat 'in' token
         match self.current()? {
-            Token::In => self.advance()?,
+            In => self.advance()?,
             _ => return Err("Expected 'in' keyword in for loop."),
         }
 
@@ -497,7 +521,7 @@ impl Parser {
         // parse variables
         loop {
             let name = match self.curr() {
-                Token::Ident(name) => name,
+                Ident(name) => name,
                 _ => return Err("Expected identifier in 'var..in' declaration."),
             };
 
@@ -505,7 +529,7 @@ impl Parser {
 
             // read (optional) initializer
             let initializer = match self.curr() {
-                Token::Op('=') => Some({
+                Op('=') => Some({
                     self.advance()?;
                     self.parse_expr()?
                 }),
@@ -516,10 +540,10 @@ impl Parser {
             variables.push((name, initializer));
 
             match self.curr() {
-                Token::Comma => {
+                Comma => {
                     self.advance()?;
                 }
-                Token::In => {
+                In => {
                     self.advance()?;
                     break;
                 }
@@ -539,12 +563,12 @@ impl Parser {
     /// Parses a primary expression (an identifier, a number or a parenthesized expression).
     fn parse_primary(&mut self) -> Result<Expr, &'static str> {
         match self.curr() {
-            Token::Ident(_) => self.parse_id_expr(),
-            Token::Number(_) => self.parse_nb_expr(),
-            Token::LParen => self.parse_paren_expr(),
-            Token::If => self.parse_conditional_expr(),
-            Token::For => self.parse_for_expr(),
-            Token::Var => self.parse_var_expr(),
+            Ident(_) => self.parse_id_expr(),
+            Number(_) => self.parse_nb_expr(),
+            LParen => self.parse_paren_expr(),
+            If => self.parse_conditional_expr(),
+            For => self.parse_for_expr(),
+            Var => self.parse_var_expr(),
             _ => Err("Unknown expression."),
         }
     }
@@ -558,6 +582,7 @@ impl Parser {
                     name: "anonymous".to_string(),
                     args: vec![],
                     is_op: false,
+                    prec: 0,
                 },
                 body: Some(expr),
                 is_anon: true,
