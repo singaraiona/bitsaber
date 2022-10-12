@@ -78,12 +78,13 @@ impl Runtime {
             let addr = LLVMGetFunctionAddress(self.execution_engine, name.as_ptr() as *const _);
             // LLVMRecompileAndRelinkFunction(self.execution_engine, compiled_fn);
             // let addr = LLVMGetFunctionAddress(self.execution_engine, name.as_ptr() as *const _);
-            let compiled_name = LLVMGetFunctionName(compiled_fn);
-            let f: extern "C" fn(u64, u64, u64) -> u64 = mem::transmute(addr);
-            let x: u64 = 2;
-            let y: u64 = 3;
-            let z: u64 = 4;
-            let res = f(x, y, z);
+
+            let mut len = 0;
+            let ptr = LLVMGetValueName2(compiled_fn, &mut len);
+            let compiled_name = std::ffi::CStr::from_ptr(ptr);
+
+            let f: extern "C" fn(u64) -> u64 = mem::transmute(addr);
+            let res = f(2);
 
             println!("COMPILED: {:?}", compiled_fn);
 
@@ -92,8 +93,8 @@ impl Runtime {
             // LLVMInstructionEraseFromParent(compiled_fn);
 
             Ok(Box::new(format!(
-                "{} + {} + {} = {} addr: {} name: {}",
-                x, y, z, res, addr, compiled_name
+                "addr: {} name: {:?} res: {}",
+                addr, compiled_name, res
             )))
         }
     }

@@ -21,12 +21,11 @@ impl Compiler {
             // get a type for sum function
 
             let i64t = LLVMInt64TypeInContext(self.context);
-            let mut argts = [i64t, i64t, i64t];
+            let mut argts = [i64t];
             let function_type = LLVMFunctionType(i64t, argts.as_mut_ptr(), argts.len() as u32, 0);
 
             // add it to our module
-            let function =
-                LLVMAddFunction(self.module, b"sum\0".as_ptr() as *const _, function_type);
+            let function = LLVMAddFunction(self.module, name.as_ptr() as *const _, function_type);
 
             // Create a basic block in the function and set our builder to generate
             // code in it.
@@ -38,22 +37,14 @@ impl Compiler {
 
             LLVMPositionBuilderAtEnd(self.builder, bb);
 
-            // get the function's arguments
-            let x = LLVMGetParam(function, 0);
-            let y = LLVMGetParam(function, 1);
-            let z = LLVMGetParam(function, 2);
-
             let mut rng = rand::thread_rng();
-            let rnd: u8 = rng.gen();
+            let rnd: u64 = rng.gen();
 
-            let sum = LLVMBuildAdd(self.builder, x, y, name.as_ptr() as *const _);
+            // get the function's arguments
 
-            let sum = if rnd > 100 {
-                LLVMBuildAdd(self.builder, sum, z, b"sum.2\0".as_ptr() as *const _)
-            } else {
-                println!("build mul");
-                LLVMBuildMul(self.builder, sum, z, b"sum.2\0".as_ptr() as *const _)
-            };
+            let x = LLVMGetParam(function, 0);
+            let y = LLVMConstInt(i64t, rnd, 0);
+            let sum = LLVMBuildAdd(self.builder, x, y, b"tmpsum\0".as_ptr() as *const _);
 
             // Emit a `ret void` into the function
             LLVMBuildRet(self.builder, sum);
