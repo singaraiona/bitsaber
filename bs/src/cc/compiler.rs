@@ -1,8 +1,10 @@
 use crate::parse::parser::{Expr, Function, Prototype};
 use llvm::core::*;
 use llvm::execution_engine::*;
+use llvm::prelude::LLVMValueRef;
 use llvm::target::*;
 use llvm::*;
+use rand::prelude::*;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 /// Defines the `Expr` compiler.
@@ -14,7 +16,7 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    fn compile_fn(&mut self) -> Result<(), &'static str> {
+    fn compile_fn(&mut self, name: &str) -> Result<LLVMValueRef, &'static str> {
         unsafe {
             // get a type for sum function
 
@@ -41,13 +43,22 @@ impl Compiler {
             let y = LLVMGetParam(function, 1);
             let z = LLVMGetParam(function, 2);
 
-            let sum = LLVMBuildAdd(self.builder, x, y, b"sum.1\0".as_ptr() as *const _);
-            let sum = LLVMBuildAdd(self.builder, sum, z, b"sum.2\0".as_ptr() as *const _);
+            let mut rng = rand::thread_rng();
+            let rnd: u8 = rng.gen();
+
+            let sum = LLVMBuildAdd(self.builder, x, y, name.as_ptr() as *const _);
+
+            let sum = if rnd > 100 {
+                LLVMBuildAdd(self.builder, sum, z, b"sum.2\0".as_ptr() as *const _)
+            } else {
+                println!("build mul");
+                LLVMBuildMul(self.builder, sum, z, b"sum.2\0".as_ptr() as *const _)
+            };
 
             // Emit a `ret void` into the function
             LLVMBuildRet(self.builder, sum);
 
-            Ok(())
+            Ok(function)
         }
     }
 
@@ -56,7 +67,8 @@ impl Compiler {
         builder: *mut LLVMBuilder,
         module: *mut LLVMModule,
         function: Function,
-    ) -> Result<(), &'static str> {
+        name: &str,
+    ) -> Result<LLVMValueRef, &'static str> {
         let mut compiler = Compiler {
             context,
             builder,
@@ -64,6 +76,6 @@ impl Compiler {
             function,
         };
 
-        compiler.compile_fn()
+        compiler.compile_fn(name)
     }
 }

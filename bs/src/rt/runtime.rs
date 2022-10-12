@@ -58,6 +58,8 @@ impl Runtime {
 
     pub fn parse_eval(&mut self, input: String) -> Result<Box<dyn fmt::Display>, String> {
         unsafe {
+            let name = "sum\0";
+
             // Build precedence map
             let mut prec = HashMap::with_capacity(6);
 
@@ -70,25 +72,28 @@ impl Runtime {
 
             let parsed_fn = Parser::new(input, &mut prec).parse().unwrap();
             let compiled_fn =
-                Compiler::compile(self.context, self.builder, self.module, parsed_fn).unwrap();
+                Compiler::compile(self.context, self.builder, self.module, parsed_fn, name)
+                    .unwrap();
 
-            let addr = LLVMGetFunctionAddress(self.execution_engine, b"sum\0".as_ptr() as *const _);
-
+            let addr = LLVMGetFunctionAddress(self.execution_engine, name.as_ptr() as *const _);
+            // LLVMRecompileAndRelinkFunction(self.execution_engine, compiled_fn);
+            // let addr = LLVMGetFunctionAddress(self.execution_engine, name.as_ptr() as *const _);
+            let compiled_name = LLVMGetFunctionName(compiled_fn);
             let f: extern "C" fn(u64, u64, u64) -> u64 = mem::transmute(addr);
-
-            let x: u64 = 1;
-
-            let y: u64 = 1;
-
-            let z: u64 = 1;
-
+            let x: u64 = 2;
+            let y: u64 = 3;
+            let z: u64 = 4;
             let res = f(x, y, z);
 
-            LLVMDeleteFunction(addr as _);
+            println!("COMPILED: {:?}", compiled_fn);
+
+            LLVMFreeMachineCodeForFunction(self.execution_engine, compiled_fn);
+            LLVMDeleteFunction(compiled_fn);
+            // LLVMInstructionEraseFromParent(compiled_fn);
 
             Ok(Box::new(format!(
-                "{} + {} + {} = {} addr: {}",
-                x, y, z, res, addr
+                "{} + {} + {} = {} addr: {} name: {}",
+                x, y, z, res, addr, compiled_name
             )))
         }
     }
