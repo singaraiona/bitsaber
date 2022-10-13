@@ -1,11 +1,13 @@
 use crate::cc::compiler::*;
 use crate::parse::parser::*;
+use crate::result::*;
+use crate::value::*;
 use llvm::core::*;
 use llvm::execution_engine::*;
 use llvm::target::*;
 use llvm::*;
 use std::collections::HashMap;
-use std::{fmt, mem};
+use std::mem;
 
 #[no_mangle]
 pub extern "C" fn printd(x: f64) -> f64 {
@@ -30,34 +32,40 @@ impl Drop for Runtime {
     }
 }
 
+// Public methods
 impl Runtime {
+    fn create_execution_engine(&mut self) -> BSResult<()> {
+        unsafe {
+            let mut out = mem::zeroed();
+            LLVMCreateExecutionEngineForModule(&mut self.execution_engine, self.module, &mut out);
+            BSResult::Ok(())
+        }
+    }
+
     pub fn new() -> Self {
         unsafe {
             let context = LLVMContextCreate();
-            let module = LLVMModuleCreateWithNameInContext(b"main\0".as_ptr() as *const _, context);
+            let module =
+                LLVMModuleCreateWithNameInContext(b"top-level\0".as_ptr() as *const _, context);
             let builder = LLVMCreateBuilderInContext(context);
-
-            LLVMDumpModule(module);
-
-            let mut execution_engine = mem::MaybeUninit::zeroed().assume_init();
-            let mut out = mem::zeroed();
 
             LLVMLinkInMCJIT();
             LLVM_InitializeNativeTarget();
             LLVM_InitializeNativeAsmPrinter();
-            LLVMCreateExecutionEngineForModule(&mut execution_engine, module, &mut out);
 
             Self {
                 context,
                 module,
                 builder,
-                execution_engine,
+                execution_engine: mem::MaybeUninit::zeroed().assume_init(),
             }
         }
     }
 
-    pub fn parse_eval(&mut self, input: String) -> Result<Box<dyn fmt::Display>, String> {
+    pub fn parse_eval(&mut self, input: String) -> BSResult<Value> {
         unsafe {
+            self.create_execution_engine();
+
             let name = "sum\0";
 
             // Build precedence map
@@ -70,46 +78,24 @@ impl Runtime {
             prec.insert('*', 40);
             prec.insert('/', 40);
 
-            let parsed_fn = Parser::new(input, &mut prec).parse().unwrap();
+            let parsed_fn = Parser::new(input, &mut prec).parse()?;
             let compiled_fn =
                 Compiler::compile(self.context, self.builder, self.module, parsed_fn, name)
                     .unwrap();
-
-            // LLVMRecompileAndRelinkFunction(self.execution_engine, compiled_fn);
-            // let addr = LLVMGetFunctionAddress(self.execution_engine, name.as_ptr() as *const _);
 
             let mut len = 0;
             let ptr = LLVMGetValueName2(compiled_fn, &mut len);
             let compiled_name = std::ffi::CStr::from_ptr(ptr);
 
-            println!("COMPILED NAME: {}", compiled_name.to_str().unwrap());
-
-            // let addr = LLVMGetFunctionAddress(self.execution_engine, name.as_ptr() as _);
-
-            let mut addr = LLVMGetFirstFunction(self.module);
-
-            loop {
-                if addr.is_null() {
-                    break;
-                }
-
-                println!("{:?}", addr);
-
-                addr = LLVMGetNextFunction(addr);
-            }
+            let addr = LLVMGetFunctionAddress(self.execution_engine, compiled_name.as_ptr());
 
             let f: extern "C" fn(u64) -> u64 = mem::transmute(addr);
             let res = f(2);
 
-            // LLVMFreeMachineCodeForFunction(self.execution_engine, compiled_fn);
-            // LLVMDeleteFunction(compiled_fn);
+            LLVMFreeMachineCodeForFunction(self.execution_engine, compiled_fn);
+            LLVMDeleteFunction(compiled_fn);
 
-            // LLVMDumpModule(self.module);
-
-            Ok(Box::new(format!(
-                "fn: {:?} addr: {:?} name: {:?} res: {}",
-                compiled_fn, addr, compiled_name, res
-            )))
+            BSResult::Ok((res as i64).into())
         }
     }
 }

@@ -1,5 +1,6 @@
 extern crate bs;
 
+use bs::result::BSResult;
 use bs::rt::runtime::Runtime;
 use std::io::{self, Write};
 
@@ -17,8 +18,8 @@ pub fn main() {
             .expect("Could not read from standard input.");
 
         let res = match runtime.parse_eval(input) {
-            Ok(result) => format!("{}", result),
-            Err(err) => format!("Error: {}", err),
+            BSResult::Ok(result) => format!("{}", result),
+            BSResult::Err(err) => format!("Error: {}", err),
         };
 
         println!("{}", res);
