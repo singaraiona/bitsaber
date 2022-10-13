@@ -38,7 +38,7 @@ impl Compiler {
             LLVMPositionBuilderAtEnd(self.builder, bb);
 
             let mut rng = rand::thread_rng();
-            let rnd: u64 = rng.gen();
+            let rnd: u64 = rng.gen_range(0..8);
 
             // get the function's arguments
 

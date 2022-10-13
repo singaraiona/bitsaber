@@ -75,7 +75,6 @@ impl Runtime {
                 Compiler::compile(self.context, self.builder, self.module, parsed_fn, name)
                     .unwrap();
 
-            let addr = LLVMGetFunctionAddress(self.execution_engine, name.as_ptr() as *const _);
             // LLVMRecompileAndRelinkFunction(self.execution_engine, compiled_fn);
             // let addr = LLVMGetFunctionAddress(self.execution_engine, name.as_ptr() as *const _);
 
@@ -83,18 +82,33 @@ impl Runtime {
             let ptr = LLVMGetValueName2(compiled_fn, &mut len);
             let compiled_name = std::ffi::CStr::from_ptr(ptr);
 
+            println!("COMPILED NAME: {}", compiled_name.to_str().unwrap());
+
+            // let addr = LLVMGetFunctionAddress(self.execution_engine, name.as_ptr() as _);
+
+            let mut addr = LLVMGetFirstFunction(self.module);
+
+            loop {
+                if addr.is_null() {
+                    break;
+                }
+
+                println!("{:?}", addr);
+
+                addr = LLVMGetNextFunction(addr);
+            }
+
             let f: extern "C" fn(u64) -> u64 = mem::transmute(addr);
             let res = f(2);
 
-            println!("COMPILED: {:?}", compiled_fn);
+            // LLVMFreeMachineCodeForFunction(self.execution_engine, compiled_fn);
+            // LLVMDeleteFunction(compiled_fn);
 
-            LLVMFreeMachineCodeForFunction(self.execution_engine, compiled_fn);
-            LLVMDeleteFunction(compiled_fn);
-            // LLVMInstructionEraseFromParent(compiled_fn);
+            // LLVMDumpModule(self.module);
 
             Ok(Box::new(format!(
-                "addr: {} name: {:?} res: {}",
-                addr, compiled_name, res
+                "fn: {:?} addr: {:?} name: {:?} res: {}",
+                compiled_fn, addr, compiled_name, res
             )))
         }
     }
