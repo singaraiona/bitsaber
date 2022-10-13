@@ -5,10 +5,8 @@ use std::collections::HashMap;
 use Token::*;
 
 pub struct Parser<'a> {
-    input: &'a str,
     lexer: Lexer<'a>,
-    pos: usize,
-    curr: Token,
+    curr: Token<'a>,
 }
 
 #[allow(unused_must_use)]
@@ -18,34 +16,18 @@ impl<'a> Parser<'a> {
         let lexer = Lexer::new(input);
 
         Parser {
-            input,
             lexer,
-            pos: 0,
-            curr: Token::Start,
+            curr: Token::EOF,
         }
-    }
-
-    /// Returns the current `Token`, or an error that
-    /// indicates that the end of the file has been unexpectedly reached if it is the case.
-    fn current(&self) -> BSResult<Token> {
-        ok(self.curr.clone())
     }
 
     /// Advances the position, and returns an empty `Result` whose error
     /// indicates that the end of the file has been unexpectedly reached.
     /// This allows to use the `self.advance()?;` syntax.
     fn advance(&mut self) -> BSResult<()> {
-        // let npos = self.pos + 1;
-
-        // self.pos = npos;
-
-        // if npos < self.tokens.len() {
-        //     Ok(())
-        // } else {
-        //     Err("Unexpected end of file.")
-        // }
-
-        todo!()
+        let token = self.lexer.next()?;
+        self.curr = token;
+        ok(())
     }
 
     /// Returns a value indicating whether or not the `Parser`
@@ -495,37 +477,22 @@ impl<'a> Parser<'a> {
 
     /// Parses a primary expression (an identifier, a number or a parenthesized expression).
     fn parse_primary(&mut self) -> BSResult<Expr> {
-        // match self.curr() {
-        //     Ident(_) => self.parse_id_expr(),
-        //     Number(_) => self.parse_nb_expr(),
-        //     LParen => self.parse_paren_expr(),
-        //     If => self.parse_conditional_expr(),
-        //     For => self.parse_for_expr(),
-        //     Var => self.parse_var_expr(),
-        //     _ => Err("Unknown expression."),
-        // }
-
-        todo!()
+        match self.curr {
+            Ident(_) => self.parse_id_expr(),
+            I64(_) => self.parse_nb_expr(),
+            F64(_) => self.parse_nb_expr(),
+            LParen => self.parse_paren_expr(),
+            If => self.parse_conditional_expr(),
+            For => self.parse_for_expr(),
+            Var => self.parse_var_expr(),
+            _ => parse_error("Unknown expression.", self.lexer.pos()),
+        }
     }
 
     /// Parses a top-level expression and makes an anonymous function out of it,
     /// for easier compilation.
     fn parse_toplevel_expr(&mut self) -> BSResult<Function> {
-        // match self.parse_expr() {
-        //     Ok(expr) => Ok(Function {
-        //         prototype: Prototype {
-        //             name: "anonymous".to_string(),
-        //             args: vec![],
-        //             is_op: false,
-        //             prec: 0,
-        //         },
-        //         body: Some(expr),
-        //         is_anon: true,
-        //     }),
-
-        //     Err(err) => Err(err),
-        // }
-
+        let expr = self.parse_expr()?;
         ok(Function {
             prototype: Prototype {
                 name: "anonymous".to_string(),
@@ -533,14 +500,16 @@ impl<'a> Parser<'a> {
                 is_op: false,
                 prec: 0,
             },
-            body: Some(Expr::Number(0.0)),
+            body: Some(expr),
             is_anon: true,
         })
     }
 
     /// Parses the content of the parser.
     pub fn parse(&mut self) -> BSResult<Function> {
-        let result = match self.current()? {
+        self.advance()?;
+
+        let result = match self.curr {
             Def => self.parse_def(),
             Extern => self.parse_extern(),
             _ => self.parse_toplevel_expr(),
@@ -549,7 +518,10 @@ impl<'a> Parser<'a> {
         match result {
             BSResult::Ok(result) => {
                 if !self.at_end() {
-                    parse_error("Unexpected token after parsed expression.")
+                    parse_error(
+                        "Unexpected token after parsed expression.",
+                        self.lexer.pos(),
+                    )
                 } else {
                     ok(result)
                 }

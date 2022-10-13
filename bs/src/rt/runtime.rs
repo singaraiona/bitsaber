@@ -45,8 +45,7 @@ impl Runtime {
     pub fn new() -> Self {
         unsafe {
             let context = LLVMContextCreate();
-            let module =
-                LLVMModuleCreateWithNameInContext(b"top-level\0".as_ptr() as *const _, context);
+            let module = LLVMModuleCreateWithNameInContext(b"main\0".as_ptr() as *const _, context);
             let builder = LLVMCreateBuilderInContext(context);
 
             LLVMLinkInMCJIT();

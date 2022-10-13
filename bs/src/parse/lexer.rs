@@ -1,11 +1,11 @@
+use crate::result::*;
 use std::iter::Peekable;
 use std::ops::DerefMut;
 use std::str::Chars;
 
 /// Represents a primitive syntax token.
 #[derive(Debug, Clone)]
-pub enum Token {
-    Start,
+pub enum Token<'a> {
     Binary,
     Comma,
     Comment,
@@ -14,40 +14,18 @@ pub enum Token {
     EOF,
     Extern,
     For,
-    Ident(String),
+    Ident(&'a str),
     If,
     In,
     LParen,
-    Number(f64),
+    I64(i64),
+    F64(f64),
     Op(char),
     RParen,
     Then,
     Unary,
     Var,
 }
-
-/// Defines an error encountered by the `Lexer`.
-pub struct LexError {
-    pub error: &'static str,
-    pub index: usize,
-}
-
-impl LexError {
-    pub fn new(msg: &'static str) -> LexError {
-        LexError {
-            error: msg,
-            index: 0,
-        }
-    }
-
-    pub fn with_index(msg: &'static str, index: usize) -> LexError {
-        LexError { error: msg, index }
-    }
-}
-
-/// Defines the result of a lexing operation; namely a
-/// `Token` on success, or a `LexError` on failure.
-pub type LexResult = Result<Token, LexError>;
 
 /// Defines a lexer which transforms an input `String` into
 /// a `Token` stream.
@@ -68,7 +46,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// Lexes and returns the next `Token` from the source code.
-    pub fn lex(&mut self) -> LexResult {
+    pub fn next(&mut self) -> BSResult<Token<'a>> {
         let chars = self.chars.deref_mut();
         let src = self.input;
 
@@ -84,8 +62,7 @@ impl<'a> Lexer<'a> {
 
                 if ch.is_none() {
                     self.pos = pos;
-
-                    return Ok(Token::EOF);
+                    return ok(Token::EOF);
                 }
 
                 if !ch.unwrap().is_whitespace() {
@@ -101,16 +78,21 @@ impl<'a> Lexer<'a> {
         let next = chars.next();
 
         if next.is_none() {
-            return Ok(Token::EOF);
+            return ok(Token::EOF);
         }
 
         pos += 1;
 
+        let next_c = next.ok_or_else(|| BSError::ParseError {
+            msg: "Unexpected EOF",
+            pos: pos,
+        })?;
+
         // Actually get the next token.
-        let result = match next.unwrap() {
-            '(' => Ok(Token::LParen),
-            ')' => Ok(Token::RParen),
-            ',' => Ok(Token::Comma),
+        let result = match next_c {
+            '(' => ok(Token::LParen),
+            ')' => ok(Token::RParen),
+            ',' => ok(Token::Comma),
 
             '#' => {
                 // Comment
@@ -123,19 +105,21 @@ impl<'a> Lexer<'a> {
                     }
                 }
 
-                Ok(Token::Comment)
+                ok(Token::Comment)
             }
 
             '.' | '0'..='9' => {
                 // Parse number literal
+                let mut is_float = false;
                 loop {
                     let ch = match chars.peek() {
                         Some(ch) => *ch,
-                        None => return Ok(Token::EOF),
+                        None => return ok(Token::EOF),
                     };
 
-                    // Parse float.
-                    if ch != '.' && !ch.is_digit(16) {
+                    if ch == '.' {
+                        is_float = true;
+                    } else if !ch.is_digit(10) {
                         break;
                     }
 
@@ -143,7 +127,23 @@ impl<'a> Lexer<'a> {
                     pos += 1;
                 }
 
-                Ok(Token::Number(src[start..pos].parse().unwrap()))
+                if is_float {
+                    let s = &src[start..pos];
+                    let v = s.parse::<f64>().map_err(|_| BSError::ParseError {
+                        msg: "Invalid float literal",
+                        pos: start,
+                    })?;
+
+                    ok(Token::F64(v))
+                } else {
+                    let s = &src[start..pos];
+                    let v = s.parse::<i64>().map_err(|_| BSError::ParseError {
+                        msg: "Invalid integer literal",
+                        pos: start,
+                    })?;
+
+                    ok(Token::I64(v))
+                }
             }
 
             'a'..='z' | 'A'..='Z' | '_' => {
@@ -151,7 +151,7 @@ impl<'a> Lexer<'a> {
                 loop {
                     let ch = match chars.peek() {
                         Some(ch) => *ch,
-                        None => return Ok(Token::EOF),
+                        None => return ok(Token::EOF),
                     };
 
                     // A word-like identifier only contains underscores and alphanumeric characters.
@@ -164,24 +164,24 @@ impl<'a> Lexer<'a> {
                 }
 
                 match &src[start..pos] {
-                    "def" => Ok(Token::Def),
-                    "extern" => Ok(Token::Extern),
-                    "if" => Ok(Token::If),
-                    "then" => Ok(Token::Then),
-                    "else" => Ok(Token::Else),
-                    "for" => Ok(Token::For),
-                    "in" => Ok(Token::In),
-                    "unary" => Ok(Token::Unary),
-                    "binary" => Ok(Token::Binary),
-                    "var" => Ok(Token::Var),
+                    "def" => ok(Token::Def),
+                    "extern" => ok(Token::Extern),
+                    "if" => ok(Token::If),
+                    "then" => ok(Token::Then),
+                    "else" => ok(Token::Else),
+                    "for" => ok(Token::For),
+                    "in" => ok(Token::In),
+                    "unary" => ok(Token::Unary),
+                    "binary" => ok(Token::Binary),
+                    "var" => ok(Token::Var),
 
-                    ident => Ok(Token::Ident(ident.to_string())),
+                    ident => ok(Token::Ident(ident)),
                 }
             }
 
             op => {
                 // Parse operator
-                Ok(Token::Op(op))
+                ok(Token::Op(op))
             }
         };
 
@@ -190,17 +190,8 @@ impl<'a> Lexer<'a> {
 
         result
     }
-}
 
-impl<'a> Iterator for Lexer<'a> {
-    type Item = Token;
-
-    /// Lexes the next `Token` and returns it.
-    /// On EOF or failure, `None` will be returned.
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.lex() {
-            Ok(Token::EOF) | Err(_) => None,
-            Ok(token) => Some(token),
-        }
+    pub fn pos(&self) -> usize {
+        self.pos
     }
 }

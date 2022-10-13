@@ -4,14 +4,14 @@ use std::io;
 use std::ops::{ControlFlow, FromResidual, Try};
 
 pub enum BSError {
-    ParseError(String),
+    ParseError { msg: &'static str, pos: usize },
     CompileError(String),
     RuntimeError(String),
     IOError(String),
 }
 
-pub fn parse_error<T>(msg: &str) -> BSResult<T> {
-    BSResult::Err(BSError::ParseError(msg.to_string()))
+pub fn parse_error<T>(msg: &'static str, pos: usize) -> BSResult<T> {
+    BSResult::Err(BSError::ParseError { msg, pos })
 }
 
 pub fn compile_error(msg: &str) -> BSError {
@@ -33,7 +33,9 @@ pub fn ok<T>(v: T) -> BSResult<T> {
 impl fmt::Display for BSError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ParseError(v) => write!(f, "** ParseError: {}", v),
+            Self::ParseError { msg, pos } => {
+                write!(f, "** ParseError: {}\n   at: {}", msg, pos)
+            }
             Self::CompileError(v) => write!(f, "** CompileError: {}", v),
             Self::RuntimeError(v) => write!(f, "** RuntimeError: {}", v),
             Self::IOError(v) => write!(f, "** IOError: {}", v),
@@ -125,12 +127,6 @@ impl<T> Try for BSResult<T> {
         }
     }
 }
-
-// impl<'a, T> FromResidual<(Input<'a>, ErrorKind, ParseError)> for Output<'a, T> {
-//     fn from_residual(residual: <Output<'a, T> as Try>::Residual) -> Self {
-//         Output::Err(residual)
-//     }
-// }
 
 impl<T> FromResidual<BSError> for BSResult<T> {
     fn from_residual(residual: BSError) -> Self {
