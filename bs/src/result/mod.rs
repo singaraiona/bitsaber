@@ -10,12 +10,12 @@ pub enum BSError {
     IOError(String),
 }
 
-pub fn parse_error(msg: String) -> BSError {
-    BSError::ParseError(msg)
+pub fn parse_error<T>(msg: &str) -> BSResult<T> {
+    BSResult::Err(BSError::ParseError(msg.to_string()))
 }
 
-pub fn compile_error(msg: String) -> BSError {
-    BSError::CompileError(msg)
+pub fn compile_error(msg: &str) -> BSError {
+    BSError::CompileError(msg.to_string())
 }
 
 pub fn runtime_error(msg: String) -> BSError {
@@ -26,13 +26,17 @@ pub fn io_error(msg: String) -> BSError {
     BSError::IOError(msg)
 }
 
+pub fn ok<T>(v: T) -> BSResult<T> {
+    BSResult::Ok(v)
+}
+
 impl fmt::Display for BSError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ParseError(v) => write!(f, "ParseError: {}", v),
-            Self::CompileError(v) => write!(f, "CompileError: {}", v),
-            Self::RuntimeError(v) => write!(f, "RuntimeError: {}", v),
-            Self::IOError(v) => write!(f, "IOError: {}", v),
+            Self::ParseError(v) => write!(f, "** ParseError: {}", v),
+            Self::CompileError(v) => write!(f, "** CompileError: {}", v),
+            Self::RuntimeError(v) => write!(f, "** RuntimeError: {}", v),
+            Self::IOError(v) => write!(f, "** IOError: {}", v),
         }
     }
 }
@@ -106,21 +110,21 @@ impl<T> BSResult<T> {
     }
 }
 
-// impl<T> Try for BSResult<T> {
-//     type Output = (Input<'a>, T);
-//     type Residual = (Input<'a>, ErrorKind, ParseError);
+impl<T> Try for BSResult<T> {
+    type Output = T;
+    type Residual = BSError;
 
-//     fn from_output(output: Self::Output) -> Self {
-//         Output::Ok(output)
-//     }
+    fn from_output(output: Self::Output) -> Self {
+        BSResult::Ok(output)
+    }
 
-//     fn branch(self) -> ControlFlow<Self::Residual, Self::Output> {
-//         match self {
-//             Output::Ok(v) => ControlFlow::Continue(v),
-//             Output::Err(e) => ControlFlow::Break(e),
-//         }
-//     }
-// }
+    fn branch(self) -> ControlFlow<Self::Residual, Self::Output> {
+        match self {
+            BSResult::Ok(v) => ControlFlow::Continue(v),
+            BSResult::Err(e) => ControlFlow::Break(e),
+        }
+    }
+}
 
 // impl<'a, T> FromResidual<(Input<'a>, ErrorKind, ParseError)> for Output<'a, T> {
 //     fn from_residual(residual: <Output<'a, T> as Try>::Residual) -> Self {
@@ -128,10 +132,16 @@ impl<T> BSResult<T> {
 //     }
 // }
 
-impl<'a, T> FromResidual<Result<Infallible, &'static str>> for BSResult<T> {
-    fn from_residual(residual: Result<Infallible, &'static str>) -> Self {
+impl<T> FromResidual<BSError> for BSResult<T> {
+    fn from_residual(residual: BSError) -> Self {
+        BSResult::Err(residual)
+    }
+}
+
+impl<T> FromResidual<Result<Infallible, BSError>> for BSResult<T> {
+    fn from_residual(residual: Result<Infallible, BSError>) -> Self {
         match residual {
-            Err(e) => BSResult::Err(BSError::ParseError(e.to_string())),
+            Err(e) => BSResult::Err(e),
             _ => unreachable!(),
         }
     }

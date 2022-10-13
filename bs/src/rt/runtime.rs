@@ -66,36 +66,27 @@ impl Runtime {
         unsafe {
             self.create_execution_engine();
 
-            let name = "sum\0";
+            let parsed_fn = Parser::new(input.as_str()).parse()?;
+            // let compiled_fn =
+            //     Compiler::compile(self.context, self.builder, self.module, parsed_fn, name)
+            //         .unwrap();
 
-            // Build precedence map
-            let mut prec = HashMap::with_capacity(6);
+            // let mut len = 0;
+            // let ptr = LLVMGetValueName2(compiled_fn, &mut len);
+            // let compiled_name = std::ffi::CStr::from_ptr(ptr);
 
-            prec.insert('=', 2);
-            prec.insert('<', 10);
-            prec.insert('+', 20);
-            prec.insert('-', 20);
-            prec.insert('*', 40);
-            prec.insert('/', 40);
+            // let addr = LLVMGetFunctionAddress(self.execution_engine, compiled_name.as_ptr());
 
-            let parsed_fn = Parser::new(input, &mut prec).parse()?;
-            let compiled_fn =
-                Compiler::compile(self.context, self.builder, self.module, parsed_fn, name)
-                    .unwrap();
+            // let f: extern "C" fn(u64) -> u64 = mem::transmute(addr);
+            // let res = f(2);
 
-            let mut len = 0;
-            let ptr = LLVMGetValueName2(compiled_fn, &mut len);
-            let compiled_name = std::ffi::CStr::from_ptr(ptr);
+            // LLVMFreeMachineCodeForFunction(self.execution_engine, compiled_fn);
+            // LLVMDeleteFunction(compiled_fn);
 
-            let addr = LLVMGetFunctionAddress(self.execution_engine, compiled_name.as_ptr());
+            // BSResult::Ok((res as i64).into())
 
-            let f: extern "C" fn(u64) -> u64 = mem::transmute(addr);
-            let res = f(2);
-
-            LLVMFreeMachineCodeForFunction(self.execution_engine, compiled_fn);
-            LLVMDeleteFunction(compiled_fn);
-
-            BSResult::Ok((res as i64).into())
+            println!("{:?}", parsed_fn);
+            BSResult::Ok((0_i64).into())
         }
     }
 }

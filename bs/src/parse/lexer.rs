@@ -5,6 +5,7 @@ use std::str::Chars;
 /// Represents a primitive syntax token.
 #[derive(Debug, Clone)]
 pub enum Token {
+    Start,
     Binary,
     Comma,
     Comment,

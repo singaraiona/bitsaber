@@ -1,4 +1,4 @@
-use crate::parse::parser::{Expr, Function, Prototype};
+use crate::parse::ast::{Expr, Function, Prototype};
 use llvm::core::*;
 use llvm::execution_engine::*;
 use llvm::prelude::LLVMValueRef;

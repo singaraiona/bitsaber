@@ -19,7 +19,7 @@ pub fn main() {
 
         let res = match runtime.parse_eval(input) {
             BSResult::Ok(result) => format!("{}", result),
-            BSResult::Err(err) => format!("Error: {}", err),
+            BSResult::Err(err) => format!("{}", err),
         };
 
         println!("{}", res);
