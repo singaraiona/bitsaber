@@ -18,10 +18,14 @@ pub enum Token<'a> {
     If,
     In,
     LParen,
+    RParen,
+    LBox,
+    RBox,
+    LBrace,
+    RBrace,
     I64(i64),
     F64(f64),
     Op(char),
-    RParen,
     Then,
     Unary,
     Var,
@@ -92,6 +96,11 @@ impl<'a> Lexer<'a> {
         let result = match next_c {
             '(' => ok(Token::LParen),
             ')' => ok(Token::RParen),
+            '[' => ok(Token::LBox),
+            ']' => ok(Token::RBox),
+            '{' => ok(Token::LBrace),
+            '}' => ok(Token::RBrace),
+
             ',' => ok(Token::Comma),
 
             '#' => {
@@ -99,7 +108,6 @@ impl<'a> Lexer<'a> {
                 loop {
                     let ch = chars.next();
                     pos += 1;
-
                     if ch == Some('\n') {
                         break;
                     }
@@ -108,7 +116,7 @@ impl<'a> Lexer<'a> {
                 ok(Token::Comment)
             }
 
-            '.' | '0'..='9' => {
+            '-' | '.' | '0'..='9' => {
                 // Parse number literal
                 let mut is_float = false;
                 loop {

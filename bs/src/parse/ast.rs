@@ -3,8 +3,8 @@
 pub enum Expr {
     Binary {
         op: char,
-        left: Box<Expr>,
-        right: Box<Expr>,
+        lhs: Box<Expr>,
+        rhs: Box<Expr>,
     },
 
     Call {
@@ -26,7 +26,13 @@ pub enum Expr {
         body: Box<Expr>,
     },
 
-    Number(f64),
+    VI64(Vec<i64>),
+
+    VF64(Vec<f64>),
+
+    I64(i64),
+
+    F64(f64),
 
     Variable(String),
 

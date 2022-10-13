@@ -183,16 +183,6 @@ impl<'a> Parser<'a> {
         todo!()
     }
 
-    /// Parses any expression.
-    fn parse_expr(&mut self) -> BSResult<Expr> {
-        // match self.parse_unary_expr() {
-        //     Ok(left) => self.parse_binary_expr(0, left),
-        //     err => err,
-        // }
-
-        todo!()
-    }
-
     /// Parses a literal number.
     fn parse_nb_expr(&mut self) -> BSResult<Expr> {
         // Simply convert Token::Number to Expr::Number
@@ -475,16 +465,60 @@ impl<'a> Parser<'a> {
         todo!()
     }
 
-    /// Parses a primary expression (an identifier, a number or a parenthesized expression).
-    fn parse_primary(&mut self) -> BSResult<Expr> {
+    fn parse_vec_literal(&mut self) -> BSResult<Expr> {
+        let mut vec_i64 = vec![];
+        let mut vec_f64 = vec![];
+
+        loop {
+            self.advance()?;
+            match &self.curr {
+                I64(v) => {
+                    if vec_f64.len() == 0 {
+                        vec_i64.push(*v);
+                    } else {
+                        vec_f64.push(*v as f64);
+                    }
+                }
+                F64(v) => {
+                    if vec_i64.len() == 0 {
+                        vec_f64.push(*v);
+                    } else {
+                        for v in vec_i64.drain(..) {
+                            vec_f64.push(v as f64);
+                        }
+                        vec_f64.push(*v as f64);
+                    }
+                }
+                Comma => {}
+                RBox => break,
+                _ => {
+                    return parse_error(
+                        "Expected int or float in vector literal.",
+                        self.lexer.pos(),
+                    )
+                }
+            }
+        }
+
+        if vec_i64.len() == 0 {
+            ok(Expr::VF64(vec_f64))
+        } else {
+            ok(Expr::VI64(vec_i64))
+        }
+    }
+
+    fn parse_expr(&mut self) -> BSResult<Expr> {
         match self.curr {
             Ident(_) => self.parse_id_expr(),
             I64(_) => self.parse_nb_expr(),
             F64(_) => self.parse_nb_expr(),
+            LBox => self.parse_vec_literal(),
             LParen => self.parse_paren_expr(),
             If => self.parse_conditional_expr(),
             For => self.parse_for_expr(),
             Var => self.parse_var_expr(),
+            // Def => self.parse_def(),
+            // Extern => self.parse_extern(),
             _ => parse_error("Unknown expression.", self.lexer.pos()),
         }
     }
@@ -493,6 +527,7 @@ impl<'a> Parser<'a> {
     /// for easier compilation.
     fn parse_toplevel_expr(&mut self) -> BSResult<Function> {
         let expr = self.parse_expr()?;
+        self.advance()?;
         ok(Function {
             prototype: Prototype {
                 name: "anonymous".to_string(),
@@ -509,21 +544,15 @@ impl<'a> Parser<'a> {
     pub fn parse(&mut self) -> BSResult<Function> {
         self.advance()?;
 
-        let result = match self.curr {
-            Def => self.parse_def(),
-            Extern => self.parse_extern(),
-            _ => self.parse_toplevel_expr(),
-        };
-
-        match result {
-            BSResult::Ok(result) => {
+        match self.parse_toplevel_expr() {
+            BSResult::Ok(expr) => {
                 if !self.at_end() {
                     parse_error(
                         "Unexpected token after parsed expression.",
                         self.lexer.pos(),
                     )
                 } else {
-                    ok(result)
+                    ok(expr)
                 }
             }
 
