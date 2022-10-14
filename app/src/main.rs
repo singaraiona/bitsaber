@@ -6,7 +6,7 @@ use std::io::{self, Write};
 
 /// Entry point of the program; acts as a REPL.
 pub fn main() {
-    let mut runtime = Runtime::new();
+    let mut runtime = Runtime::new().expect("Failed to create runtime");
     loop {
         print!("\nbs> ");
         let _ = io::stdout().flush();

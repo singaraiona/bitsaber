@@ -1,72 +1,73 @@
 use crate::parse::ast::{Expr, Function, Prototype};
-use llvm::core::*;
-use llvm::execution_engine::*;
-use llvm::prelude::LLVMValueRef;
-use llvm::target::*;
-use llvm::*;
+use llvm::builder::Builder;
+use llvm::context::Context;
+use llvm::module::Module;
 use rand::prelude::*;
 use std::borrow::Borrow;
 use std::collections::HashMap;
-/// Defines the `Expr` compiler.
-pub struct Compiler {
-    context: *mut LLVMContext,
-    builder: *mut LLVMBuilder,
-    module: *mut LLVMModule,
+
+pub struct Compiler<'a, 'b> {
+    context: &'a mut Context,
+    builder: &'a mut Builder<'b>,
+    module: &'a mut Module<'b>,
     function: Function,
 }
 
-impl Compiler {
-    fn compile_fn(&mut self, name: &str) -> Result<LLVMValueRef, &'static str> {
-        unsafe {
-            // get a type for sum function
-
-            let i64t = LLVMInt64TypeInContext(self.context);
-            let mut argts = [i64t];
-            let function_type = LLVMFunctionType(i64t, argts.as_mut_ptr(), argts.len() as u32, 0);
-
-            // add it to our module
-            let function = LLVMAddFunction(self.module, name.as_ptr() as *const _, function_type);
-
-            // Create a basic block in the function and set our builder to generate
-            // code in it.
-            let bb = LLVMAppendBasicBlockInContext(
-                self.context,
-                function,
-                b"entry\0".as_ptr() as *const _,
-            );
-
-            LLVMPositionBuilderAtEnd(self.builder, bb);
-
-            let mut rng = rand::thread_rng();
-            let rnd: u64 = rng.gen_range(0..8);
-
-            // get the function's arguments
-
-            let x = LLVMGetParam(function, 0);
-            let y = LLVMConstInt(i64t, rnd, 0);
-            let sum = LLVMBuildAdd(self.builder, x, y, b"tmpsum\0".as_ptr() as *const _);
-
-            // Emit a `ret void` into the function
-            LLVMBuildRet(self.builder, sum);
-
-            Ok(function)
-        }
-    }
-
-    pub fn compile(
-        context: *mut LLVMContext,
-        builder: *mut LLVMBuilder,
-        module: *mut LLVMModule,
+impl<'a, 'b> Compiler<'a, 'b> {
+    pub(crate) fn new(
+        context: &'a mut Context,
+        builder: &'a mut Builder<'b>,
+        module: &'a mut Module<'b>,
         function: Function,
-        name: &str,
-    ) -> Result<LLVMValueRef, &'static str> {
-        let mut compiler = Compiler {
+    ) -> Self {
+        Compiler {
             context,
             builder,
             module,
             function,
-        };
+        }
+    }
 
-        compiler.compile_fn(name)
+    fn compile_fn(&mut self) -> Result<i64, &'static str> {
+        unsafe {
+            let mut arg_types = [self.context.i64_type().into()];
+            let fn_type = self.context.fn_i64_type(&mut arg_types, false);
+
+            // add it to our module
+            let function = self
+                .module
+                .add_function(&self.function.prototype.name, fn_type);
+            // let function = LLVMAddFunction(self.module, name.as_ptr() as *const _, function_type);
+
+            // // Create a basic block in the function and set our builder to generate
+            // // code in it.
+            // let bb = LLVMAppendBasicBlockInContext(
+            //     self.context,
+            //     function,
+            //     b"entry\0".as_ptr() as *const _,
+            // );
+
+            // LLVMPositionBuilderAtEnd(self.builder, bb);
+
+            let mut rng = rand::thread_rng();
+            let rnd: i64 = rng.gen_range(0..8);
+
+            // // get the function's arguments
+
+            // let x = LLVMGetParam(function, 0);
+            let y = self.context.i64_type().const_value(rnd);
+            // let sum = LLVMBuildAdd(self.builder, x, y, b"tmpsum\0".as_ptr() as *const _);
+
+            // // Emit a `ret void` into the function
+            // LLVMBuildRet(self.builder, sum);
+
+            // Ok(function)
+
+            todo!()
+        }
+    }
+
+    pub fn compile(&mut self) -> Result<i64, &'static str> {
+        self.compile_fn()
     }
 }

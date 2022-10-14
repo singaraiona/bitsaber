@@ -1,12 +1,10 @@
-use crate::cc::compiler::*;
+use crate::cc::compiler::Compiler;
 use crate::parse::parser::*;
 use crate::result::*;
-use crate::value::*;
-use llvm::core::*;
-use llvm::execution_engine::*;
-use llvm::target::*;
-use llvm::*;
-use std::collections::HashMap;
+use llvm::builder::Builder;
+use llvm::context::Context;
+use llvm::execution_engine::ExecutionEngine;
+use llvm::module::Module;
 use std::mem;
 
 #[no_mangle]
@@ -15,76 +13,64 @@ pub extern "C" fn printd(x: f64) -> f64 {
     x
 }
 
-pub struct Runtime {
-    context: *mut LLVMContext,
-    module: *mut LLVMModule,
-    builder: *mut LLVMBuilder,
-    execution_engine: *mut LLVMOpaqueExecutionEngine,
-}
-
-impl Drop for Runtime {
-    fn drop(&mut self) {
-        unsafe {
-            LLVMDisposeBuilder(self.builder);
-            LLVMDisposeExecutionEngine(self.execution_engine);
-            LLVMContextDispose(self.context);
-        }
-    }
+pub struct Runtime<'a> {
+    context: Context,
+    module: Module<'a>,
+    builder: Builder<'a>,
 }
 
 // Public methods
-impl Runtime {
-    fn create_execution_engine(&mut self) -> BSResult<()> {
+impl<'a> Runtime<'a> {
+    pub fn new() -> BSResult<Self> {
         unsafe {
-            let mut out = mem::zeroed();
-            LLVMCreateExecutionEngineForModule(&mut self.execution_engine, self.module, &mut out);
-            BSResult::Ok(())
-        }
-    }
+            let context = Context::new().map_err(|e| runtime_error(e.to_string()))?;
+            let module = context
+                .create_module("main")
+                .map_err(|e| runtime_error(e.to_string()))?;
+            let builder = context
+                .create_builder()
+                .map_err(|e| runtime_error(e.to_string()))?;
 
-    pub fn new() -> Self {
-        unsafe {
-            let context = LLVMContextCreate();
-            let module = LLVMModuleCreateWithNameInContext(b"main\0".as_ptr() as *const _, context);
-            let builder = LLVMCreateBuilderInContext(context);
-
-            LLVMLinkInMCJIT();
-            LLVM_InitializeNativeTarget();
-            LLVM_InitializeNativeAsmPrinter();
-
-            Self {
+            ok(Self {
                 context,
                 module,
                 builder,
-                execution_engine: mem::MaybeUninit::zeroed().assume_init(),
-            }
+            })
         }
     }
 
-    pub fn parse_eval(&mut self, input: String) -> BSResult<Value> {
+    pub fn parse_eval(&mut self, input: String) -> BSResult<i64> {
         unsafe {
-            self.create_execution_engine();
+            let mut module = self
+                .context
+                .create_module("repl")
+                .map_err(|e| runtime_error(e.to_string()))?;
+
+            let execution_engine = module
+                .create_mcjit_execution_engine()
+                .map_err(|e| runtime_error(e.to_string()))?;
 
             let parsed_fn = Parser::new(input.as_str()).parse()?;
-            // let compiled_fn =
-            //     Compiler::compile(self.context, self.builder, self.module, parsed_fn, name)
-            //         .unwrap();
 
-            // let mut len = 0;
-            // let ptr = LLVMGetValueName2(compiled_fn, &mut len);
-            // let compiled_name = std::ffi::CStr::from_ptr(ptr);
+            let mut compiler =
+                Compiler::new(&mut self.context, &mut self.builder, &mut module, parsed_fn);
+            let compiled_fn = compiler.compile().unwrap();
 
-            // let addr = LLVMGetFunctionAddress(self.execution_engine, compiled_name.as_ptr());
+            // // let mut len = 0;
+            // // let ptr = LLVMGetValueName2(compiled_fn, &mut len);
+            // // let compiled_name = std::ffi::CStr::from_ptr(ptr);
 
-            // let f: extern "C" fn(u64) -> u64 = mem::transmute(addr);
-            // let res = f(2);
+            // // let addr = LLVMGetFunctionAddress(self.execution_engine, compiled_name.as_ptr());
 
-            // LLVMFreeMachineCodeForFunction(self.execution_engine, compiled_fn);
-            // LLVMDeleteFunction(compiled_fn);
+            // // let f: extern "C" fn(u64) -> u64 = mem::transmute(addr);
+            // // let res = f(2);
 
-            // BSResult::Ok((res as i64).into())
+            // // LLVMFreeMachineCodeForFunction(self.execution_engine, compiled_fn);
+            // // LLVMDeleteFunction(compiled_fn);
 
-            println!("{:?}", parsed_fn);
+            // // BSResult::Ok((res as i64).into())
+
+            // println!("{:?}", parsed_fn);
             BSResult::Ok((0_i64).into())
         }
     }

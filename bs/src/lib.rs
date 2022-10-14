@@ -6,4 +6,3 @@ pub mod rt;
 extern crate llvm;
 extern crate rand;
 pub mod result;
-pub mod value;
