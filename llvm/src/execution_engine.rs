@@ -1,3 +1,4 @@
+use crate::utils::to_c_str;
 use llvm_sys::execution_engine::*;
 use std::marker::PhantomData;
 
@@ -22,5 +23,17 @@ impl<'a> ExecutionEngine<'a> {
             llvm_execution_engine,
             _phantom: PhantomData,
         })
+    }
+
+    pub fn get_function_address(&self, fn_name: &str) -> Result<usize, &'static str> {
+        let c_string = to_c_str(fn_name);
+        let address =
+            unsafe { LLVMGetFunctionAddress(self.llvm_execution_engine, c_string.as_ptr()) };
+
+        if address == 0 {
+            return Err("ExecutionEngine: could not get function address");
+        }
+
+        Ok(address as usize)
     }
 }

@@ -1,9 +1,11 @@
+use crate::basic_block::BasicBlock;
 use crate::builder::Builder;
 use crate::module::Module;
 use crate::types::fn_type::FnType;
 use crate::types::i64_type::*;
 use crate::types::*;
 use crate::utils::to_c_str;
+use crate::values::fn_value::FnValue;
 use llvm_sys::core::*;
 use llvm_sys::execution_engine::*;
 use llvm_sys::prelude::LLVMContextRef;
@@ -85,52 +87,48 @@ impl Context {
         }
     }
 
-    // pub fn append_basic_block<'ctx>(
-    //     &self,
-    //     function: FunctionValue<'ctx>,
-    //     name: &str,
-    // ) -> BasicBlock<'ctx> {
-    //     let c_string = to_c_str(name);
+    pub fn append_basic_block<'a>(&self, function: FnValue<'a>, name: &str) -> BasicBlock<'a> {
+        let c_string = to_c_str(name);
 
-    //     unsafe {
-    //         BasicBlock::new(LLVMAppendBasicBlockInContext(
-    //             self.0,
-    //             function.as_value_ref(),
-    //             c_string.as_ptr(),
-    //         ))
-    //         .expect("Appending basic block should never fail")
-    //     }
-    // }
+        unsafe {
+            BasicBlock::new(LLVMAppendBasicBlockInContext(
+                self.llvm_context,
+                function.val.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+            .expect("Appending basic block should never fail")
+        }
+    }
 
-    // fn insert_basic_block_after<'ctx>(
-    //     &self,
-    //     basic_block: BasicBlock<'ctx>,
-    //     name: &str,
-    // ) -> BasicBlock<'ctx> {
-    //     match basic_block.get_next_basic_block() {
-    //         Some(next_basic_block) => self.prepend_basic_block(next_basic_block, name),
-    //         None => {
-    //             let parent_fn = basic_block.get_parent().unwrap();
+    pub fn insert_basic_block_after<'ctx>(
+        &self,
+        basic_block: BasicBlock<'ctx>,
+        name: &str,
+    ) -> BasicBlock<'ctx> {
+        match basic_block.get_next_basic_block() {
+            Some(next_basic_block) => self.prepend_basic_block(next_basic_block, name),
+            None => {
+                let parent_fn = basic_block.get_parent().unwrap();
 
-    //             self.append_basic_block(parent_fn, name)
-    //         }
-    //     }
-    // }
+                self.append_basic_block(parent_fn, name)
+            }
+        }
+    }
 
-    // fn prepend_basic_block<'ctx>(
-    //     &self,
-    //     basic_block: BasicBlock<'ctx>,
-    //     name: &str,
-    // ) -> BasicBlock<'ctx> {
-    //     let c_string = to_c_str(name);
+    pub fn prepend_basic_block<'ctx>(
+        &self,
+        basic_block: BasicBlock<'ctx>,
+        name: &str,
+    ) -> BasicBlock<'ctx> {
+        let c_string = to_c_str(name);
 
-    //     unsafe {
-    //         BasicBlock::new(LLVMInsertBasicBlockInContext(
-    //             self.0,
-    //             basic_block.basic_block,
-    //             c_string.as_ptr(),
-    //         ))
-    //         .expect("Prepending basic block should never fail")
-    //     }
-    // }
+        unsafe {
+            BasicBlock::new(LLVMInsertBasicBlockInContext(
+                self.llvm_context,
+                basic_block.basic_block,
+                c_string.as_ptr(),
+            ))
+            .expect("Prepending basic block should never fail")
+        }
+    }
 }
