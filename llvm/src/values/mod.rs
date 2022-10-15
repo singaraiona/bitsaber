@@ -9,6 +9,9 @@ use f64_value::F64Value;
 use fn_value::FnValue;
 use i64_value::I64Value;
 use instruction_value::InstructionValue;
+use llvm_sys::core::LLVMGetTypeKind;
+use llvm_sys::core::LLVMTypeOf;
+use llvm_sys::LLVMTypeKind;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct ValueRef<'a> {
@@ -68,20 +71,68 @@ impl<'a> From<InstructionValue<'a>> for Value<'a> {
     }
 }
 
+impl<'a> Into<I64Value<'a>> for Value<'a> {
+    fn into(self) -> I64Value<'a> {
+        match self {
+            Self::I64(val) => val,
+            _ => panic!("Expected I64Value"),
+        }
+    }
+}
+
+impl<'a> Into<F64Value<'a>> for Value<'a> {
+    fn into(self) -> F64Value<'a> {
+        match self {
+            Self::F64(val) => val,
+            _ => panic!("Expected F64Value"),
+        }
+    }
+}
+
+impl<'a> Into<FnValue<'a>> for Value<'a> {
+    fn into(self) -> FnValue<'a> {
+        match self {
+            Self::Fn(val) => val,
+            _ => panic!("Expected FnValue"),
+        }
+    }
+}
+
+impl<'a> Into<InstructionValue<'a>> for Value<'a> {
+    fn into(self) -> InstructionValue<'a> {
+        match self {
+            Self::Instruction(val) => val,
+            _ => panic!("Expected InstructionValue"),
+        }
+    }
+}
+
 impl<'a> Value<'a> {
     pub(crate) fn new(llvm_value: LLVMValueRef) -> Self {
-        match unsafe { llvm_sys::core::LLVMGetValueKind(llvm_value) } {
-            llvm_sys::LLVMValueKind::LLVMConstantIntValueKind => {
-                Self::I64(I64Value::new(llvm_value))
+        unsafe {
+            match LLVMGetTypeKind(LLVMTypeOf(llvm_value)) {
+                LLVMTypeKind::LLVMFloatTypeKind
+                | LLVMTypeKind::LLVMFP128TypeKind
+                | LLVMTypeKind::LLVMDoubleTypeKind
+                | LLVMTypeKind::LLVMHalfTypeKind
+                | LLVMTypeKind::LLVMX86_FP80TypeKind
+                | LLVMTypeKind::LLVMPPC_FP128TypeKind => Value::F64(F64Value::new(llvm_value)),
+                LLVMTypeKind::LLVMIntegerTypeKind => Value::I64(I64Value::new(llvm_value)),
+                // LLVMTypeKind::LLVMStructTypeKind => {
+                //     BasicValueEnum::StructValue(StructValue::new(value))
+                // }
+                // LLVMTypeKind::LLVMPointerTypeKind => {
+                //     BasicValueEnum::PointerValue(PointerValue::new(value))
+                // }
+                // LLVMTypeKind::LLVMArrayTypeKind => {
+                //     BasicValueEnum::ArrayValue(ArrayValue::new(value))
+                // }
+                // LLVMTypeKind::LLVMVectorTypeKind => {
+                //     BasicValueEnum::VectorValue(VectorValue::new(value))
+                // }
+                LLVMTypeKind::LLVMFunctionTypeKind => Value::Fn(FnValue::new(llvm_value)),
+                kind => panic!("Unknown value: {:?}", kind),
             }
-            llvm_sys::LLVMValueKind::LLVMConstantFPValueKind => {
-                Self::F64(F64Value::new(llvm_value))
-            }
-            llvm_sys::LLVMValueKind::LLVMFunctionValueKind => Self::Fn(FnValue::new(llvm_value)),
-            llvm_sys::LLVMValueKind::LLVMInstructionValueKind => {
-                Self::Instruction(InstructionValue::new(llvm_value))
-            }
-            _ => panic!("Unknown value"),
         }
     }
 

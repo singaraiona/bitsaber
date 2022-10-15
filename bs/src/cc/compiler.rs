@@ -43,9 +43,10 @@ impl<'a, 'b> Compiler<'a, 'b> {
         let mut rng = rand::thread_rng();
         let rnd: i64 = rng.gen_range(0..8);
 
-        // let x = LLVMGetParam(function, 0);
-        let y = self.context.i64_type().const_value(rnd);
-        let sum = self.builder.build_i64_add(y, y, "tmpsum");
+        let x = function.get_param(0).unwrap();
+        let y = function.get_param(0).unwrap();
+        // let y = self.context.i64_type().const_value(rnd);
+        let sum = self.builder.build_i64_add(x.into(), y.into(), "tmpsum");
 
         self.builder.build_return(sum.into());
         Ok(function)
