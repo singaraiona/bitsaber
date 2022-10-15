@@ -15,6 +15,10 @@ impl<'a> FnValue<'a> {
         }
     }
 
+    pub fn get_param_count(&self) -> usize {
+        unsafe { LLVMCountParams(self.val.as_llvm_value_ref()) as usize }
+    }
+
     pub fn get_param(&self, index: usize) -> Option<Value<'a>> {
         let param = unsafe { LLVMGetParam(self.val.as_llvm_value_ref(), index as u32) };
         if param.is_null() {
@@ -24,8 +28,18 @@ impl<'a> FnValue<'a> {
         }
     }
 
-    pub fn get_param_count(&self) -> usize {
-        unsafe { LLVMCountParams(self.val.as_llvm_value_ref()) as usize }
+    pub fn get_params(&self) -> Vec<Value<'a>> {
+        let mut params = Vec::new();
+        for i in 0..self.get_param_count() {
+            params.push(self.get_param(i).unwrap());
+        }
+        params
+    }
+
+    pub fn get_params_iter(&'a self) -> impl Iterator<Item = Value<'a>> + 'a {
+        (0..self.get_param_count())
+            .map(move |i| self.get_param(i))
+            .flatten()
     }
 
     // pub fn get_name(&self) -> &str {

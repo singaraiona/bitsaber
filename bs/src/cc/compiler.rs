@@ -30,7 +30,10 @@ impl<'a, 'b> Compiler<'a, 'b> {
     }
 
     fn compile_fn(&mut self) -> Result<FnValue<'a>, &'static str> {
-        let mut arg_types = [self.context.i64_type().into()];
+        let mut arg_types = [
+            self.context.i64_type().into(),
+            self.context.i64_type().into(),
+        ];
         let fn_type = self.context.fn_i64_type(&mut arg_types, false);
         let function = self
             .module
@@ -40,12 +43,10 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         self.builder.position_at_end(entry);
 
-        let mut rng = rand::thread_rng();
-        let rnd: i64 = rng.gen_range(0..8);
+        let mut params_iter = function.get_params_iter();
 
-        let x = function.get_param(0).unwrap();
-        let y = function.get_param(0).unwrap();
-        // let y = self.context.i64_type().const_value(rnd);
+        let x = params_iter.next().unwrap();
+        let y = params_iter.next().unwrap();
         let sum = self.builder.build_i64_add(x.into(), y.into(), "tmpsum");
 
         self.builder.build_return(sum.into());

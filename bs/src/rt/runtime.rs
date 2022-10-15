@@ -60,8 +60,8 @@ impl<'a> Runtime<'a> {
                 .get_function_address("anonymous")
                 .map_err(|e| runtime_error(e.to_string()))?;
 
-            let f: extern "C" fn(u64) -> u64 = mem::transmute(addr);
-            let res = f(12);
+            let f: extern "C" fn(u64, u64) -> u64 = mem::transmute(addr);
+            let res = f(12, 55);
 
             // // LLVMFreeMachineCodeForFunction(self.execution_engine, compiled_fn);
             // // LLVMDeleteFunction(compiled_fn);
