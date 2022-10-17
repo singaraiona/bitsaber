@@ -47,28 +47,13 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         let mut params_iter = function.get_params_iter();
 
-        let x = params_iter.next().unwrap();
-        let y = params_iter.next().unwrap();
-        let sum = self.builder.build_i64_add(x.into(), y.into(), "tmpsum");
+        // let x = params_iter.next().unwrap();
+        // let y = params_iter.next().unwrap();
+        // let sum = self.builder.build_i64_add(x.into(), y.into(), "tmpsum");
 
-        let ret_struct = self
-            .context
-            .struct_type(
-                &[
-                    self.context.i64_type().into(),
-                    self.context.i64_type().into(),
-                ],
-                false,
-            )
-            .const_value(
-                &[
-                    self.context.i64_type().const_value(123).into(),
-                    self.context.i64_type().const_value(456).into(),
-                ],
-                false,
-            );
+        let ret = BsValue::from(vec![1, 2, 3, 4, 5, 6]).into_llvm_value(self.context);
+        self.builder.build_return(ret.into());
 
-        self.builder.build_return(ret_struct.into());
         Ok(function)
     }
 
