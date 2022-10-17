@@ -1,11 +1,12 @@
 use super::{Value, ValueRef};
+use crate::values::AsLLVMValueRef;
 use llvm_sys::core::LLVMCountParams;
 use llvm_sys::core::LLVMGetParam;
 use llvm_sys::prelude::LLVMValueRef;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct FnValue<'a> {
-    pub(crate) val: ValueRef<'a>,
+    val: ValueRef<'a>,
 }
 
 impl<'a> FnValue<'a> {
@@ -49,4 +50,10 @@ impl<'a> FnValue<'a> {
     // pub fn set_linkage(self, linkage: Linkage) {
     //     unsafe { LLVMSetLinkage(self.as_value_ref(), linkage.into()) }
     // }
+}
+
+impl AsLLVMValueRef<'_> for FnValue<'_> {
+    fn as_llvm_value_ref(&self) -> LLVMValueRef {
+        self.val.as_llvm_value_ref()
+    }
 }

@@ -5,6 +5,8 @@ pub mod f64_value;
 pub mod fn_value;
 pub mod i64_value;
 pub mod instruction_value;
+pub mod struct_value;
+
 use f64_value::F64Value;
 use fn_value::FnValue;
 use i64_value::I64Value;
@@ -12,6 +14,8 @@ use instruction_value::InstructionValue;
 use llvm_sys::core::LLVMGetTypeKind;
 use llvm_sys::core::LLVMTypeOf;
 use llvm_sys::LLVMTypeKind;
+use std::fmt;
+use struct_value::StructValue;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct ValueRef<'a> {
@@ -44,6 +48,10 @@ pub enum Value<'a> {
     I64(I64Value<'a>),
     F64(F64Value<'a>),
     Fn(FnValue<'a>),
+    // VecI64(Vec<I64Value<'a>>),
+    // VecF64(Vec<F64Value<'a>>),
+    // List(Vec<Value<'a>>),
+    Struct(StructValue<'a>),
     Instruction(InstructionValue<'a>),
 }
 
@@ -62,6 +70,12 @@ impl<'a> From<F64Value<'a>> for Value<'a> {
 impl<'a> From<FnValue<'a>> for Value<'a> {
     fn from(val: FnValue<'a>) -> Self {
         Self::Fn(val)
+    }
+}
+
+impl<'a> From<StructValue<'a>> for Value<'a> {
+    fn from(val: StructValue<'a>) -> Self {
+        Self::Struct(val)
     }
 }
 
@@ -98,6 +112,15 @@ impl<'a> Into<FnValue<'a>> for Value<'a> {
     }
 }
 
+impl<'a> Into<StructValue<'a>> for Value<'a> {
+    fn into(self) -> StructValue<'a> {
+        match self {
+            Self::Struct(val) => val,
+            _ => panic!("Expected StructValue"),
+        }
+    }
+}
+
 impl<'a> Into<InstructionValue<'a>> for Value<'a> {
     fn into(self) -> InstructionValue<'a> {
         match self {
@@ -118,30 +141,44 @@ impl<'a> Value<'a> {
                 | LLVMTypeKind::LLVMX86_FP80TypeKind
                 | LLVMTypeKind::LLVMPPC_FP128TypeKind => Value::F64(F64Value::new(llvm_value)),
                 LLVMTypeKind::LLVMIntegerTypeKind => Value::I64(I64Value::new(llvm_value)),
-                // LLVMTypeKind::LLVMStructTypeKind => {
-                //     BasicValueEnum::StructValue(StructValue::new(value))
-                // }
-                // LLVMTypeKind::LLVMPointerTypeKind => {
-                //     BasicValueEnum::PointerValue(PointerValue::new(value))
-                // }
-                // LLVMTypeKind::LLVMArrayTypeKind => {
-                //     BasicValueEnum::ArrayValue(ArrayValue::new(value))
-                // }
-                // LLVMTypeKind::LLVMVectorTypeKind => {
-                //     BasicValueEnum::VectorValue(VectorValue::new(value))
-                // }
+                LLVMTypeKind::LLVMStructTypeKind => Value::Struct(StructValue::new(llvm_value)),
                 LLVMTypeKind::LLVMFunctionTypeKind => Value::Fn(FnValue::new(llvm_value)),
                 kind => panic!("Unknown value: {:?}", kind),
             }
         }
     }
+}
 
-    pub fn as_llvm_value_ref(self) -> LLVMValueRef {
+pub trait AsLLVMValueRef<'a> {
+    fn as_llvm_value_ref(&self) -> LLVMValueRef;
+}
+
+impl AsLLVMValueRef<'_> for ValueRef<'_> {
+    fn as_llvm_value_ref(&self) -> LLVMValueRef {
+        self.llvm_value
+    }
+}
+
+impl AsLLVMValueRef<'_> for Value<'_> {
+    fn as_llvm_value_ref(&self) -> LLVMValueRef {
         match self {
-            Value::I64(v) => v.val.as_llvm_value_ref(),
-            Value::F64(v) => v.val.as_llvm_value_ref(),
-            Value::Fn(v) => v.val.as_llvm_value_ref(),
-            Value::Instruction(v) => v.val.as_llvm_value_ref(),
+            Value::I64(v) => v.as_llvm_value_ref(),
+            Value::F64(v) => v.as_llvm_value_ref(),
+            Value::Fn(v) => v.as_llvm_value_ref(),
+            Value::Instruction(v) => v.as_llvm_value_ref(),
+            Value::Struct(v) => v.as_llvm_value_ref(),
+        }
+    }
+}
+
+impl fmt::Display for Value<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::I64(v) => write!(f, "{:?}", v),
+            Value::F64(v) => write!(f, "{:?}", v),
+            Value::Fn(v) => write!(f, "{:?}", v),
+            Value::Instruction(v) => write!(f, "{:?}", v),
+            Value::Struct(v) => write!(f, "{:?}", v),
         }
     }
 }

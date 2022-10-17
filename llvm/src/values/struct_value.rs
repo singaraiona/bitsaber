@@ -3,11 +3,11 @@ use crate::values::AsLLVMValueRef;
 use llvm_sys::prelude::LLVMValueRef;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct I64Value<'a> {
+pub struct StructValue<'a> {
     val: ValueRef<'a>,
 }
 
-impl<'a> I64Value<'a> {
+impl<'a> StructValue<'a> {
     pub(crate) fn new(llvm_value: LLVMValueRef) -> Self {
         Self {
             val: ValueRef::new(llvm_value),
@@ -15,7 +15,7 @@ impl<'a> I64Value<'a> {
     }
 }
 
-impl AsLLVMValueRef<'_> for I64Value<'_> {
+impl AsLLVMValueRef<'_> for StructValue<'_> {
     fn as_llvm_value_ref(&self) -> LLVMValueRef {
         self.val.as_llvm_value_ref()
     }

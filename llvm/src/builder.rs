@@ -2,6 +2,7 @@ use crate::basic_block::BasicBlock;
 use crate::utils::to_c_str;
 use crate::values::i64_value::I64Value;
 use crate::values::instruction_value::InstructionValue;
+use crate::values::AsLLVMValueRef;
 use crate::values::Value;
 use llvm_sys::core::*;
 use llvm_sys::prelude::LLVMBuilderRef;
@@ -25,13 +26,13 @@ impl<'a> Builder<'a> {
             LLVMPositionBuilder(
                 self.llvm_builder,
                 basic_block.basic_block,
-                instruction.val.as_llvm_value_ref(),
+                instruction.as_llvm_value_ref(),
             )
         }
     }
 
     pub fn position_before(&self, instruction: &InstructionValue<'a>) {
-        unsafe { LLVMPositionBuilderBefore(self.llvm_builder, instruction.val.as_llvm_value_ref()) }
+        unsafe { LLVMPositionBuilderBefore(self.llvm_builder, instruction.as_llvm_value_ref()) }
     }
 
     pub fn position_at_end(&self, basic_block: BasicBlock<'a>) {
@@ -45,8 +46,8 @@ impl<'a> Builder<'a> {
             let c_string = to_c_str(name);
             I64Value::new(LLVMBuildAdd(
                 self.llvm_builder,
-                lhs.val.as_llvm_value_ref(),
-                rhs.val.as_llvm_value_ref(),
+                lhs.as_llvm_value_ref(),
+                rhs.as_llvm_value_ref(),
                 c_string.as_ptr(),
             ))
         }

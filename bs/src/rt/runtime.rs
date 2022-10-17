@@ -1,3 +1,4 @@
+use crate::base::Value as BsValue;
 use crate::cc::compiler::Compiler;
 use crate::parse::parser::*;
 use crate::result::*;
@@ -5,6 +6,7 @@ use llvm::builder::Builder;
 use llvm::context::Context;
 use llvm::execution_engine::ExecutionEngine;
 use llvm::module::Module;
+use llvm::values::Value;
 use std::mem;
 
 #[no_mangle]
@@ -39,7 +41,7 @@ impl<'a> Runtime<'a> {
         }
     }
 
-    pub fn parse_eval(&mut self, input: String) -> BSResult<i64> {
+    pub fn parse_eval(&mut self, input: String) -> BSResult<BsValue> {
         unsafe {
             let mut module = self
                 .context
@@ -60,13 +62,10 @@ impl<'a> Runtime<'a> {
                 .get_function_address("anonymous")
                 .map_err(|e| runtime_error(e.to_string()))?;
 
-            let f: extern "C" fn(u64, u64) -> u64 = mem::transmute(addr);
+            let f: extern "C" fn(u64, u64) -> BsValue = mem::transmute(addr);
             let res = f(12, 55);
 
-            // // LLVMFreeMachineCodeForFunction(self.execution_engine, compiled_fn);
-            // // LLVMDeleteFunction(compiled_fn);
-
-            BSResult::Ok((res as i64).into())
+            BSResult::Ok(res)
         }
     }
 }

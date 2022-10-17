@@ -1,4 +1,5 @@
 use super::{Type, TypeRef};
+use crate::types::AsLLVMTypeRef;
 use crate::values::i64_value::*;
 use llvm_sys::core::LLVMConstInt;
 use llvm_sys::prelude::LLVMTypeRef;
@@ -12,5 +13,11 @@ impl<'a> FnType<'a> {
         Self {
             ty: TypeRef::new(llvm_type),
         }
+    }
+}
+
+impl<'a> AsLLVMTypeRef for FnType<'a> {
+    fn as_llvm_type_ref(&self) -> LLVMTypeRef {
+        self.ty.as_llvm_type_ref()
     }
 }

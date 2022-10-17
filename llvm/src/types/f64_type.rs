@@ -1,10 +1,11 @@
 use super::{Type, TypeRef};
+use crate::types::AsLLVMTypeRef;
 use crate::values::f64_value::*;
 use llvm_sys::core::LLVMConstReal;
 use llvm_sys::prelude::LLVMTypeRef;
 
 pub struct F64Type<'a> {
-    pub(crate) ty: TypeRef<'a>,
+    ty: TypeRef<'a>,
 }
 
 impl<'a> F64Type<'a> {
@@ -33,4 +34,10 @@ impl<'a> F64Type<'a> {
     //         ))
     //     }
     // }
+}
+
+impl<'a> AsLLVMTypeRef for F64Type<'a> {
+    fn as_llvm_type_ref(&self) -> LLVMTypeRef {
+        self.ty.as_llvm_type_ref()
+    }
 }

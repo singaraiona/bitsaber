@@ -1,3 +1,4 @@
+use crate::base::Value as BsValue;
 use crate::parse::ast::{Expr, Function, Prototype};
 use llvm::builder::Builder;
 use llvm::context::Context;
@@ -34,7 +35,8 @@ impl<'a, 'b> Compiler<'a, 'b> {
             self.context.i64_type().into(),
             self.context.i64_type().into(),
         ];
-        let fn_type = self.context.fn_i64_type(&mut arg_types, false);
+        let ret_type = self.context.i64_type();
+        let fn_type = self.context.fn_type(ret_type.into(), &mut arg_types, false);
         let function = self
             .module
             .add_function(&self.function.prototype.name, fn_type);
@@ -49,7 +51,24 @@ impl<'a, 'b> Compiler<'a, 'b> {
         let y = params_iter.next().unwrap();
         let sum = self.builder.build_i64_add(x.into(), y.into(), "tmpsum");
 
-        self.builder.build_return(sum.into());
+        let ret_struct = self
+            .context
+            .struct_type(
+                &[
+                    self.context.i64_type().into(),
+                    self.context.i64_type().into(),
+                ],
+                false,
+            )
+            .const_value(
+                &[
+                    self.context.i64_type().const_value(123).into(),
+                    self.context.i64_type().const_value(456).into(),
+                ],
+                false,
+            );
+
+        self.builder.build_return(ret_struct.into());
         Ok(function)
     }
 

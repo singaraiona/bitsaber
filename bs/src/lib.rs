@@ -5,4 +5,5 @@ pub mod parse;
 pub mod rt;
 extern crate llvm;
 extern crate rand;
+pub mod base;
 pub mod result;

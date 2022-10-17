@@ -1,4 +1,5 @@
 use super::{Type, TypeRef};
+use crate::types::AsLLVMTypeRef;
 use crate::values::i64_value::*;
 use llvm_sys::core::LLVMConstInt;
 use llvm_sys::prelude::LLVMTypeRef;
@@ -34,4 +35,10 @@ impl<'a> I64Type<'a> {
     //         ))
     //     }
     // }
+}
+
+impl<'a> AsLLVMTypeRef for I64Type<'a> {
+    fn as_llvm_type_ref(&self) -> LLVMTypeRef {
+        self.ty.as_llvm_type_ref()
+    }
 }

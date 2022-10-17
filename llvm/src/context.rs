@@ -3,9 +3,11 @@ use crate::builder::Builder;
 use crate::module::Module;
 use crate::types::fn_type::FnType;
 use crate::types::i64_type::*;
+use crate::types::struct_type::StructType;
 use crate::types::*;
 use crate::utils::to_c_str;
 use crate::values::fn_value::FnValue;
+use crate::values::AsLLVMValueRef;
 use llvm_sys::core::*;
 use llvm_sys::execution_engine::*;
 use llvm_sys::prelude::LLVMContextRef;
@@ -73,16 +75,29 @@ impl Context {
         unsafe { I64Type::new(LLVMInt64TypeInContext(self.llvm_context)) }
     }
 
-    pub fn fn_i64_type<'a>(&self, param_types: &[Type<'a>], is_var_args: bool) -> FnType<'a> {
-        let mut param_types: Vec<LLVMTypeRef> =
-            param_types.iter().map(|ty| ty.as_llvm_type_ref()).collect();
+    pub fn struct_type<'a>(&self, field_ty: &[Type<'a>], packed: bool) -> StructType<'a> {
+        let mut field_types: Vec<LLVMTypeRef> =
+            field_ty.iter().map(|ty| ty.as_llvm_type_ref()).collect();
+        unsafe {
+            StructType::new(LLVMStructTypeInContext(
+                self.llvm_context,
+                field_types.as_mut_ptr(),
+                field_types.len() as u32,
+                packed as i32,
+            ))
+        }
+    }
+
+    pub fn fn_type<'a>(&self, ret_ty: Type<'a>, arg_ty: &[Type<'a>], is_vargs: bool) -> FnType<'a> {
+        let mut arg_types: Vec<LLVMTypeRef> =
+            arg_ty.iter().map(|ty| ty.as_llvm_type_ref()).collect();
 
         unsafe {
             FnType::new(LLVMFunctionType(
-                self.i64_type().ty.into(),
-                param_types.as_mut_ptr(),
-                param_types.len() as u32,
-                is_var_args as i32,
+                ret_ty.as_llvm_type_ref(),
+                arg_types.as_mut_ptr(),
+                arg_types.len() as u32,
+                is_vargs as i32,
             ))
         }
     }
@@ -93,7 +108,7 @@ impl Context {
         unsafe {
             BasicBlock::new(LLVMAppendBasicBlockInContext(
                 self.llvm_context,
-                function.val.as_llvm_value_ref(),
+                function.as_llvm_value_ref(),
                 c_string.as_ptr(),
             ))
             .expect("Appending basic block should never fail")
