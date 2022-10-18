@@ -46,6 +46,7 @@ impl Value {
                 Value::I64(v) => Self::into_llvm_struct(1, v, context),
                 Value::F64(v) => Self::into_llvm_struct(2, transmute(v), context),
                 Value::VecI64(v) => Self::into_llvm_struct(3, transmute::<_, i64>(v), context),
+                Value::VecF64(v) => Self::into_llvm_struct(4, transmute::<_, i64>(v), context),
                 _ => unimplemented!(),
             }
         }
@@ -104,7 +105,7 @@ impl fmt::Display for Value {
         match self {
             Value::Null => write!(f, "Null"),
             Value::I64(v) => write!(f, "{}", v),
-            Value::F64(v) => write!(f, "{}", v),
+            Value::F64(v) => write!(f, "{:.2}", v),
             Value::VecI64(v) => write!(f, "{:?}", v),
             Value::VecF64(v) => write!(f, "{:?}", v),
             Value::List(v) => write!(f, "{:?}", v),

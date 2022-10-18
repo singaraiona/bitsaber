@@ -43,6 +43,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             Expr::I64(v) => ok(BsValue::I64(*v)),
             Expr::F64(v) => ok(BsValue::F64(*v)),
             Expr::VecI64(v) => ok(BsValue::from(v.clone())),
+            Expr::VecF64(v) => ok(BsValue::from(v.clone())),
             _ => compile_error("Compiler: unknown expression"),
         }
     }
@@ -116,19 +117,16 @@ impl<'a, 'b> Compiler<'a, 'b> {
             .build_return(body.into_llvm_value(self.context));
 
         // return the whole thing after verification and optimization
-        // if function.verify(true) {
-        //     self.fpm.run_on(&function);
-
-        //     Ok(function)
-        // } else {
-        //     unsafe {
-        //         function.delete();
-        //     }
-
-        //     Err("Invalid generated function.")
-        // }
-
-        ok(function)
+        match function.verify() {
+            Ok(_) => {
+                // self.fpm.run_on(&function);
+                ok(function)
+            }
+            Err(e) => {
+                function.delete();
+                compile_error(&format!("Compiler: function verification failed: {}", e))
+            }
+        }
     }
 
     pub fn compile(&mut self) -> BSResult<FnValue<'b>> {

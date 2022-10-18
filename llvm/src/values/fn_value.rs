@@ -1,6 +1,7 @@
 use super::{Value, ValueRef};
 use crate::basic_block::BasicBlock;
 use crate::values::ValueIntrinsics;
+use llvm_sys::analysis::{LLVMVerifierFailureAction, LLVMVerifyFunction};
 use llvm_sys::core::*;
 use llvm_sys::prelude::LLVMValueRef;
 use std::ffi::CStr;
@@ -50,6 +51,24 @@ impl<'a> FnValue<'a> {
 
     pub fn get_last_basic_block(self) -> Option<BasicBlock<'a>> {
         unsafe { BasicBlock::new(LLVMGetLastBasicBlock(self.as_llvm_value_ref())) }
+    }
+
+    pub fn verify(self) -> Result<(), String> {
+        let code = unsafe {
+            LLVMVerifyFunction(
+                self.as_llvm_value_ref(),
+                LLVMVerifierFailureAction::LLVMReturnStatusAction,
+            )
+        };
+
+        match code {
+            1 => Ok(()),
+            _ => Err("Function is broken".to_string()),
+        }
+    }
+
+    pub fn delete(self) {
+        unsafe { LLVMDeleteFunction(self.as_llvm_value_ref()) }
     }
 
     // pub fn set_linkage(self, linkage: Linkage) {
