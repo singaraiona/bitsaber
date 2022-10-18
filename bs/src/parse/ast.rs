@@ -1,6 +1,8 @@
 /// Defines a primitive expression.
 #[derive(Debug)]
 pub enum Expr {
+    Null,
+
     Binary {
         op: char,
         lhs: Box<Expr>,
@@ -26,9 +28,9 @@ pub enum Expr {
         body: Box<Expr>,
     },
 
-    VI64(Vec<i64>),
+    VecI64(Vec<i64>),
 
-    VF64(Vec<f64>),
+    VecF64(Vec<f64>),
 
     I64(i64),
 

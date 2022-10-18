@@ -1,9 +1,11 @@
 use crate::basic_block::BasicBlock;
+use crate::types::Type;
+use crate::types::TypeIntrinsics;
 use crate::utils::to_c_str;
 use crate::values::i64_value::I64Value;
 use crate::values::instruction_value::InstructionValue;
-use crate::values::AsLLVMValueRef;
-use crate::values::Value;
+use crate::values::ptr_value::PtrValue;
+use crate::values::{Value, ValueIntrinsics};
 use llvm_sys::core::*;
 use llvm_sys::prelude::LLVMBuilderRef;
 use std::marker::PhantomData;
@@ -51,6 +53,24 @@ impl<'a> Builder<'a> {
                 c_string.as_ptr(),
             ))
         }
+    }
+    pub fn build_store(&self, ptr: PtrValue<'a>, value: Value<'a>) -> InstructionValue<'a> {
+        let value = unsafe {
+            LLVMBuildStore(
+                self.llvm_builder,
+                value.as_llvm_value_ref(),
+                ptr.as_llvm_value_ref(),
+            )
+        };
+
+        InstructionValue::new(value)
+    }
+    pub fn build_alloca(&self, ty: Type<'a>, name: &str) -> PtrValue<'a> {
+        let c_string = to_c_str(name);
+        let value =
+            unsafe { LLVMBuildAlloca(self.llvm_builder, ty.as_llvm_type_ref(), c_string.as_ptr()) };
+
+        PtrValue::new(value)
     }
 
     pub fn build_return(&self, value: Value<'a>) -> InstructionValue<'a> {

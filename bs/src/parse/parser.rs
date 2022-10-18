@@ -185,16 +185,19 @@ impl<'a> Parser<'a> {
 
     /// Parses a literal number.
     fn parse_nb_expr(&mut self) -> BSResult<Expr> {
-        // Simply convert Token::Number to Expr::Number
-        // match self.curr() {
-        //     Number(nb) => {
-        //         self.advance();
-        //         Ok(Expr::Number(nb))
-        //     }
-        //     _ => Err("Expected number literal."),
-        // }
+        let r = match self.curr {
+            I64(v) => ok(Expr::I64(v)),
+            F64(v) => ok(Expr::F64(v)),
+            _ => parse_error("Expected number literal.", self.lexer.pos()),
+        };
 
-        todo!()
+        match r {
+            BSResult::Ok(_) => {
+                self.advance()?;
+                r
+            }
+            _ => r,
+        }
     }
 
     /// Parses an expression enclosed in parenthesis.
@@ -501,14 +504,15 @@ impl<'a> Parser<'a> {
         }
 
         if vec_i64.len() == 0 {
-            ok(Expr::VF64(vec_f64))
+            ok(Expr::VecF64(vec_f64))
         } else {
-            ok(Expr::VI64(vec_i64))
+            ok(Expr::VecI64(vec_i64))
         }
     }
 
     fn parse_expr(&mut self) -> BSResult<Expr> {
         match self.curr {
+            EOF => ok(Expr::Null),
             Ident(_) => self.parse_id_expr(),
             I64(_) => self.parse_nb_expr(),
             F64(_) => self.parse_nb_expr(),

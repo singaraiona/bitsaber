@@ -14,16 +14,16 @@ pub fn parse_error<T>(msg: &'static str, pos: usize) -> BSResult<T> {
     BSResult::Err(BSError::ParseError { msg, pos })
 }
 
-pub fn compile_error(msg: &str) -> BSError {
-    BSError::CompileError(msg.to_string())
+pub fn compile_error<T>(msg: &str) -> BSResult<T> {
+    BSResult::Err(BSError::CompileError(msg.to_string()))
 }
 
-pub fn runtime_error(msg: String) -> BSError {
-    BSError::RuntimeError(msg)
+pub fn runtime_error<T>(msg: String) -> BSResult<T> {
+    BSResult::Err(BSError::RuntimeError(msg.to_string()))
 }
 
-pub fn io_error(msg: String) -> BSError {
-    BSError::IOError(msg)
+pub fn io_error<T>(msg: String) -> BSResult<T> {
+    BSResult::Err(BSError::IOError(msg.to_string()))
 }
 
 pub fn ok<T>(v: T) -> BSResult<T> {

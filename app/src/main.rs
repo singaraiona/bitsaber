@@ -8,7 +8,7 @@ use std::io::{self, Write};
 pub fn main() {
     let mut runtime = Runtime::new().expect("Failed to create runtime");
     loop {
-        print!("\nbs> ");
+        print!("\n> ");
         let _ = io::stdout().flush();
 
         // Read input from stdin

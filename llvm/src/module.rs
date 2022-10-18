@@ -1,6 +1,7 @@
 use crate::execution_engine::ExecutionEngine;
 use crate::types::fn_type::FnType;
 use crate::types::Type;
+use crate::types::TypeIntrinsics;
 use crate::utils::to_c_str;
 use crate::values::fn_value::FnValue;
 use crate::values::*;
@@ -53,7 +54,7 @@ impl<'a> Module<'a> {
             FnValue::new(LLVMAddFunction(
                 self.llvm_module,
                 c_string.as_ptr(),
-                ty.ty.as_llvm_type_ref(),
+                ty.as_llvm_type_ref(),
             ))
         };
 

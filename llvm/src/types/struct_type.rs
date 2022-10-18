@@ -1,15 +1,15 @@
-use super::{Type, TypeRef};
-use crate::types::AsLLVMTypeRef;
+use super::TypeRef;
+use crate::types::TypeIntrinsics;
 use crate::values::struct_value::*;
-use crate::values::AsLLVMValueRef;
 use crate::values::Value;
+use crate::values::ValueIntrinsics;
 use llvm_sys::core::LLVMConstStruct;
-use llvm_sys::core::LLVMConstStructInContext;
 use llvm_sys::prelude::LLVMTypeRef;
 use llvm_sys::prelude::LLVMValueRef;
 
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub struct StructType<'a> {
-    pub(crate) ty: TypeRef<'a>,
+    ty: TypeRef<'a>,
 }
 
 impl<'a> StructType<'a> {
@@ -32,7 +32,7 @@ impl<'a> StructType<'a> {
     }
 }
 
-impl<'a> AsLLVMTypeRef for StructType<'a> {
+impl<'a> TypeIntrinsics for StructType<'a> {
     fn as_llvm_type_ref(&self) -> LLVMTypeRef {
         self.ty.as_llvm_type_ref()
     }

@@ -5,15 +5,20 @@ pub mod f64_value;
 pub mod fn_value;
 pub mod i64_value;
 pub mod instruction_value;
+pub mod ptr_value;
 pub mod struct_value;
 
 use f64_value::F64Value;
 use fn_value::FnValue;
 use i64_value::I64Value;
 use instruction_value::InstructionValue;
+use libc::c_char;
 use llvm_sys::core::LLVMGetTypeKind;
 use llvm_sys::core::LLVMTypeOf;
+use llvm_sys::core::{LLVMGetValueName2, LLVMSetValueName2};
 use llvm_sys::LLVMTypeKind;
+use ptr_value::PtrValue;
+use std::ffi::CStr;
 use std::fmt;
 use struct_value::StructValue;
 
@@ -32,10 +37,6 @@ impl<'a> ValueRef<'a> {
             _phantom: PhantomData,
         }
     }
-
-    pub fn as_llvm_value_ref(&self) -> LLVMValueRef {
-        self.llvm_value
-    }
 }
 
 impl Into<LLVMValueRef> for ValueRef<'_> {
@@ -53,6 +54,7 @@ pub enum Value<'a> {
     // List(Vec<Value<'a>>),
     Struct(StructValue<'a>),
     Instruction(InstructionValue<'a>),
+    Ptr(PtrValue<'a>),
 }
 
 impl<'a> From<I64Value<'a>> for Value<'a> {
@@ -82,6 +84,12 @@ impl<'a> From<StructValue<'a>> for Value<'a> {
 impl<'a> From<InstructionValue<'a>> for Value<'a> {
     fn from(val: InstructionValue<'a>) -> Self {
         Self::Instruction(val)
+    }
+}
+
+impl<'a> From<PtrValue<'a>> for Value<'a> {
+    fn from(val: PtrValue<'a>) -> Self {
+        Self::Ptr(val)
     }
 }
 
@@ -130,6 +138,15 @@ impl<'a> Into<InstructionValue<'a>> for Value<'a> {
     }
 }
 
+impl<'a> Into<PtrValue<'a>> for Value<'a> {
+    fn into(self) -> PtrValue<'a> {
+        match self {
+            Self::Ptr(val) => val,
+            _ => panic!("Expected PtrValue"),
+        }
+    }
+}
+
 impl<'a> Value<'a> {
     pub(crate) fn new(llvm_value: LLVMValueRef) -> Self {
         unsafe {
@@ -143,23 +160,37 @@ impl<'a> Value<'a> {
                 LLVMTypeKind::LLVMIntegerTypeKind => Value::I64(I64Value::new(llvm_value)),
                 LLVMTypeKind::LLVMStructTypeKind => Value::Struct(StructValue::new(llvm_value)),
                 LLVMTypeKind::LLVMFunctionTypeKind => Value::Fn(FnValue::new(llvm_value)),
+                LLVMTypeKind::LLVMPointerTypeKind => Value::Ptr(PtrValue::new(llvm_value)),
                 kind => panic!("Unknown value: {:?}", kind),
             }
         }
     }
 }
 
-pub trait AsLLVMValueRef<'a> {
+pub trait ValueIntrinsics {
     fn as_llvm_value_ref(&self) -> LLVMValueRef;
+    fn set_name(self, name: &str);
+    fn get_name(&self) -> &CStr;
 }
 
-impl AsLLVMValueRef<'_> for ValueRef<'_> {
+impl ValueIntrinsics for ValueRef<'_> {
     fn as_llvm_value_ref(&self) -> LLVMValueRef {
         self.llvm_value
     }
+    fn set_name(self, name: &str) {
+        unsafe { LLVMSetValueName2(self.llvm_value, name.as_ptr() as *const c_char, name.len()) }
+    }
+
+    fn get_name(&self) -> &CStr {
+        let ptr = unsafe {
+            let mut len = 0;
+            LLVMGetValueName2(self.llvm_value, &mut len)
+        };
+        unsafe { CStr::from_ptr(ptr) }
+    }
 }
 
-impl AsLLVMValueRef<'_> for Value<'_> {
+impl ValueIntrinsics for Value<'_> {
     fn as_llvm_value_ref(&self) -> LLVMValueRef {
         match self {
             Value::I64(v) => v.as_llvm_value_ref(),
@@ -167,6 +198,28 @@ impl AsLLVMValueRef<'_> for Value<'_> {
             Value::Fn(v) => v.as_llvm_value_ref(),
             Value::Instruction(v) => v.as_llvm_value_ref(),
             Value::Struct(v) => v.as_llvm_value_ref(),
+            Value::Ptr(v) => v.as_llvm_value_ref(),
+        }
+    }
+    fn set_name(self, name: &str) {
+        match self {
+            Value::I64(v) => v.set_name(name),
+            Value::F64(v) => v.set_name(name),
+            Value::Fn(v) => v.set_name(name),
+            Value::Instruction(v) => v.set_name(name),
+            Value::Struct(v) => v.set_name(name),
+            Value::Ptr(v) => v.set_name(name),
+        }
+    }
+
+    fn get_name(&self) -> &CStr {
+        match self {
+            Value::I64(v) => v.get_name(),
+            Value::F64(v) => v.get_name(),
+            Value::Fn(v) => v.get_name(),
+            Value::Instruction(v) => v.get_name(),
+            Value::Struct(v) => v.get_name(),
+            Value::Ptr(v) => v.get_name(),
         }
     }
 }
@@ -179,6 +232,7 @@ impl fmt::Display for Value<'_> {
             Value::Fn(v) => write!(f, "{:?}", v),
             Value::Instruction(v) => write!(f, "{:?}", v),
             Value::Struct(v) => write!(f, "{:?}", v),
+            Value::Ptr(v) => write!(f, "{:?}", v),
         }
     }
 }

@@ -1,8 +1,9 @@
 use super::{Value, ValueRef};
-use crate::values::AsLLVMValueRef;
-use llvm_sys::core::LLVMCountParams;
-use llvm_sys::core::LLVMGetParam;
+use crate::basic_block::BasicBlock;
+use crate::values::ValueIntrinsics;
+use llvm_sys::core::*;
 use llvm_sys::prelude::LLVMValueRef;
+use std::ffi::CStr;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct FnValue<'a> {
@@ -43,17 +44,28 @@ impl<'a> FnValue<'a> {
             .flatten()
     }
 
-    // pub fn get_name(&self) -> &str {
-    //     self.val.get_name()
-    // }
+    pub fn get_first_basic_block(self) -> Option<BasicBlock<'a>> {
+        unsafe { BasicBlock::new(LLVMGetFirstBasicBlock(self.as_llvm_value_ref())) }
+    }
+
+    pub fn get_last_basic_block(self) -> Option<BasicBlock<'a>> {
+        unsafe { BasicBlock::new(LLVMGetLastBasicBlock(self.as_llvm_value_ref())) }
+    }
 
     // pub fn set_linkage(self, linkage: Linkage) {
     //     unsafe { LLVMSetLinkage(self.as_value_ref(), linkage.into()) }
     // }
 }
 
-impl AsLLVMValueRef<'_> for FnValue<'_> {
+impl ValueIntrinsics for FnValue<'_> {
     fn as_llvm_value_ref(&self) -> LLVMValueRef {
         self.val.as_llvm_value_ref()
+    }
+    fn set_name(self, name: &str) {
+        self.val.set_name(name)
+    }
+
+    fn get_name(&self) -> &CStr {
+        self.val.get_name()
     }
 }

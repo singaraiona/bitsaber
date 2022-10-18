@@ -1,7 +1,10 @@
 pub mod i64_value;
 use llvm::context::Context;
+use llvm::types::struct_type::StructType as LLVMStructType;
+use llvm::types::Type as LLVMType;
 use llvm::values::Value as LLVMValue;
 use std::fmt;
+use std::mem::transmute;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
@@ -16,13 +19,9 @@ pub enum Value {
     // Table(Rc<Vec<(Value, Value)>>),
 }
 
-fn into_llvm_struct<'a>(tag: i64, val: i64, context: &'a Context) -> LLVMValue<'a> {
-    let ret_struct = context
-        .struct_type(
-            &[context.i64_type().into(), context.i64_type().into()],
-            false,
-        )
-        .const_value(
+impl Value {
+    fn into_llvm_struct<'a>(tag: i64, val: i64, context: &'a Context) -> LLVMValue<'a> {
+        let ret_struct = Value::llvm_struct_type(context).const_value(
             &[
                 context.i64_type().const_value(tag).into(),
                 context.i64_type().const_value(val).into(),
@@ -30,22 +29,44 @@ fn into_llvm_struct<'a>(tag: i64, val: i64, context: &'a Context) -> LLVMValue<'
             true,
         );
 
-    ret_struct.into()
-}
+        ret_struct.into()
+    }
 
-impl Value {
+    fn llvm_struct_type<'a>(context: &'a Context) -> LLVMStructType<'a> {
+        context.struct_type(
+            &[context.i64_type().into(), context.i64_type().into()],
+            false,
+        )
+    }
+
     pub fn into_llvm_value<'a>(self, context: &'a Context) -> LLVMValue<'a> {
-        match self {
-            Value::Null => into_llvm_struct(0, 0, context),
-            Value::I64(v) => into_llvm_struct(1, v, context),
-            Value::F64(v) => into_llvm_struct(2, v as i64, context),
-            Value::VecI64(v) => {
-                let v: i64 = unsafe { std::mem::transmute(v) };
-                into_llvm_struct(3, v, context)
+        unsafe {
+            match self {
+                Value::Null => Self::into_llvm_struct(0, 0, context),
+                Value::I64(v) => Self::into_llvm_struct(1, v, context),
+                Value::F64(v) => Self::into_llvm_struct(2, transmute(v), context),
+                Value::VecI64(v) => Self::into_llvm_struct(3, transmute::<_, i64>(v), context),
+                _ => unimplemented!(),
             }
-            _ => unimplemented!(),
         }
     }
+
+    pub fn llvm_type<'a>(context: &'a Context) -> LLVMType<'a> {
+        Self::llvm_struct_type(context).into()
+    }
+
+    // pub fn from_llvm_value<'a>(self,  context: &'a Context) -> LLVMValue<'a> {
+    //     match self {
+    //         Value::Null => Self::into_llvm_struct(0, 0, context),
+    //         Value::I64(v) => Self::into_llvm_struct(1, v, context),
+    //         Value::F64(v) => Self::into_llvm_struct(2, v as i64, context),
+    //         Value::VecI64(v) => {
+    //             let v: i64 = unsafe { std::mem::transmute(v) };
+    //             Self::into_llvm_struct(3, v, context)
+    //         }
+    //         _ => unimplemented!(),
+    //     }
+    // }
 }
 
 impl From<i64> for Value {
@@ -80,6 +101,13 @@ impl From<Vec<Value>> for Value {
 
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?} {}", self, std::mem::size_of_val(self))
+        match self {
+            Value::Null => write!(f, "Null"),
+            Value::I64(v) => write!(f, "{}", v),
+            Value::F64(v) => write!(f, "{}", v),
+            Value::VecI64(v) => write!(f, "{:?}", v),
+            Value::VecF64(v) => write!(f, "{:?}", v),
+            Value::List(v) => write!(f, "{:?}", v),
+        }
     }
 }

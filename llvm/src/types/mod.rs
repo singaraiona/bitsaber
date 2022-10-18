@@ -10,6 +10,7 @@ use fn_type::FnType;
 use i64_type::I64Type;
 use struct_type::StructType;
 
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub(crate) struct TypeRef<'a> {
     llvm_type: LLVMTypeRef,
     _phantom: PhantomData<&'a ()>,
@@ -24,10 +25,6 @@ impl<'a> TypeRef<'a> {
             _phantom: PhantomData,
         }
     }
-
-    pub fn as_llvm_type_ref(&self) -> LLVMTypeRef {
-        self.llvm_type
-    }
 }
 
 impl Into<LLVMTypeRef> for TypeRef<'_> {
@@ -36,6 +33,7 @@ impl Into<LLVMTypeRef> for TypeRef<'_> {
     }
 }
 
+#[derive(Clone)]
 pub enum Type<'a> {
     I64(I64Type<'a>),
     F64(F64Type<'a>),
@@ -79,11 +77,17 @@ impl<'a> Type<'a> {
     }
 }
 
-pub trait AsLLVMTypeRef {
+pub trait TypeIntrinsics {
     fn as_llvm_type_ref(&self) -> LLVMTypeRef;
 }
 
-impl<'a> AsLLVMTypeRef for Type<'a> {
+impl<'a> TypeIntrinsics for TypeRef<'a> {
+    fn as_llvm_type_ref(&self) -> LLVMTypeRef {
+        self.llvm_type
+    }
+}
+
+impl<'a> TypeIntrinsics for Type<'a> {
     fn as_llvm_type_ref(&self) -> LLVMTypeRef {
         match self {
             Type::I64(t) => t.as_llvm_type_ref(),

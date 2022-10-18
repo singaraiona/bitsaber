@@ -1,13 +1,14 @@
 use crate::basic_block::BasicBlock;
 use crate::builder::Builder;
 use crate::module::Module;
+use crate::types::f64_type::*;
 use crate::types::fn_type::FnType;
 use crate::types::i64_type::*;
 use crate::types::struct_type::StructType;
 use crate::types::*;
 use crate::utils::to_c_str;
 use crate::values::fn_value::FnValue;
-use crate::values::AsLLVMValueRef;
+use crate::values::ValueIntrinsics;
 use llvm_sys::core::*;
 use llvm_sys::execution_engine::*;
 use llvm_sys::prelude::LLVMContextRef;
@@ -73,6 +74,10 @@ impl Context {
 
     pub fn i64_type<'a>(&self) -> I64Type<'a> {
         unsafe { I64Type::new(LLVMInt64TypeInContext(self.llvm_context)) }
+    }
+
+    pub fn f64_type<'a>(&self) -> F64Type<'a> {
+        unsafe { F64Type::new(LLVMDoubleTypeInContext(self.llvm_context)) }
     }
 
     pub fn struct_type<'a>(&self, field_ty: &[Type<'a>], packed: bool) -> StructType<'a> {

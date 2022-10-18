@@ -1,11 +1,12 @@
 use super::{Type, TypeRef};
-use crate::types::AsLLVMTypeRef;
+use crate::types::TypeIntrinsics;
 use crate::values::i64_value::*;
 use llvm_sys::core::LLVMConstInt;
 use llvm_sys::prelude::LLVMTypeRef;
 
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub struct FnType<'a> {
-    pub(crate) ty: TypeRef<'a>,
+    ty: TypeRef<'a>,
 }
 
 impl<'a> FnType<'a> {
@@ -16,7 +17,7 @@ impl<'a> FnType<'a> {
     }
 }
 
-impl<'a> AsLLVMTypeRef for FnType<'a> {
+impl<'a> TypeIntrinsics for FnType<'a> {
     fn as_llvm_type_ref(&self) -> LLVMTypeRef {
         self.ty.as_llvm_type_ref()
     }

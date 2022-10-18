@@ -1,6 +1,7 @@
 use super::ValueRef;
-use crate::values::AsLLVMValueRef;
+use crate::values::ValueIntrinsics;
 use llvm_sys::prelude::LLVMValueRef;
+use std::ffi::CStr;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct StructValue<'a> {
@@ -15,8 +16,15 @@ impl<'a> StructValue<'a> {
     }
 }
 
-impl AsLLVMValueRef<'_> for StructValue<'_> {
+impl ValueIntrinsics for StructValue<'_> {
     fn as_llvm_value_ref(&self) -> LLVMValueRef {
         self.val.as_llvm_value_ref()
+    }
+    fn set_name(self, name: &str) {
+        self.val.set_name(name)
+    }
+
+    fn get_name(&self) -> &CStr {
+        self.val.get_name()
     }
 }
