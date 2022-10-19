@@ -270,62 +270,6 @@ impl<'a> Parser<'a> {
         todo!()
     }
 
-    /// Parses an unary expression.
-    fn parse_unary_expr(&mut self) -> BSResult<Expr> {
-        // let op = match self.current()? {
-        //     Op(ch) => {
-        //         self.advance()?;
-        //         ch
-        //     }
-        //     _ => return self.parse_primary(),
-        // };
-
-        // let mut name = String::from("unary");
-
-        // name.push(op);
-
-        // Ok(Expr::Call {
-        //     fn_name: name,
-        //     args: vec![self.parse_unary_expr()?],
-        // })
-
-        todo!()
-    }
-
-    /// Parses a binary expression, given its left-hand expression.
-    fn parse_binary_expr(&mut self, prec: i32, mut left: Expr) -> BSResult<Expr> {
-        // loop {
-        //     let curr_prec = self.get_tok_precedence();
-
-        //     if curr_prec < prec || self.at_end() {
-        //         return Ok(left);
-        //     }
-
-        //     let op = match self.curr() {
-        //         Op(op) => op,
-        //         _ => return Err("Invalid operator."),
-        //     };
-
-        //     self.advance()?;
-
-        //     let mut right = self.parse_unary_expr()?;
-
-        //     let next_prec = self.get_tok_precedence();
-
-        //     if curr_prec < next_prec {
-        //         right = self.parse_binary_expr(curr_prec + 1, right)?;
-        //     }
-
-        //     left = Expr::Binary {
-        //         op,
-        //         left: Box::new(left),
-        //         right: Box::new(right),
-        //     };
-        // }
-
-        todo!()
-    }
-
     /// Parses a conditional if..then..else expression.
     fn parse_conditional_expr(&mut self) -> BSResult<Expr> {
         // eat 'if' token
@@ -510,28 +454,81 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_expr(&mut self) -> BSResult<Expr> {
+    fn parse_unary_expr(&mut self) -> BSResult<Expr> {
+        // let op = match self.current()? {
+        //     Op(ch) => {
+        //         self.advance()?;
+        //         ch
+        //     }
+        //     _ => return self.parse_primary(),
+        // };
+
+        // let mut name = String::from("unary");
+
+        // name.push(op);
+
+        // Ok(Expr::Call {
+        //     fn_name: name,
+        //     args: vec![self.parse_unary_expr()?],
+        // })
+
         match self.curr {
-            EOF => ok(Expr::Null),
-            Ident(_) => self.parse_id_expr(),
             I64(_) => self.parse_nb_expr(),
             F64(_) => self.parse_nb_expr(),
             LBox => self.parse_vec_literal(),
             LParen => self.parse_paren_expr(),
-            If => self.parse_conditional_expr(),
-            For => self.parse_for_expr(),
-            Var => self.parse_var_expr(),
-            // Def => self.parse_def(),
-            // Extern => self.parse_extern(),
-            _ => parse_error("Unknown expression.", self.lexer.pos()),
+            _ => parse_error(
+                "Expected int, float, vector or parenthesized expression.",
+                self.lexer.pos(),
+            ),
+        }
+    }
+
+    /// Parses a binary expression, given its left-hand expression.
+    fn parse_binary_expr(&mut self, mut lhs: Expr) -> BSResult<Expr> {
+        // loop {
+        let op = match self.curr {
+            Op(op) => op,
+            _ => return parse_error("Invalid operator.", self.lexer.pos()),
+        };
+
+        self.advance()?;
+
+        let mut rhs = self.parse_unary_expr()?;
+
+        self.advance()?;
+
+        ok(Expr::Binary {
+            op,
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs),
+        })
+        // }
+    }
+
+    fn parse_expr(&mut self) -> BSResult<Expr> {
+        match self.parse_unary_expr() {
+            BSResult::Ok(left) => self.parse_binary_expr(left),
+            err => err,
         }
     }
 
     /// Parses a top-level expression and makes an anonymous function out of it,
     /// for easier compilation.
     fn parse_toplevel_expr(&mut self) -> BSResult<Function> {
-        let expr = self.parse_expr()?;
+        let expr = match self.curr {
+            EOF => ok(Expr::Null),
+            Ident(_) => self.parse_id_expr(),
+            If => self.parse_conditional_expr(),
+            For => self.parse_for_expr(),
+            Var => self.parse_var_expr(),
+            // Def => self.parse_def(),
+            // Extern => self.parse_extern(),
+            _ => self.parse_expr(),
+        }?;
+
         self.advance()?;
+
         ok(Function {
             prototype: Prototype {
                 name: "anonymous".to_string(),

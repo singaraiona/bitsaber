@@ -1,10 +1,8 @@
 use crate::execution_engine::ExecutionEngine;
 use crate::types::fn_type::FnType;
-use crate::types::Type;
 use crate::types::TypeIntrinsics;
 use crate::utils::to_c_str;
 use crate::values::fn_value::FnValue;
-use crate::values::*;
 use llvm_sys::core::LLVMAddFunction;
 use llvm_sys::execution_engine::LLVMCreateExecutionEngineForModule;
 use llvm_sys::prelude::LLVMModuleRef;

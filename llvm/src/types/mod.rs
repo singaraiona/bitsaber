@@ -66,7 +66,7 @@ impl<'a> From<StructType<'a>> for Type<'a> {
 }
 
 impl<'a> Type<'a> {
-    pub(crate) fn new(llvm_type: LLVMTypeRef) -> Type<'a> {
+    pub fn new(llvm_type: LLVMTypeRef) -> Type<'a> {
         match unsafe { llvm_sys::core::LLVMGetTypeKind(llvm_type) } {
             llvm_sys::LLVMTypeKind::LLVMIntegerTypeKind => Type::I64(I64Type::new(llvm_type)),
             llvm_sys::LLVMTypeKind::LLVMFloatTypeKind => Type::F64(F64Type::new(llvm_type)),

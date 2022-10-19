@@ -16,6 +16,7 @@ use libc::c_char;
 use llvm_sys::core::LLVMGetTypeKind;
 use llvm_sys::core::LLVMTypeOf;
 use llvm_sys::core::{LLVMGetValueName2, LLVMSetValueName2};
+use llvm_sys::prelude::LLVMTypeRef;
 use llvm_sys::LLVMTypeKind;
 use ptr_value::PtrValue;
 use std::ffi::CStr;
@@ -45,6 +46,7 @@ impl Into<LLVMValueRef> for ValueRef<'_> {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub enum Value<'a> {
     I64(I64Value<'a>),
     F64(F64Value<'a>),
@@ -152,11 +154,8 @@ impl<'a> Value<'a> {
         unsafe {
             match LLVMGetTypeKind(LLVMTypeOf(llvm_value)) {
                 LLVMTypeKind::LLVMFloatTypeKind
-                | LLVMTypeKind::LLVMFP128TypeKind
                 | LLVMTypeKind::LLVMDoubleTypeKind
-                | LLVMTypeKind::LLVMHalfTypeKind
-                | LLVMTypeKind::LLVMX86_FP80TypeKind
-                | LLVMTypeKind::LLVMPPC_FP128TypeKind => Value::F64(F64Value::new(llvm_value)),
+                | LLVMTypeKind::LLVMHalfTypeKind => Value::F64(F64Value::new(llvm_value)),
                 LLVMTypeKind::LLVMIntegerTypeKind => Value::I64(I64Value::new(llvm_value)),
                 LLVMTypeKind::LLVMStructTypeKind => Value::Struct(StructValue::new(llvm_value)),
                 LLVMTypeKind::LLVMFunctionTypeKind => Value::Fn(FnValue::new(llvm_value)),
@@ -171,6 +170,7 @@ pub trait ValueIntrinsics {
     fn as_llvm_value_ref(&self) -> LLVMValueRef;
     fn set_name(self, name: &str);
     fn get_name(&self) -> &CStr;
+    fn get_llvm_type_ref(&self) -> LLVMTypeRef;
 }
 
 impl ValueIntrinsics for ValueRef<'_> {
@@ -187,6 +187,9 @@ impl ValueIntrinsics for ValueRef<'_> {
             LLVMGetValueName2(self.llvm_value, &mut len)
         };
         unsafe { CStr::from_ptr(ptr) }
+    }
+    fn get_llvm_type_ref(&self) -> LLVMTypeRef {
+        unsafe { LLVMTypeOf(self.llvm_value) }
     }
 }
 
@@ -220,6 +223,16 @@ impl ValueIntrinsics for Value<'_> {
             Value::Instruction(v) => v.get_name(),
             Value::Struct(v) => v.get_name(),
             Value::Ptr(v) => v.get_name(),
+        }
+    }
+    fn get_llvm_type_ref(&self) -> LLVMTypeRef {
+        match self {
+            Value::I64(v) => v.get_llvm_type_ref(),
+            Value::F64(v) => v.get_llvm_type_ref(),
+            Value::Fn(v) => v.get_llvm_type_ref(),
+            Value::Instruction(v) => v.get_llvm_type_ref(),
+            Value::Struct(v) => v.get_llvm_type_ref(),
+            Value::Ptr(v) => v.get_llvm_type_ref(),
         }
     }
 }

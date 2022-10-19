@@ -55,19 +55,6 @@ impl Value {
     pub fn llvm_type<'a>(context: &'a Context) -> LLVMType<'a> {
         Self::llvm_struct_type(context).into()
     }
-
-    // pub fn from_llvm_value<'a>(self,  context: &'a Context) -> LLVMValue<'a> {
-    //     match self {
-    //         Value::Null => Self::into_llvm_struct(0, 0, context),
-    //         Value::I64(v) => Self::into_llvm_struct(1, v, context),
-    //         Value::F64(v) => Self::into_llvm_struct(2, v as i64, context),
-    //         Value::VecI64(v) => {
-    //             let v: i64 = unsafe { std::mem::transmute(v) };
-    //             Self::into_llvm_struct(3, v, context)
-    //         }
-    //         _ => unimplemented!(),
-    //     }
-    // }
 }
 
 impl From<i64> for Value {

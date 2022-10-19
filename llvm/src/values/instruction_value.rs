@@ -1,5 +1,6 @@
 use super::ValueRef;
 use crate::values::ValueIntrinsics;
+use llvm_sys::prelude::LLVMTypeRef;
 use llvm_sys::prelude::LLVMValueRef;
 use std::ffi::CStr;
 
@@ -26,5 +27,9 @@ impl ValueIntrinsics for InstructionValue<'_> {
 
     fn get_name(&self) -> &CStr {
         self.val.get_name()
+    }
+
+    fn get_llvm_type_ref(&self) -> LLVMTypeRef {
+        self.val.get_llvm_type_ref()
     }
 }

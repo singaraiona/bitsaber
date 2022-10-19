@@ -1,5 +1,6 @@
 use super::ValueRef;
 use crate::values::ValueIntrinsics;
+use llvm_sys::prelude::LLVMTypeRef;
 use llvm_sys::prelude::LLVMValueRef;
 use std::ffi::CStr;
 
@@ -16,6 +17,12 @@ impl<'a> F64Value<'a> {
     }
 }
 
+// impl Into<f64> for F64Value<'_> {
+//     fn into(self) -> f64 {
+//         unsafe { self.val.intrinsics().const_real_get_double() }
+//     }
+// }
+
 impl ValueIntrinsics for F64Value<'_> {
     fn as_llvm_value_ref(&self) -> LLVMValueRef {
         self.val.as_llvm_value_ref()
@@ -26,5 +33,9 @@ impl ValueIntrinsics for F64Value<'_> {
 
     fn get_name(&self) -> &CStr {
         self.val.get_name()
+    }
+
+    fn get_llvm_type_ref(&self) -> LLVMTypeRef {
+        self.val.get_llvm_type_ref()
     }
 }

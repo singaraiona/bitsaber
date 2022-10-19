@@ -1,5 +1,7 @@
 use super::ValueRef;
 use crate::values::ValueIntrinsics;
+use llvm_sys::core::LLVMConstIntGetSExtValue;
+use llvm_sys::prelude::LLVMTypeRef;
 use llvm_sys::prelude::LLVMValueRef;
 use std::ffi::CStr;
 
@@ -14,6 +16,10 @@ impl<'a> I64Value<'a> {
             val: ValueRef::new(llvm_value),
         }
     }
+
+    pub fn get_sign_extended_constant(self) -> i64 {
+        unsafe { LLVMConstIntGetSExtValue(self.as_llvm_value_ref()) }
+    }
 }
 
 impl ValueIntrinsics for I64Value<'_> {
@@ -26,5 +32,15 @@ impl ValueIntrinsics for I64Value<'_> {
 
     fn get_name(&self) -> &CStr {
         self.val.get_name()
+    }
+
+    fn get_llvm_type_ref(&self) -> LLVMTypeRef {
+        self.val.get_llvm_type_ref()
+    }
+}
+
+impl Into<i64> for I64Value<'_> {
+    fn into(self) -> i64 {
+        self.get_sign_extended_constant()
     }
 }

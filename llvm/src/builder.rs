@@ -43,10 +43,10 @@ impl<'a> Builder<'a> {
         }
     }
 
-    pub fn build_i64_add(&self, lhs: I64Value<'_>, rhs: I64Value<'_>, name: &str) -> I64Value<'a> {
+    pub fn build_add(&self, lhs: Value<'_>, rhs: Value<'_>, name: &str) -> Value<'a> {
         unsafe {
             let c_string = to_c_str(name);
-            I64Value::new(LLVMBuildAdd(
+            Value::new(LLVMBuildAdd(
                 self.llvm_builder,
                 lhs.as_llvm_value_ref(),
                 rhs.as_llvm_value_ref(),
@@ -54,28 +54,29 @@ impl<'a> Builder<'a> {
             ))
         }
     }
-    pub fn build_store(&self, ptr: PtrValue<'a>, value: Value<'a>) -> InstructionValue<'a> {
+    pub fn build_store(&self, ptr: Value<'a>, value: Value<'a>) -> Value<'a> {
+        let ptr_value: PtrValue = ptr.into();
         let value = unsafe {
             LLVMBuildStore(
                 self.llvm_builder,
                 value.as_llvm_value_ref(),
-                ptr.as_llvm_value_ref(),
+                ptr_value.as_llvm_value_ref(),
             )
         };
 
-        InstructionValue::new(value)
+        InstructionValue::new(value).into()
     }
-    pub fn build_alloca(&self, ty: Type<'a>, name: &str) -> PtrValue<'a> {
+    pub fn build_alloca(&self, ty: Type<'a>, name: &str) -> Value<'a> {
         let c_string = to_c_str(name);
         let value =
             unsafe { LLVMBuildAlloca(self.llvm_builder, ty.as_llvm_type_ref(), c_string.as_ptr()) };
 
-        PtrValue::new(value)
+        PtrValue::new(value).into()
     }
 
-    pub fn build_return(&self, value: Value<'a>) -> InstructionValue<'a> {
+    pub fn build_return(&self, value: Value<'a>) -> Value<'a> {
         let value = unsafe { LLVMBuildRet(self.llvm_builder, value.as_llvm_value_ref()) };
-        InstructionValue::new(value)
+        InstructionValue::new(value).into()
     }
 }
 

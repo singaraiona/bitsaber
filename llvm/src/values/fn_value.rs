@@ -1,8 +1,10 @@
 use super::{Value, ValueRef};
 use crate::basic_block::BasicBlock;
+use crate::types::Type;
 use crate::values::ValueIntrinsics;
 use llvm_sys::analysis::{LLVMVerifierFailureAction, LLVMVerifyFunction};
 use llvm_sys::core::*;
+use llvm_sys::prelude::LLVMTypeRef;
 use llvm_sys::prelude::LLVMValueRef;
 use std::ffi::CStr;
 
@@ -57,18 +59,24 @@ impl<'a> FnValue<'a> {
         let code = unsafe {
             LLVMVerifyFunction(
                 self.as_llvm_value_ref(),
-                LLVMVerifierFailureAction::LLVMReturnStatusAction,
+                LLVMVerifierFailureAction::LLVMPrintMessageAction,
             )
         };
 
-        match code {
-            1 => Ok(()),
-            _ => Err("Function is broken".to_string()),
+        if code != 0 {
+            return Err(format!("Function is broken: {:?}", code));
         }
+
+        Ok(())
     }
 
     pub fn delete(self) {
         unsafe { LLVMDeleteFunction(self.as_llvm_value_ref()) }
+    }
+
+    pub fn get_return_type(&self) -> Type<'a> {
+        let tp = unsafe { LLVMGetReturnType(LLVMTypeOf(self.as_llvm_value_ref())) };
+        Type::new(tp)
     }
 
     // pub fn set_linkage(self, linkage: Linkage) {
@@ -86,5 +94,9 @@ impl ValueIntrinsics for FnValue<'_> {
 
     fn get_name(&self) -> &CStr {
         self.val.get_name()
+    }
+
+    fn get_llvm_type_ref(&self) -> LLVMTypeRef {
+        self.val.get_llvm_type_ref()
     }
 }

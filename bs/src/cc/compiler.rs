@@ -17,7 +17,6 @@ pub struct Compiler<'a, 'b> {
     module: &'a mut Module<'b>,
     function: Function,
     variables: HashMap<String, PtrValue<'b>>,
-    fn_value: Option<FnValue<'b>>,
 }
 
 impl<'a, 'b> Compiler<'a, 'b> {
@@ -33,51 +32,59 @@ impl<'a, 'b> Compiler<'a, 'b> {
             module,
             function,
             variables: HashMap::new(),
-            fn_value: None,
         }
     }
 
-    fn compile_expr(&self, expr: &Expr) -> BSResult<BsValue> {
+    fn compile_expr(&self, expr: &Expr) -> BSResult<Value<'b>> {
         match expr {
-            Expr::Null => ok(BsValue::Null),
-            Expr::I64(v) => ok(BsValue::I64(*v)),
-            Expr::F64(v) => ok(BsValue::F64(*v)),
-            Expr::VecI64(v) => ok(BsValue::from(v.clone())),
-            Expr::VecF64(v) => ok(BsValue::from(v.clone())),
+            // Expr::Null => ok(Value::Null),
+            Expr::I64(v) => ok(self.context.i64_type().const_value(*v).into()),
+            Expr::F64(v) => ok(self.context.f64_type().const_value(*v).into()),
+            // Expr::VecI64(v) => ok(BsValue::from(v.clone())),
+            // Expr::VecF64(v) => ok(BsValue::from(v.clone())),
+            Expr::Binary { op, lhs, rhs } => {
+                let lhs = self.compile_expr(lhs)?;
+                let rhs = self.compile_expr(rhs)?;
+
+                match op {
+                    '+' => ok(self.builder.build_add(lhs, rhs, "tmpadd")),
+                    _ => todo!(),
+                }
+            }
             _ => compile_error("Compiler: unknown expression"),
         }
     }
 
-    fn compile_prototype(&self) -> BSResult<FnValue<'b>> {
+    fn compile_prototype(&self, ret_type: Type<'a>) -> BSResult<FnValue<'b>> {
         let proto = &self.function.prototype;
-        let args_types = std::iter::repeat(BsValue::llvm_type(self.context))
-            .take(proto.args.len())
-            .map(|f| f.into())
-            .collect::<Vec<Type<'_>>>();
-        let args_types = args_types.as_slice();
+        // let args_types = std::iter::repeat(BsValue::llvm_type(self.context))
+        //     .take(proto.args.len())
+        //     .map(|f| f.into())
+        //     .collect::<Vec<Type<'_>>>();
+        // let args_types = args_types.as_slice();
 
-        let fn_type = self
-            .context
-            .fn_type(BsValue::llvm_type(self.context), args_types, false);
+        let args_types = &[];
+
+        let fn_type = self.context.fn_type(ret_type, args_types, false);
         let fn_val = self.module.add_function(proto.name.as_str(), fn_type);
 
         // set arguments names
-        for (i, arg) in fn_val.get_params_iter().enumerate() {
-            arg.set_name(proto.args[i].as_str());
-        }
+        // for (i, arg) in fn_val.get_params_iter().enumerate() {
+        //     arg.set_name(proto.args[i].as_str());
+        // }
 
         // finally return built prototype
         ok(fn_val)
     }
 
     /// Creates a new stack allocation instruction in the entry block of the function.
-    fn create_entry_block_alloca(&self, name: &str) -> PtrValue<'b> {
+    fn create_entry_block_alloca(&self, name: &str, fn_value: FnValue<'_>) -> Value<'b> {
         let builder = self
             .context
             .create_builder()
             .expect("unable to create builder");
 
-        let entry = self.fn_value.unwrap().get_first_basic_block().unwrap();
+        let entry = fn_value.get_first_basic_block().unwrap();
 
         match entry.get_first_instruction() {
             Some(first_instr) => builder.position_before(&first_instr),
@@ -88,8 +95,11 @@ impl<'a, 'b> Compiler<'a, 'b> {
     }
 
     fn compile_fn(&mut self) -> BSResult<FnValue<'b>> {
-        let function = self.compile_prototype()?;
-        self.fn_value = Some(function);
+        // compile body
+        let body = self.compile_expr(self.function.body.as_ref().unwrap())?;
+        let function = self.compile_prototype(Type::new(body.get_llvm_type_ref()))?;
+
+        let variables = &mut self.variables;
 
         // got external function, returning only compiled prototype
         if self.function.body.is_none() {
@@ -100,21 +110,17 @@ impl<'a, 'b> Compiler<'a, 'b> {
         self.builder.position_at_end(entry);
 
         // build variables map
-        self.variables.reserve(self.function.prototype.args.len());
+        variables.reserve(self.function.prototype.args.len());
 
         for (i, arg) in function.get_params_iter().enumerate() {
             let arg_name = self.function.prototype.args[i].as_str();
-            let alloca = self.create_entry_block_alloca(arg_name);
+            let alloca = self.create_entry_block_alloca(arg_name, function);
             self.builder.build_store(alloca, arg);
             self.variables
-                .insert(self.function.prototype.args[i].clone(), alloca);
+                .insert(self.function.prototype.args[i].clone(), alloca.into());
         }
 
-        // compile body
-        let body = self.compile_expr(self.function.body.as_ref().unwrap())?;
-
-        self.builder
-            .build_return(body.into_llvm_value(self.context));
+        self.builder.build_return(body);
 
         // return the whole thing after verification and optimization
         match function.verify() {
