@@ -1,5 +1,5 @@
-use crate::values::fn_value::FnValue;
-use crate::values::instruction_value::InstructionValue;
+use crate::compile::values::fn_value::FnValue;
+use crate::compile::values::instruction_value::InstructionValue;
 use llvm_sys::core::*;
 use llvm_sys::prelude::{LLVMBasicBlockRef, LLVMValueRef};
 use std::marker::PhantomData;

@@ -1,6 +1,6 @@
 use super::{Type, TypeRef};
-use crate::types::TypeIntrinsics;
-use crate::values::i64_value::*;
+use crate::compile::types::TypeIntrinsics;
+use crate::compile::values::i64_value::*;
 use llvm_sys::core::LLVMConstInt;
 use llvm_sys::prelude::LLVMTypeRef;
 

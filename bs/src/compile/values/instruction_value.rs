@@ -1,15 +1,15 @@
 use super::ValueRef;
-use crate::values::ValueIntrinsics;
+use crate::compile::values::ValueIntrinsics;
 use llvm_sys::prelude::LLVMTypeRef;
 use llvm_sys::prelude::LLVMValueRef;
 use std::ffi::CStr;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct StructValue<'a> {
+pub struct InstructionValue<'a> {
     val: ValueRef<'a>,
 }
 
-impl<'a> StructValue<'a> {
+impl<'a> InstructionValue<'a> {
     pub(crate) fn new(llvm_value: LLVMValueRef) -> Self {
         Self {
             val: ValueRef::new(llvm_value),
@@ -17,7 +17,7 @@ impl<'a> StructValue<'a> {
     }
 }
 
-impl ValueIntrinsics for StructValue<'_> {
+impl ValueIntrinsics for InstructionValue<'_> {
     fn as_llvm_value_ref(&self) -> LLVMValueRef {
         self.val.as_llvm_value_ref()
     }

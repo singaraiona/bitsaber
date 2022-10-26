@@ -1,13 +1,13 @@
 use crate::base::Value as BSValue;
-use crate::cc::compiler::Compiler;
+use crate::compile::builder::Builder;
+use crate::compile::compiler::Compiler;
+use crate::compile::context::Context;
+use crate::compile::execution_engine::ExecutionEngine;
+use crate::compile::module::Module;
+use crate::compile::types::Type;
+use crate::compile::values::Value;
 use crate::parse::parser::*;
 use crate::result::*;
-use llvm::builder::Builder;
-use llvm::context::Context;
-use llvm::execution_engine::ExecutionEngine;
-use llvm::module::Module;
-use llvm::types::Type;
-use llvm::values::Value;
 use std::collections::HashMap;
 use std::mem;
 

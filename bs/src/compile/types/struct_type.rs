@@ -1,8 +1,8 @@
 use super::TypeRef;
-use crate::types::TypeIntrinsics;
-use crate::values::struct_value::*;
-use crate::values::Value;
-use crate::values::ValueIntrinsics;
+use crate::compile::types::TypeIntrinsics;
+use crate::compile::values::struct_value::*;
+use crate::compile::values::Value;
+use crate::compile::values::ValueIntrinsics;
 use llvm_sys::core::LLVMConstStruct;
 use llvm_sys::prelude::LLVMTypeRef;
 use llvm_sys::prelude::LLVMValueRef;

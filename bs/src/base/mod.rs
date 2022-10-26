@@ -1,8 +1,8 @@
 pub mod i64_value;
-use llvm::context::Context;
-use llvm::types::struct_type::StructType as LLVMStructType;
-use llvm::types::Type as LLVMType;
-use llvm::values::Value as LLVMValue;
+use crate::compile::context::Context;
+use crate::compile::types::struct_type::StructType as LLVMStructType;
+use crate::compile::types::Type as LLVMType;
+use crate::compile::values::Value as LLVMValue;
 use std::fmt;
 use std::mem::transmute;
 use std::rc::Rc;

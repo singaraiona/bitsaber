@@ -1,15 +1,15 @@
 use super::ValueRef;
-use crate::values::ValueIntrinsics;
+use crate::compile::values::ValueIntrinsics;
 use llvm_sys::prelude::LLVMTypeRef;
 use llvm_sys::prelude::LLVMValueRef;
 use std::ffi::CStr;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub struct PtrValue<'a> {
+pub struct F64Value<'a> {
     val: ValueRef<'a>,
 }
 
-impl<'a> PtrValue<'a> {
+impl<'a> F64Value<'a> {
     pub(crate) fn new(llvm_value: LLVMValueRef) -> Self {
         Self {
             val: ValueRef::new(llvm_value),
@@ -17,7 +17,13 @@ impl<'a> PtrValue<'a> {
     }
 }
 
-impl ValueIntrinsics for PtrValue<'_> {
+// impl Into<f64> for F64Value<'_> {
+//     fn into(self) -> f64 {
+//         unsafe { self.val.intrinsics().const_real_get_double() }
+//     }
+// }
+
+impl ValueIntrinsics for F64Value<'_> {
     fn as_llvm_value_ref(&self) -> LLVMValueRef {
         self.val.as_llvm_value_ref()
     }

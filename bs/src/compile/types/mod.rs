@@ -5,6 +5,7 @@ pub mod f64_type;
 pub mod fn_type;
 pub mod i64_type;
 pub mod struct_type;
+
 use f64_type::F64Type;
 use fn_type::FnType;
 use i64_type::I64Type;

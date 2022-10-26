@@ -1,4 +1,4 @@
-use crate::utils::to_c_str;
+use crate::compile::utils::to_c_str;
 use llvm_sys::execution_engine::*;
 use std::marker::PhantomData;
 

@@ -1,5 +1,5 @@
 use super::ValueRef;
-use crate::values::ValueIntrinsics;
+use crate::compile::values::ValueIntrinsics;
 use llvm_sys::core::LLVMConstIntGetSExtValue;
 use llvm_sys::prelude::LLVMTypeRef;
 use llvm_sys::prelude::LLVMValueRef;

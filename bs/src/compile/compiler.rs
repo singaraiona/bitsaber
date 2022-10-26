@@ -1,14 +1,14 @@
 use crate::base::Value as BsValue;
-use crate::llvm::values::ptr_value::PtrValue;
-use crate::llvm::values::ValueIntrinsics;
+use crate::compile::builder::Builder;
+use crate::compile::context::Context;
+use crate::compile::module::Module;
+use crate::compile::types::Type;
+use crate::compile::values::fn_value::FnValue;
+use crate::compile::values::ptr_value::PtrValue;
+use crate::compile::values::Value;
+use crate::compile::values::ValueIntrinsics;
 use crate::parse::ast::{Expr, Function, Prototype};
 use crate::result::*;
-use llvm::builder::Builder;
-use llvm::context::Context;
-use llvm::module::Module;
-use llvm::types::Type;
-use llvm::values::fn_value::FnValue;
-use llvm::values::Value;
 use std::collections::HashMap;
 
 pub struct Compiler<'a, 'b> {
