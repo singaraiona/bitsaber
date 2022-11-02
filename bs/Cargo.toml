@@ -5,5 +5,5 @@ edition = "2021"
 
 [dependencies]
 rand = "*"
-llvm-sys = { package = "llvm-sys", version = "140.0.3" }
+llvm-sys = { package = "llvm-sys", version = "150.0.3" }
 libc = "0.2"
