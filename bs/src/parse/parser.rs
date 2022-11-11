@@ -447,6 +447,8 @@ impl<'a> Parser<'a> {
             }
         }
 
+        self.advance()?;
+
         if vec_i64.len() == 0 {
             ok(Expr::VecF64(vec_f64))
         } else {
@@ -486,6 +488,10 @@ impl<'a> Parser<'a> {
 
     /// Parses a binary expression, given its left-hand expression.
     fn parse_binary_expr(&mut self, mut lhs: Expr) -> BSResult<Expr> {
+        if self.at_end() {
+            return ok(lhs);
+        }
+
         // loop {
         let op = match self.curr {
             Op(op) => op,

@@ -36,12 +36,17 @@ impl<'a, 'b> Compiler<'a, 'b> {
         }
     }
 
-    fn compile_expr(&self, expr: &Expr) -> BSResult<(Value<'b>, BSType)> {
+    fn compile_expr(&self, expr: &Expr) -> BSResult<(Value<'a>, BSType)> {
         match expr {
             // Expr::Null => ok(Value::Null),
             Expr::I64(v) => ok((self.context.i64_type().const_value(*v).into(), BSType::I64)),
             Expr::F64(v) => ok((self.context.f64_type().const_value(*v).into(), BSType::F64)),
-            // Expr::VecI64(v) => ok(BsValue::from(v.clone())),
+            Expr::VecI64(v) => {
+                let bsval = unsafe {
+                    std::mem::transmute(BsValue::from(v.clone()).into_llvm_value(&self.context))
+                };
+                ok((bsval, BSType::VecI64))
+            }
             // Expr::VecF64(v) => ok(BsValue::from(v.clone())),
             Expr::Binary { op, lhs, rhs } => {
                 let lhs = self.compile_expr(lhs)?;
@@ -135,7 +140,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             }
             Err(e) => {
                 function.delete();
-                compile_error(&format!("Compiler: function verification failed: {}", e))
+                compile_error(&e.to_string())
             }
         }
     }

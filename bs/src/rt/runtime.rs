@@ -74,23 +74,28 @@ impl<'a> Runtime<'a> {
 
             let parsed_fn = Parser::new(input.as_str()).parse()?;
 
-            let (compiled_fn, ret_ty) =
-                Compiler::new(&mut self.context, &mut self.builder, &mut module, parsed_fn)
-                    .compile()?;
+            let mut compiler =
+                Compiler::new(&mut self.context, &mut self.builder, &mut module, parsed_fn);
+
+            let (compiled_fn, ret_ty) = compiler.compile()?;
 
             let addr = execution_engine
                 .get_function_address("anonymous")
                 .map_err(|e| BSError::RuntimeError(e.to_string()))?;
 
-            let ret = match ret_ty {
+            match ret_ty {
                 BSType::I64 => {
                     let f: extern "C" fn() -> i64 = mem::transmute(addr);
-                    f()
+                    ok(BSValue::I64(f().into()))
                 }
-                _ => todo!(),
-            };
-
-            ok(BSValue::I64(ret.into()))
+                BSType::VecI64 => {
+                    let f: extern "C" fn() -> BSValue = mem::transmute(addr);
+                    ok(f())
+                }
+                ty => {
+                    panic!("{:?}", ty)
+                }
+            }
         }
     }
 }

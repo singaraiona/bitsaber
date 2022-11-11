@@ -54,6 +54,9 @@ impl Type {
         match self {
             Type::Null => LLVMType::Null,
             Type::I64 => ctx.i64_type().into(),
+            Type::VecI64 => ctx
+                .struct_type(&[ctx.i64_type().into(), ctx.i64_type().into()], true)
+                .into(),
             _ => unimplemented!(),
         }
     }
@@ -77,7 +80,7 @@ impl Value {
                 context.i64_type().const_value(tag).into(),
                 context.i64_type().const_value(val).into(),
             ],
-            true,
+            false,
         );
 
         ret_struct.into()

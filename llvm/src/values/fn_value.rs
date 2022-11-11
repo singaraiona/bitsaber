@@ -64,7 +64,11 @@ impl<'a> FnValue<'a> {
         };
 
         if code != 0 {
-            return Err(format!("Function is broken: {:?}", code));
+            println!();
+            return Err(format!(
+                "Function verification failed with code: {:?}",
+                code
+            ));
         }
 
         Ok(())
