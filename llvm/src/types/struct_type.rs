@@ -7,7 +7,7 @@ use llvm_sys::core::LLVMConstStruct;
 use llvm_sys::prelude::LLVMTypeRef;
 use llvm_sys::prelude::LLVMValueRef;
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub struct StructType<'a> {
     ty: TypeRef<'a>,
 }

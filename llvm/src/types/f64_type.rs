@@ -4,7 +4,7 @@ use crate::values::f64_value::*;
 use llvm_sys::core::LLVMConstReal;
 use llvm_sys::prelude::LLVMTypeRef;
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub struct F64Type<'a> {
     ty: TypeRef<'a>,
 }

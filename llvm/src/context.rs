@@ -1,11 +1,7 @@
 use crate::basic_block::BasicBlock;
 use crate::builder::Builder;
 use crate::module::Module;
-use crate::types::f64_type::*;
-use crate::types::fn_type::FnType;
-use crate::types::i64_type::*;
-use crate::types::struct_type::StructType;
-use crate::types::*;
+use crate::types::{prelude::*, Type, TypeIntrinsics};
 use crate::utils::to_c_str;
 use crate::values::fn_value::FnValue;
 use crate::values::ValueIntrinsics;
@@ -106,6 +102,10 @@ impl Context {
             ))
         }
     }
+
+    // pub fn ptr_type<'a>(&self) -> I64Type<'a> {
+    //     unsafe { PtrType::new(LLVMPointerTypeInContext(self.ty.llvm_type, value as u64)) }
+    // }
 
     pub fn append_basic_block<'a>(&self, function: FnValue<'a>, name: &str) -> BasicBlock<'a> {
         let c_string = to_c_str(name);

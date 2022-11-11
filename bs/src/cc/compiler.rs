@@ -1,12 +1,13 @@
+use crate::base::Type as BSType;
 use crate::base::Value as BsValue;
 use crate::llvm::values::ptr_value::PtrValue;
-use crate::llvm::values::ValueIntrinsics;
 use crate::parse::ast::{Expr, Function, Prototype};
 use crate::result::*;
 use llvm::builder::Builder;
 use llvm::context::Context;
 use llvm::module::Module;
 use llvm::types::Type;
+use llvm::types::TypeIntrinsics;
 use llvm::values::fn_value::FnValue;
 use llvm::values::Value;
 use std::collections::HashMap;
@@ -35,11 +36,11 @@ impl<'a, 'b> Compiler<'a, 'b> {
         }
     }
 
-    fn compile_expr(&self, expr: &Expr) -> BSResult<Value<'b>> {
+    fn compile_expr(&self, expr: &Expr) -> BSResult<(Value<'b>, BSType)> {
         match expr {
             // Expr::Null => ok(Value::Null),
-            Expr::I64(v) => ok(self.context.i64_type().const_value(*v).into()),
-            Expr::F64(v) => ok(self.context.f64_type().const_value(*v).into()),
+            Expr::I64(v) => ok((self.context.i64_type().const_value(*v).into(), BSType::I64)),
+            Expr::F64(v) => ok((self.context.f64_type().const_value(*v).into(), BSType::F64)),
             // Expr::VecI64(v) => ok(BsValue::from(v.clone())),
             // Expr::VecF64(v) => ok(BsValue::from(v.clone())),
             Expr::Binary { op, lhs, rhs } => {
@@ -47,7 +48,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 let rhs = self.compile_expr(rhs)?;
 
                 match op {
-                    '+' => ok(self.builder.build_add(lhs, rhs, "tmpadd")),
+                    '+' => ok((self.builder.build_add(lhs.0, rhs.0, "tmpadd"), BSType::I64)),
                     _ => todo!(),
                 }
             }
@@ -55,7 +56,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         }
     }
 
-    fn compile_prototype(&self, ret_type: Type<'a>) -> BSResult<FnValue<'b>> {
+    fn compile_prototype(&self, ret_type: Type<'a>) -> BSResult<(FnValue<'b>, BSType)> {
         let proto = &self.function.prototype;
         // let args_types = std::iter::repeat(BsValue::llvm_type(self.context))
         //     .take(proto.args.len())
@@ -65,8 +66,10 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         let args_types = &[];
 
-        let fn_type = self.context.fn_type(ret_type, args_types, false);
+        let fn_type = self.context.fn_type(ret_type.clone(), args_types, false);
         let fn_val = self.module.add_function(proto.name.as_str(), fn_type);
+
+        // println!("{:?}", fn_val.get_return_type());
 
         // set arguments names
         // for (i, arg) in fn_val.get_params_iter().enumerate() {
@@ -74,7 +77,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         // }
 
         // finally return built prototype
-        ok(fn_val)
+        ok((fn_val, ret_type.into()))
     }
 
     /// Creates a new stack allocation instruction in the entry block of the function.
@@ -94,16 +97,18 @@ impl<'a, 'b> Compiler<'a, 'b> {
         builder.build_alloca(self.context.f64_type().into(), name)
     }
 
-    fn compile_fn(&mut self) -> BSResult<FnValue<'b>> {
+    fn compile_fn(&mut self) -> BSResult<(FnValue<'b>, BSType)> {
         // compile body
-        let body = self.compile_expr(self.function.body.as_ref().unwrap())?;
-        let function = self.compile_prototype(Type::new(body.get_llvm_type_ref()))?;
+        let (body, ret_ty) = self.compile_expr(self.function.body.as_ref().unwrap())?;
+        let (function, ret_ty) = self.compile_prototype(Type::new(
+            ret_ty.into_llvm_type(&self.context).as_llvm_type_ref(),
+        ))?;
 
         let variables = &mut self.variables;
 
         // got external function, returning only compiled prototype
         if self.function.body.is_none() {
-            return ok(function);
+            return ok((function, ret_ty));
         }
 
         let entry = self.context.append_basic_block(function, "entry");
@@ -126,7 +131,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         match function.verify() {
             Ok(_) => {
                 // self.fpm.run_on(&function);
-                ok(function)
+                ok((function, ret_ty))
             }
             Err(e) => {
                 function.delete();
@@ -135,7 +140,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         }
     }
 
-    pub fn compile(&mut self) -> BSResult<FnValue<'b>> {
+    pub fn compile(&mut self) -> BSResult<(FnValue<'b>, BSType)> {
         self.compile_fn()
     }
 }

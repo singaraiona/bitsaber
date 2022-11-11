@@ -4,7 +4,7 @@ use crate::values::i64_value::*;
 use llvm_sys::core::LLVMConstInt;
 use llvm_sys::prelude::LLVMTypeRef;
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub struct FnType<'a> {
     ty: TypeRef<'a>,
 }

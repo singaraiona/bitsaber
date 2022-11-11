@@ -1,6 +1,5 @@
 use crate::basic_block::BasicBlock;
-use crate::types::Type;
-use crate::types::TypeIntrinsics;
+use crate::types::{prelude::*, Type, TypeIntrinsics};
 use crate::utils::to_c_str;
 use crate::values::i64_value::I64Value;
 use crate::values::instruction_value::InstructionValue;

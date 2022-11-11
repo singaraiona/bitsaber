@@ -1,4 +1,13 @@
+use libc::c_char;
+use llvm_sys::core::LLVMGetTypeKind;
+use llvm_sys::core::LLVMTypeOf;
+use llvm_sys::core::{LLVMGetValueName2, LLVMSetValueName2};
+use llvm_sys::prelude::LLVMTypeRef;
 use llvm_sys::prelude::LLVMValueRef;
+use llvm_sys::LLVMTypeKind;
+use prelude::*;
+use std::ffi::CStr;
+use std::fmt;
 use std::marker::PhantomData;
 
 pub mod f64_value;
@@ -8,20 +17,14 @@ pub mod instruction_value;
 pub mod ptr_value;
 pub mod struct_value;
 
-use f64_value::F64Value;
-use fn_value::FnValue;
-use i64_value::I64Value;
-use instruction_value::InstructionValue;
-use libc::c_char;
-use llvm_sys::core::LLVMGetTypeKind;
-use llvm_sys::core::LLVMTypeOf;
-use llvm_sys::core::{LLVMGetValueName2, LLVMSetValueName2};
-use llvm_sys::prelude::LLVMTypeRef;
-use llvm_sys::LLVMTypeKind;
-use ptr_value::PtrValue;
-use std::ffi::CStr;
-use std::fmt;
-use struct_value::StructValue;
+pub mod prelude {
+    pub use super::f64_value::F64Value;
+    pub use super::fn_value::FnValue;
+    pub use super::i64_value::I64Value;
+    pub use super::instruction_value::InstructionValue;
+    pub use super::ptr_value::PtrValue;
+    pub use super::struct_value::StructValue;
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct ValueRef<'a> {
@@ -188,6 +191,7 @@ impl ValueIntrinsics for ValueRef<'_> {
         };
         unsafe { CStr::from_ptr(ptr) }
     }
+
     fn get_llvm_type_ref(&self) -> LLVMTypeRef {
         unsafe { LLVMTypeOf(self.llvm_value) }
     }

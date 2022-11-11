@@ -4,13 +4,20 @@ use std::marker::PhantomData;
 pub mod f64_type;
 pub mod fn_type;
 pub mod i64_type;
+pub mod ptr_type;
 pub mod struct_type;
-use f64_type::F64Type;
-use fn_type::FnType;
-use i64_type::I64Type;
-use struct_type::StructType;
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+pub mod prelude {
+    pub use super::f64_type::F64Type;
+    pub use super::fn_type::FnType;
+    pub use super::i64_type::I64Type;
+    pub use super::ptr_type::PtrType;
+    pub use super::struct_type::StructType;
+}
+
+use prelude::*;
+
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub(crate) struct TypeRef<'a> {
     llvm_type: LLVMTypeRef,
     _phantom: PhantomData<&'a ()>,
@@ -33,10 +40,12 @@ impl Into<LLVMTypeRef> for TypeRef<'_> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Type<'a> {
+    Null,
     I64(I64Type<'a>),
     F64(F64Type<'a>),
+    Ptr(PtrType<'a>),
     Fn(FnType<'a>),
     Struct(StructType<'a>),
 }
@@ -65,6 +74,12 @@ impl<'a> From<StructType<'a>> for Type<'a> {
     }
 }
 
+impl<'a> From<PtrType<'a>> for Type<'a> {
+    fn from(ty: PtrType<'a>) -> Self {
+        Self::Ptr(ty)
+    }
+}
+
 impl<'a> Type<'a> {
     pub fn new(llvm_type: LLVMTypeRef) -> Type<'a> {
         match unsafe { llvm_sys::core::LLVMGetTypeKind(llvm_type) } {
@@ -72,6 +87,7 @@ impl<'a> Type<'a> {
             llvm_sys::LLVMTypeKind::LLVMFloatTypeKind => Type::F64(F64Type::new(llvm_type)),
             llvm_sys::LLVMTypeKind::LLVMFunctionTypeKind => Type::Fn(FnType::new(llvm_type)),
             llvm_sys::LLVMTypeKind::LLVMStructTypeKind => Type::Struct(StructType::new(llvm_type)),
+            llvm_sys::LLVMTypeKind::LLVMPointerTypeKind => Type::Ptr(PtrType::new(llvm_type)),
             _ => panic!("Unknown type"),
         }
     }
@@ -90,10 +106,12 @@ impl<'a> TypeIntrinsics for TypeRef<'a> {
 impl<'a> TypeIntrinsics for Type<'a> {
     fn as_llvm_type_ref(&self) -> LLVMTypeRef {
         match self {
+            Type::Null => panic!("Null type"),
             Type::I64(t) => t.as_llvm_type_ref(),
             Type::F64(t) => t.as_llvm_type_ref(),
             Type::Fn(t) => t.as_llvm_type_ref(),
             Type::Struct(t) => t.as_llvm_type_ref(),
+            Type::Ptr(t) => t.as_llvm_type_ref(),
         }
     }
 }

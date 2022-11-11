@@ -1,6 +1,6 @@
 use super::{Value, ValueRef};
 use crate::basic_block::BasicBlock;
-use crate::types::Type;
+use crate::types::{Type, TypeIntrinsics};
 use crate::values::ValueIntrinsics;
 use llvm_sys::analysis::{LLVMVerifierFailureAction, LLVMVerifyFunction};
 use llvm_sys::core::*;
@@ -75,8 +75,14 @@ impl<'a> FnValue<'a> {
     }
 
     pub fn get_return_type(&self) -> Type<'a> {
-        let tp = unsafe { LLVMGetReturnType(LLVMTypeOf(self.as_llvm_value_ref())) };
-        Type::new(tp)
+        unsafe {
+            let ptr_ty = self.val.get_llvm_type_ref();
+            let fn_ty = LLVMGetElementType(ptr_ty);
+
+            println!("fn_ty: {:?}", llvm_sys::core::LLVMGetTypeKind(fn_ty));
+            let tp = LLVMGetReturnType(ptr_ty);
+            Type::new(tp)
+        }
     }
 
     // pub fn set_linkage(self, linkage: Linkage) {

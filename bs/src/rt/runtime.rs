@@ -1,3 +1,4 @@
+use crate::base::Type as BSType;
 use crate::base::Value as BSValue;
 use crate::cc::compiler::Compiler;
 use crate::parse::parser::*;
@@ -73,40 +74,23 @@ impl<'a> Runtime<'a> {
 
             let parsed_fn = Parser::new(input.as_str()).parse()?;
 
-            let mut compiler =
-                Compiler::new(&mut self.context, &mut self.builder, &mut module, parsed_fn);
-            let compiled_fn = compiler.compile()?;
-            let ret_type = compiled_fn.get_return_type();
+            let (compiled_fn, ret_ty) =
+                Compiler::new(&mut self.context, &mut self.builder, &mut module, parsed_fn)
+                    .compile()?;
 
             let addr = execution_engine
                 .get_function_address("anonymous")
                 .map_err(|e| BSError::RuntimeError(e.to_string()))?;
 
-            match ret_type {
-                Type::I64(_) => {
+            let ret = match ret_ty {
+                BSType::I64 => {
                     let f: extern "C" fn() -> i64 = mem::transmute(addr);
-                    let ret = f();
-                    ok(BSValue::I64(ret))
+                    f()
                 }
+                _ => todo!(),
+            };
 
-                Type::F64(_) => {
-                    let f: extern "C" fn() -> f64 = mem::transmute(addr);
-                    let ret = f();
-                    ok(BSValue::F64(ret))
-                }
-
-                Type::Struct(_) => {
-                    println!("struct");
-                    todo!()
-                }
-                Type::Fn(_) => {
-                    println!("struct");
-                    todo!()
-                }
-                t => {
-                    todo!()
-                }
-            }
+            ok(BSValue::I64(ret.into()))
         }
     }
 }
