@@ -132,6 +132,8 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         self.builder.build_return(body);
 
+        println!("{:?}", function.get_return_type());
+
         // return the whole thing after verification and optimization
         match function.verify() {
             Ok(_) => {
