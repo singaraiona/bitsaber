@@ -163,6 +163,7 @@ impl<'a> Value<'a> {
                 LLVMTypeKind::LLVMStructTypeKind => Value::Struct(StructValue::new(llvm_value)),
                 LLVMTypeKind::LLVMFunctionTypeKind => Value::Fn(FnValue::new(llvm_value)),
                 LLVMTypeKind::LLVMPointerTypeKind => Value::Ptr(PtrValue::new(llvm_value)),
+                // _ => Value::Instruction(InstructionValue::new(llvm_value)),
                 kind => panic!("Unknown value: {:?}", kind),
             }
         }

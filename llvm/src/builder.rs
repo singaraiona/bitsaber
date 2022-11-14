@@ -77,6 +77,15 @@ impl<'a> Builder<'a> {
         let value = unsafe { LLVMBuildRet(self.llvm_builder, value.as_llvm_value_ref()) };
         InstructionValue::new(value).into()
     }
+
+    pub fn build_aggregate_return(&self, values: &[Value<'a>]) -> Value<'a> {
+        unsafe {
+            let mut args: Vec<_> = values.iter().map(|val| val.as_llvm_value_ref()).collect();
+            let value =
+                LLVMBuildAggregateRet(self.llvm_builder, args.as_mut_ptr(), args.len() as u32);
+            InstructionValue::new(value).into()
+        }
+    }
 }
 
 impl<'a> Drop for Builder<'a> {

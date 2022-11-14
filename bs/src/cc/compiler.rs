@@ -130,9 +130,12 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 .insert(self.function.prototype.args[i].clone(), alloca.into());
         }
 
-        self.builder.build_return(body);
-
-        println!("{:?}", function.get_return_type());
+        // build return instruction according to return type
+        if ret_ty.is_scalar() {
+            self.builder.build_return(body);
+        } else {
+            self.builder.build_aggregate_return(&[body]);
+        }
 
         // return the whole thing after verification and optimization
         match function.verify() {

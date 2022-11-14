@@ -93,7 +93,7 @@ impl<'a> Runtime<'a> {
                     ok(f())
                 }
                 ty => {
-                    panic!("{:?}", ty)
+                    panic!("RET TYPE: {:?}", ty)
                 }
             }
         }

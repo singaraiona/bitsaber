@@ -80,9 +80,9 @@ impl<'a> FnValue<'a> {
 
     pub fn get_return_type(&self) -> Type<'a> {
         unsafe {
-            let fn_ty = LLVMGetElementType(self.val.get_llvm_type_ref());
-            let tp = LLVMGetReturnType(fn_ty);
-            Type::new(tp)
+            Type::new(LLVMGetReturnType(LLVMGetElementType(
+                self.val.get_llvm_type_ref(),
+            )))
         }
     }
 

@@ -33,7 +33,7 @@ impl From<LLVMType<'_>> for Type {
             LLVMType::Null => Self::Null,
             LLVMType::I64(_) => Self::I64,
             LLVMType::F64(_) => Self::F64,
-            _ => Self::Null,
+            _ => Self::VecI64,
         }
     }
 }
@@ -60,6 +60,15 @@ impl Type {
             _ => unimplemented!(),
         }
     }
+
+    pub fn is_scalar(&self) -> bool {
+        match self {
+            Type::Null => false,
+            Type::I64 => true,
+            Type::F64 => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -80,7 +89,7 @@ impl Value {
                 context.i64_type().const_value(tag).into(),
                 context.i64_type().const_value(val).into(),
             ],
-            false,
+            true,
         );
 
         ret_struct.into()
@@ -89,7 +98,7 @@ impl Value {
     fn llvm_struct_type<'a>(context: &'a Context) -> LLVMStructType<'a> {
         context.struct_type(
             &[context.i64_type().into(), context.i64_type().into()],
-            false,
+            true,
         )
     }
 
