@@ -56,7 +56,6 @@ impl<'a> Lexer<'a> {
     pub fn next(&mut self) -> BSResult<Token<'a>> {
         let chars = self.chars.deref_mut();
         let src = self.input;
-
         let mut pos = self.pos;
 
         // Skip whitespaces
@@ -122,10 +121,20 @@ impl<'a> Lexer<'a> {
                 ok(Token::Comment)
             }
 
-            '-' if chars
-                .peek()
-                .map(|c| !c.is_digit(10))
-                .unwrap_or_else(|| false) =>
+            '-' if self.pos + 1 == pos
+                && chars
+                    .peek()
+                    .map(|c| c.is_digit(10) || c.is_whitespace())
+                    .unwrap_or_else(|| false) =>
+            {
+                ok(Token::Op(Op::Sub))
+            }
+
+            '-' if self.pos + 1 != pos
+                && chars
+                    .peek()
+                    .map(|c| c.is_whitespace())
+                    .unwrap_or_else(|| false) =>
             {
                 ok(Token::Op(Op::Sub))
             }
