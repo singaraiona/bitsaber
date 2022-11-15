@@ -54,6 +54,12 @@ impl Type {
                     true,
                 )
                 .into(),
+            Type::VecFloat64 => context
+                .struct_type(
+                    &[context.i64_type().into(), context.i64_type().into()],
+                    true,
+                )
+                .into(),
             _ => unimplemented!(),
         }
     }
@@ -121,6 +127,7 @@ impl Value {
                 Value::VecFloat64(v) => {
                     Self::into_llvm_struct(tag, transmute::<_, i64>(v), context)
                 }
+
                 _ => unimplemented!(),
             }
         }

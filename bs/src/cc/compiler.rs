@@ -53,6 +53,12 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 };
                 ok((bsval, BSType::VecInt64))
             }
+            Expr::VecFloat64(v) => {
+                let bsval = unsafe {
+                    std::mem::transmute(BsValue::from(v.clone()).into_llvm_value(&self.context))
+                };
+                ok((bsval, BSType::VecFloat64))
+            }
             // Expr::VecFloat64(v) => ok(BsValue::from(v.clone())),
             Expr::Binary { op, lhs, rhs } => {
                 let lhs = self.compile_expr(lhs)?;
@@ -61,10 +67,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 let res_ty = infer_type(*op, lhs.1, rhs.1)?;
 
                 match *op {
-                    Op::Add => ok((
-                        self.builder.build_add(lhs.0, rhs.0, "tmpadd"),
-                        BSType::Int64,
-                    )),
+                    Op::Add => ok((self.builder.build_add(lhs.0, rhs.0, "tmpadd"), res_ty)),
                     _ => todo!(),
                 }
             }

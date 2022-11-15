@@ -88,12 +88,13 @@ impl<'a> Runtime<'a> {
                     let f: extern "C" fn() -> i64 = mem::transmute(addr);
                     ok(BSValue::Int64(f().into()))
                 }
-                BSType::VecInt64 => {
+                BSType::Float64 => {
+                    let f: extern "C" fn() -> f64 = mem::transmute(addr);
+                    ok(BSValue::Float64(f().into()))
+                }
+                _ => {
                     let f: extern "C" fn() -> BSValue = mem::transmute(addr);
                     ok(f())
-                }
-                ty => {
-                    panic!("RET TYPE: {:?}", ty)
                 }
             }
         }
