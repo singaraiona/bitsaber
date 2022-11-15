@@ -64,6 +64,19 @@ impl<'a> Builder<'a> {
         }
     }
 
+    pub fn build_store(&self, ptr: Value<'a>, value: Value<'a>) -> Value<'a> {
+        let ptr_value: PtrValue = ptr.into();
+        let value = unsafe {
+            LLVMBuildStore(
+                self.llvm_builder,
+                value.as_llvm_value_ref(),
+                ptr_value.as_llvm_value_ref(),
+            )
+        };
+
+        InstructionValue::new(value).into()
+    }
+
     // -- OPS
 
     pub fn build_int_add(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
@@ -114,7 +127,31 @@ impl<'a> Builder<'a> {
         }
     }
 
-    pub fn build_div(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
+    pub fn build_int_mul(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildMul(
+                self.llvm_builder,
+                lhs.as_llvm_value_ref(),
+                rhs.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+        }
+    }
+
+    pub fn build_float_mul(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildFMul(
+                self.llvm_builder,
+                lhs.as_llvm_value_ref(),
+                rhs.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+        }
+    }
+
+    pub fn build_int_div(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
         unsafe {
             let c_string = to_c_str(name);
             Value::new(LLVMBuildSDiv(
@@ -126,17 +163,16 @@ impl<'a> Builder<'a> {
         }
     }
 
-    pub fn build_store(&self, ptr: Value<'a>, value: Value<'a>) -> Value<'a> {
-        let ptr_value: PtrValue = ptr.into();
-        let value = unsafe {
-            LLVMBuildStore(
+    pub fn build_float_div(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildFDiv(
                 self.llvm_builder,
-                value.as_llvm_value_ref(),
-                ptr_value.as_llvm_value_ref(),
-            )
-        };
-
-        InstructionValue::new(value).into()
+                lhs.as_llvm_value_ref(),
+                rhs.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+        }
     }
 
     pub fn build_rem(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {

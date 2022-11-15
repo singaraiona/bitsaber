@@ -5,7 +5,7 @@ use BSType::*;
 use Op::*;
 
 // Basic type inference table for binary ops/functions
-pub static OPS_TABLE: [(Op, BSType, BSType, BSType); 9] = [
+pub static OPS_TABLE: [(Op, BSType, BSType, BSType); 16] = [
     (Add, Int64, Int64, Int64),
     (Add, Float64, Float64, Float64),
     (Sub, Int64, Int64, Int64),
@@ -15,6 +15,13 @@ pub static OPS_TABLE: [(Op, BSType, BSType, BSType); 9] = [
     (Div, Int64, Int64, Int64),
     (Div, Float64, Float64, Float64),
     (Rem, Int64, Int64, Int64),
+    (Rem, Float64, Float64, Float64),
+    (Or, Int64, Int64, Int64),
+    (Or, Float64, Float64, Float64),
+    (And, Int64, Int64, Int64),
+    (And, Float64, Float64, Float64),
+    (Xor, Int64, Int64, Int64),
+    (Xor, Float64, Float64, Float64),
 ];
 
 pub fn infer_type(op: Op, lhs: BSType, rhs: BSType) -> BSResult<BSType> {

@@ -30,6 +30,7 @@ pub enum Token<'a> {
     Then,
     Unary,
     Var,
+    Dot,
 }
 
 /// Defines a lexer which transforms an input `String` into
@@ -139,7 +140,7 @@ impl<'a> Lexer<'a> {
                 ok(Token::Op(Op::Sub))
             }
 
-            '+' | '*' | '/' | '&' => {
+            '+' | '*' | '/' | '&' | '%' | '|' | '&' | '^' => {
                 // Parse operator
                 ok(Token::Op(Op::try_from(&src[start..pos]).map_err(|e| {
                     BSError::ParseError {
@@ -147,6 +148,14 @@ impl<'a> Lexer<'a> {
                         pos: start,
                     }
                 })?))
+            }
+
+            '.' if chars
+                .peek()
+                .map(|c| !c.is_digit(10))
+                .unwrap_or_else(|| false) =>
+            {
+                ok(Token::Dot)
             }
 
             '-' | '.' | '0'..='9' => {

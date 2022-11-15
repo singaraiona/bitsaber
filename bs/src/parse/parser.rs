@@ -457,6 +457,10 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_dot_expr(&mut self) -> BSResult<Expr> {
+        todo!()
+    }
+
     fn parse_unary_expr(&mut self) -> BSResult<Expr> {
         // let op = match self.current()? {
         //     Op(ch) => {
@@ -494,22 +498,29 @@ impl<'a> Parser<'a> {
         }
 
         // loop {
-        let op = match self.curr {
-            Op(op) => op,
-            _ => return parse_error("Invalid operator.", self.lexer.pos()),
-        };
+        match self.curr {
+            Op(op) => {
+                self.advance()?;
+                let mut rhs = self.parse_unary_expr()?;
+                self.advance()?;
+                ok(Expr::Binary {
+                    op,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                })
+            }
+            Dot => {
+                self.advance()?;
+                let rhs = self.parse_dot_expr()?;
+                self.advance()?;
+                ok(Expr::Dot {
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                })
+            }
+            _ => parse_error("Invalid operator.", self.lexer.pos()),
+        }
 
-        self.advance()?;
-
-        let mut rhs = self.parse_unary_expr()?;
-
-        self.advance()?;
-
-        ok(Expr::Binary {
-            op,
-            lhs: Box::new(lhs),
-            rhs: Box::new(rhs),
-        })
         // }
     }
 
@@ -529,6 +540,7 @@ impl<'a> Parser<'a> {
             If => self.parse_conditional_expr(),
             For => self.parse_for_expr(),
             Var => self.parse_var_expr(),
+            Dot => self.parse_dot_expr(),
             // Def => self.parse_def(),
             // Extern => self.parse_extern(),
             _ => self.parse_expr(),

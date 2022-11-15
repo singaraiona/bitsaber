@@ -11,6 +11,11 @@ pub enum Expr {
         rhs: Box<Expr>,
     },
 
+    Dot {
+        lhs: Box<Expr>,
+        rhs: Box<Expr>,
+    },
+
     Call {
         fn_name: String,
         args: Vec<Expr>,

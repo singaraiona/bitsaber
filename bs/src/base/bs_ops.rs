@@ -26,6 +26,10 @@ impl TryFrom<&str> for Op {
             "-" => Ok(Op::Sub),
             "*" => Ok(Op::Mul),
             "/" => Ok(Op::Div),
+            "%" => Ok(Op::Rem),
+            "|" => Ok(Op::Or),
+            "&" => Ok(Op::And),
+            "^" => Ok(Op::Xor),
             op => Err(()),
         }
     }

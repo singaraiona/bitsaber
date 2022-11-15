@@ -52,9 +52,20 @@ impl<'a, 'b> Compiler<'a, 'b> {
         let result = match (op, lhs_type, rhs_type) {
             (Add, Int64, Int64) => self.builder.build_int_add(lhs, rhs, "addtmp"),
             (Add, Float64, Float64) => self.builder.build_float_add(lhs, rhs, "addtmp"),
-            (Div, Int64, Int64) => self.builder.build_div(lhs, rhs, "divtmp"),
+            (Div, Int64, Int64) => self.builder.build_int_div(lhs, rhs, "divtmp"),
+            (Div, Float64, Float64) => self.builder.build_float_div(lhs, rhs, "divtmp"),
             (Sub, Int64, Int64) => self.builder.build_int_sub(lhs, rhs, "subtmp"),
             (Sub, Float64, Float64) => self.builder.build_float_sub(lhs, rhs, "subtmp"),
+            (Mul, Int64, Int64) => self.builder.build_int_mul(lhs, rhs, "multmp"),
+            (Mul, Float64, Float64) => self.builder.build_float_mul(lhs, rhs, "multmp"),
+            (Rem, Int64, Int64) => self.builder.build_rem(lhs, rhs, "remtmp"),
+            (Rem, Float64, Float64) => self.builder.build_rem(lhs, rhs, "remtmp"),
+            (Or, Int64, Int64) => self.builder.build_or(lhs, rhs, "ortmp"),
+            (Or, Float64, Float64) => self.builder.build_or(lhs, rhs, "ortmp"),
+            (And, Int64, Int64) => self.builder.build_and(lhs, rhs, "andtmp"),
+            (And, Float64, Float64) => self.builder.build_and(lhs, rhs, "andtmp"),
+            (Xor, Int64, Int64) => self.builder.build_xor(lhs, rhs, "xortmp"),
+            (Xor, Float64, Float64) => self.builder.build_xor(lhs, rhs, "xortmp"),
             op => return compile_error(&format!("Unsupported binary op: {:?}", op)),
         };
 
@@ -63,7 +74,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
     fn compile_expr(&self, expr: &Expr) -> BSResult<(Value<'a>, BSType)> {
         match expr {
-            // Expr::Null => ok(Value::Null),
+            // Expr::Null => ok((Value::Null, BSType::Null)),
             Expr::Int64(v) => ok((
                 self.context.i64_type().const_value(*v).into(),
                 BSType::Int64,
@@ -90,7 +101,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 let rhs = self.compile_expr(rhs)?;
                 self.compile_binary_op(*op, lhs, rhs)
             }
-            _ => compile_error("Compiler: unknown expression"),
+            e => compile_error(&format!("Compiler: unknown expression: {:?}", e)),
         }
     }
 

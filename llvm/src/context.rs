@@ -68,6 +68,13 @@ impl Context {
         }
     }
 
+    pub fn void_type<'a>(&self) -> VoidType<'a> {
+        unsafe {
+            let llvm_type = LLVMVoidTypeInContext(self.llvm_context);
+            VoidType::new(llvm_type)
+        }
+    }
+
     pub fn i64_type<'a>(&self) -> I64Type<'a> {
         unsafe { I64Type::new(LLVMInt64TypeInContext(self.llvm_context)) }
     }
