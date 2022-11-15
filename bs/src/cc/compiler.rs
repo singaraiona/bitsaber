@@ -36,6 +36,38 @@ impl<'a, 'b> Compiler<'a, 'b> {
         }
     }
 
+    fn compile_binary_op(
+        &self,
+        op: Op,
+        lhs: (Value<'a>, BSType),
+        rhs: (Value<'a>, BSType),
+    ) -> BSResult<(Value<'a>, BSType)> {
+        let (lhs, lhs_type) = lhs;
+        let (rhs, rhs_type) = rhs;
+        let result_type = infer_type(op, lhs_type, rhs_type)?;
+
+        use BSType::*;
+        use Op::*;
+
+        let result = match (op, lhs_type, rhs_type) {
+            (Add, Int64, Int64) => self.builder.build_int_add(lhs, rhs, "addtmp"),
+            (Add, Float64, Float64) => self.builder.build_float_add(lhs, rhs, "addtmp"),
+            // Op::Sub => self.builder.build_sub(lhs, rhs, "subtmp"),
+            // Op::Mul => self.builder.build_mul(lhs, rhs, "multmp"),
+            // Op::Div => self.builder.build_div(lhs, rhs, "divtmp"),
+            // Op::Mod => self.builder.build_rem(lhs, rhs, "modtmp"),
+            // Op::Eq => self.builder.build_icmp_eq(lhs, rhs, "eqtmp"),
+            // Op::Ne => self.builder.build_icmp_ne(lhs, rhs, "netmp"),
+            // Op::Lt => self.builder.build_icmp_lt(lhs, rhs, "lttmp"),
+            // Op::Le => self.builder.build_icmp_le(lhs, rhs, "letmp"),
+            // Op::Gt => self.builder.build_icmp_gt(lhs, rhs, "gttmp"),
+            // Op::Ge => self.builder.build_icmp_ge(lhs, rhs, "getmp"),
+            op => return compile_error(&format!("Unsupported binary op: {:?}", op)),
+        };
+
+        ok((result, result_type))
+    }
+
     fn compile_expr(&self, expr: &Expr) -> BSResult<(Value<'a>, BSType)> {
         match expr {
             // Expr::Null => ok(Value::Null),
@@ -63,13 +95,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             Expr::Binary { op, lhs, rhs } => {
                 let lhs = self.compile_expr(lhs)?;
                 let rhs = self.compile_expr(rhs)?;
-
-                let res_ty = infer_type(*op, lhs.1, rhs.1)?;
-
-                match *op {
-                    Op::Add => ok((self.builder.build_add(lhs.0, rhs.0, "tmpadd"), res_ty)),
-                    _ => todo!(),
-                }
+                self.compile_binary_op(*op, lhs, rhs)
             }
             _ => compile_error("Compiler: unknown expression"),
         }

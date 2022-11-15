@@ -1,3 +1,9 @@
+use crate::base::infer::infer_type;
+use crate::base::Type as BSType;
+use crate::result::*;
+use llvm::builder::Builder;
+use llvm::values::Value;
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 #[repr(u8)]
 pub enum Op {
