@@ -122,6 +122,24 @@ impl<'a> Lexer<'a> {
                 ok(Token::Comment)
             }
 
+            '-' if chars
+                .peek()
+                .map(|c| !c.is_digit(10))
+                .unwrap_or_else(|| false) =>
+            {
+                ok(Token::Op(Op::Sub))
+            }
+
+            '+' | '*' | '/' | '&' => {
+                // Parse operator
+                ok(Token::Op(Op::try_from(&src[start..pos]).map_err(|e| {
+                    BSError::ParseError {
+                        msg: "Invalid binary op",
+                        pos: start,
+                    }
+                })?))
+            }
+
             '-' | '.' | '0'..='9' => {
                 // Parse number literal
                 let mut is_float = false;
@@ -133,6 +151,8 @@ impl<'a> Lexer<'a> {
 
                     if ch == '.' {
                         is_float = true;
+                    } else if ch == '-' {
+                        break;
                     } else if !ch.is_digit(10) {
                         break;
                     }
@@ -191,16 +211,6 @@ impl<'a> Lexer<'a> {
 
                     ident => ok(Token::Ident(ident)),
                 }
-            }
-
-            '+' | '-' | '*' | '/' | '&' => {
-                // Parse operator
-                ok(Token::Op(Op::try_from(&src[start..pos]).map_err(|e| {
-                    BSError::ParseError {
-                        msg: "Invalid binary op",
-                        pos: start,
-                    }
-                })?))
             }
 
             c => parse_error("Unexpected character", pos),

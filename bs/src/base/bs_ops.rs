@@ -11,6 +11,10 @@ pub enum Op {
     Sub,
     Mul,
     Div,
+    Rem,
+    Or,
+    And,
+    Xor,
 }
 
 impl TryFrom<&str> for Op {

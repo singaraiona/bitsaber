@@ -36,7 +36,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         }
     }
 
-    fn compile_binary_op(
+    pub fn compile_binary_op(
         &self,
         op: Op,
         lhs: (Value<'a>, BSType),
@@ -52,16 +52,9 @@ impl<'a, 'b> Compiler<'a, 'b> {
         let result = match (op, lhs_type, rhs_type) {
             (Add, Int64, Int64) => self.builder.build_int_add(lhs, rhs, "addtmp"),
             (Add, Float64, Float64) => self.builder.build_float_add(lhs, rhs, "addtmp"),
-            // Op::Sub => self.builder.build_sub(lhs, rhs, "subtmp"),
-            // Op::Mul => self.builder.build_mul(lhs, rhs, "multmp"),
-            // Op::Div => self.builder.build_div(lhs, rhs, "divtmp"),
-            // Op::Mod => self.builder.build_rem(lhs, rhs, "modtmp"),
-            // Op::Eq => self.builder.build_icmp_eq(lhs, rhs, "eqtmp"),
-            // Op::Ne => self.builder.build_icmp_ne(lhs, rhs, "netmp"),
-            // Op::Lt => self.builder.build_icmp_lt(lhs, rhs, "lttmp"),
-            // Op::Le => self.builder.build_icmp_le(lhs, rhs, "letmp"),
-            // Op::Gt => self.builder.build_icmp_gt(lhs, rhs, "gttmp"),
-            // Op::Ge => self.builder.build_icmp_ge(lhs, rhs, "getmp"),
+            (Div, Int64, Int64) => self.builder.build_div(lhs, rhs, "divtmp"),
+            (Sub, Int64, Int64) => self.builder.build_int_sub(lhs, rhs, "subtmp"),
+            (Sub, Float64, Float64) => self.builder.build_float_sub(lhs, rhs, "subtmp"),
             op => return compile_error(&format!("Unsupported binary op: {:?}", op)),
         };
 

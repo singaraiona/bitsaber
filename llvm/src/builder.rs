@@ -42,6 +42,30 @@ impl<'a> Builder<'a> {
         }
     }
 
+    pub fn build_alloca(&self, ty: Type<'a>, name: &str) -> Value<'a> {
+        let c_string = to_c_str(name);
+        let value =
+            unsafe { LLVMBuildAlloca(self.llvm_builder, ty.as_llvm_type_ref(), c_string.as_ptr()) };
+
+        PtrValue::new(value).into()
+    }
+
+    pub fn build_return(&self, value: Value<'a>) -> Value<'a> {
+        let value = unsafe { LLVMBuildRet(self.llvm_builder, value.as_llvm_value_ref()) };
+        InstructionValue::new(value).into()
+    }
+
+    pub fn build_aggregate_return(&self, values: &[Value<'a>]) -> Value<'a> {
+        unsafe {
+            let mut args: Vec<_> = values.iter().map(|val| val.as_llvm_value_ref()).collect();
+            let value =
+                LLVMBuildAggregateRet(self.llvm_builder, args.as_mut_ptr(), args.len() as u32);
+            InstructionValue::new(value).into()
+        }
+    }
+
+    // -- OPS
+
     pub fn build_int_add(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
         unsafe {
             let c_string = to_c_str(name);
@@ -66,10 +90,22 @@ impl<'a> Builder<'a> {
         }
     }
 
-    pub fn build_xor(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
+    pub fn build_int_sub(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
         unsafe {
             let c_string = to_c_str(name);
-            Value::new(LLVMBuildXor(
+            Value::new(LLVMBuildSub(
+                self.llvm_builder,
+                lhs.as_llvm_value_ref(),
+                rhs.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+        }
+    }
+
+    pub fn build_float_sub(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildFSub(
                 self.llvm_builder,
                 lhs.as_llvm_value_ref(),
                 rhs.as_llvm_value_ref(),
@@ -102,25 +138,52 @@ impl<'a> Builder<'a> {
 
         InstructionValue::new(value).into()
     }
-    pub fn build_alloca(&self, ty: Type<'a>, name: &str) -> Value<'a> {
-        let c_string = to_c_str(name);
-        let value =
-            unsafe { LLVMBuildAlloca(self.llvm_builder, ty.as_llvm_type_ref(), c_string.as_ptr()) };
 
-        PtrValue::new(value).into()
-    }
-
-    pub fn build_return(&self, value: Value<'a>) -> Value<'a> {
-        let value = unsafe { LLVMBuildRet(self.llvm_builder, value.as_llvm_value_ref()) };
-        InstructionValue::new(value).into()
-    }
-
-    pub fn build_aggregate_return(&self, values: &[Value<'a>]) -> Value<'a> {
+    pub fn build_rem(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
         unsafe {
-            let mut args: Vec<_> = values.iter().map(|val| val.as_llvm_value_ref()).collect();
-            let value =
-                LLVMBuildAggregateRet(self.llvm_builder, args.as_mut_ptr(), args.len() as u32);
-            InstructionValue::new(value).into()
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildSRem(
+                self.llvm_builder,
+                lhs.as_llvm_value_ref(),
+                rhs.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+        }
+    }
+
+    pub fn build_and(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildAnd(
+                self.llvm_builder,
+                lhs.as_llvm_value_ref(),
+                rhs.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+        }
+    }
+
+    pub fn build_or(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildOr(
+                self.llvm_builder,
+                lhs.as_llvm_value_ref(),
+                rhs.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+        }
+    }
+
+    pub fn build_xor(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildXor(
+                self.llvm_builder,
+                lhs.as_llvm_value_ref(),
+                rhs.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
         }
     }
 }
