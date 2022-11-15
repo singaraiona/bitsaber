@@ -51,11 +51,11 @@ impl Into<LLVMValueRef> for ValueRef<'_> {
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum Value<'a> {
-    I64(I64Value<'a>),
-    F64(F64Value<'a>),
+    Int64(I64Value<'a>),
+    Float64(F64Value<'a>),
     Fn(FnValue<'a>),
-    // VecI64(Vec<I64Value<'a>>),
-    // VecF64(Vec<F64Value<'a>>),
+    // VecInt64(Vec<I64Value<'a>>),
+    // VecFloat64(Vec<F64Value<'a>>),
     // List(Vec<Value<'a>>),
     Struct(StructValue<'a>),
     Instruction(InstructionValue<'a>),
@@ -64,13 +64,13 @@ pub enum Value<'a> {
 
 impl<'a> From<I64Value<'a>> for Value<'a> {
     fn from(val: I64Value<'a>) -> Self {
-        Self::I64(val)
+        Self::Int64(val)
     }
 }
 
 impl<'a> From<F64Value<'a>> for Value<'a> {
     fn from(val: F64Value<'a>) -> Self {
-        Self::F64(val)
+        Self::Float64(val)
     }
 }
 
@@ -101,7 +101,7 @@ impl<'a> From<PtrValue<'a>> for Value<'a> {
 impl<'a> Into<I64Value<'a>> for Value<'a> {
     fn into(self) -> I64Value<'a> {
         match self {
-            Self::I64(val) => val,
+            Self::Int64(val) => val,
             _ => panic!("Expected I64Value"),
         }
     }
@@ -110,7 +110,7 @@ impl<'a> Into<I64Value<'a>> for Value<'a> {
 impl<'a> Into<F64Value<'a>> for Value<'a> {
     fn into(self) -> F64Value<'a> {
         match self {
-            Self::F64(val) => val,
+            Self::Float64(val) => val,
             _ => panic!("Expected F64Value"),
         }
     }
@@ -158,8 +158,8 @@ impl<'a> Value<'a> {
             match LLVMGetTypeKind(LLVMTypeOf(llvm_value)) {
                 LLVMTypeKind::LLVMFloatTypeKind
                 | LLVMTypeKind::LLVMDoubleTypeKind
-                | LLVMTypeKind::LLVMHalfTypeKind => Value::F64(F64Value::new(llvm_value)),
-                LLVMTypeKind::LLVMIntegerTypeKind => Value::I64(I64Value::new(llvm_value)),
+                | LLVMTypeKind::LLVMHalfTypeKind => Value::Float64(F64Value::new(llvm_value)),
+                LLVMTypeKind::LLVMIntegerTypeKind => Value::Int64(I64Value::new(llvm_value)),
                 LLVMTypeKind::LLVMStructTypeKind => Value::Struct(StructValue::new(llvm_value)),
                 LLVMTypeKind::LLVMFunctionTypeKind => Value::Fn(FnValue::new(llvm_value)),
                 LLVMTypeKind::LLVMPointerTypeKind => Value::Ptr(PtrValue::new(llvm_value)),
@@ -201,8 +201,8 @@ impl ValueIntrinsics for ValueRef<'_> {
 impl ValueIntrinsics for Value<'_> {
     fn as_llvm_value_ref(&self) -> LLVMValueRef {
         match self {
-            Value::I64(v) => v.as_llvm_value_ref(),
-            Value::F64(v) => v.as_llvm_value_ref(),
+            Value::Int64(v) => v.as_llvm_value_ref(),
+            Value::Float64(v) => v.as_llvm_value_ref(),
             Value::Fn(v) => v.as_llvm_value_ref(),
             Value::Instruction(v) => v.as_llvm_value_ref(),
             Value::Struct(v) => v.as_llvm_value_ref(),
@@ -211,8 +211,8 @@ impl ValueIntrinsics for Value<'_> {
     }
     fn set_name(self, name: &str) {
         match self {
-            Value::I64(v) => v.set_name(name),
-            Value::F64(v) => v.set_name(name),
+            Value::Int64(v) => v.set_name(name),
+            Value::Float64(v) => v.set_name(name),
             Value::Fn(v) => v.set_name(name),
             Value::Instruction(v) => v.set_name(name),
             Value::Struct(v) => v.set_name(name),
@@ -222,8 +222,8 @@ impl ValueIntrinsics for Value<'_> {
 
     fn get_name(&self) -> &CStr {
         match self {
-            Value::I64(v) => v.get_name(),
-            Value::F64(v) => v.get_name(),
+            Value::Int64(v) => v.get_name(),
+            Value::Float64(v) => v.get_name(),
             Value::Fn(v) => v.get_name(),
             Value::Instruction(v) => v.get_name(),
             Value::Struct(v) => v.get_name(),
@@ -232,8 +232,8 @@ impl ValueIntrinsics for Value<'_> {
     }
     fn get_llvm_type_ref(&self) -> LLVMTypeRef {
         match self {
-            Value::I64(v) => v.get_llvm_type_ref(),
-            Value::F64(v) => v.get_llvm_type_ref(),
+            Value::Int64(v) => v.get_llvm_type_ref(),
+            Value::Float64(v) => v.get_llvm_type_ref(),
             Value::Fn(v) => v.get_llvm_type_ref(),
             Value::Instruction(v) => v.get_llvm_type_ref(),
             Value::Struct(v) => v.get_llvm_type_ref(),
@@ -245,8 +245,8 @@ impl ValueIntrinsics for Value<'_> {
 impl fmt::Display for Value<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Value::I64(v) => write!(f, "{:?}", v),
-            Value::F64(v) => write!(f, "{:?}", v),
+            Value::Int64(v) => write!(f, "{:?}", v),
+            Value::Float64(v) => write!(f, "{:?}", v),
             Value::Fn(v) => write!(f, "{:?}", v),
             Value::Instruction(v) => write!(f, "{:?}", v),
             Value::Struct(v) => write!(f, "{:?}", v),

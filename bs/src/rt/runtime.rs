@@ -63,6 +63,8 @@ impl<'a> Runtime<'a> {
 
     pub fn parse_eval(&mut self, input: String) -> BSResult<BSValue> {
         unsafe {
+            let parsed_fn = Parser::new(input.as_str()).parse()?;
+
             let mut module = self
                 .context
                 .create_module("repl")
@@ -71,8 +73,6 @@ impl<'a> Runtime<'a> {
             let execution_engine = module
                 .create_mcjit_execution_engine()
                 .map_err(|e| BSError::RuntimeError(e.to_string()))?;
-
-            let parsed_fn = Parser::new(input.as_str()).parse()?;
 
             let mut compiler =
                 Compiler::new(&mut self.context, &mut self.builder, &mut module, parsed_fn);
@@ -84,11 +84,11 @@ impl<'a> Runtime<'a> {
                 .map_err(|e| BSError::RuntimeError(e.to_string()))?;
 
             match ret_ty {
-                BSType::I64 => {
+                BSType::Int64 => {
                     let f: extern "C" fn() -> i64 = mem::transmute(addr);
-                    ok(BSValue::I64(f().into()))
+                    ok(BSValue::Int64(f().into()))
                 }
-                BSType::VecI64 => {
+                BSType::VecInt64 => {
                     let f: extern "C" fn() -> BSValue = mem::transmute(addr);
                     ok(f())
                 }

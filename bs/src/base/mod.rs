@@ -1,14 +1,15 @@
 use llvm::context::Context;
 use llvm::types::struct_type::StructType as LLVMStructType;
 use llvm::types::Type as LLVMType;
-use llvm::types::TypeIntrinsics;
 use llvm::values::Value as LLVMValue;
 use std::fmt;
 use std::mem::transmute;
 use std::rc::Rc;
 
+pub mod bs_ops;
 pub mod f64_value;
 pub mod i64_value;
+pub mod infer;
 
 pub mod prelude {
     pub use super::f64_value::F64Value;
@@ -17,45 +18,41 @@ pub mod prelude {
 
 use prelude::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[repr(u64)]
 pub enum Type {
-    Null,
-    I64,
-    F64,
-    VecI64,
-    VecF64,
+    Null = 0,
+    Int64,
+    Float64,
+    VecInt64,
+    VecFloat64,
     List,
 }
 
-impl From<LLVMType<'_>> for Type {
-    fn from(llvm_type: LLVMType) -> Self {
-        match llvm_type {
-            LLVMType::Null => Self::Null,
-            LLVMType::I64(_) => Self::I64,
-            LLVMType::F64(_) => Self::F64,
-            _ => Self::VecI64,
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Type::Null => write!(f, "Null"),
+            Type::Int64 => write!(f, "Int64"),
+            Type::Float64 => write!(f, "Float64"),
+            Type::VecInt64 => write!(f, "Int64[]"),
+            Type::VecFloat64 => write!(f, "Float64[]"),
+            Type::List => write!(f, "[]"),
         }
     }
 }
 
-// impl Into<LLVMType<'_>> for Type {
-//     fn into(self) -> LLVMType {
-//         match self {
-//             Self::Null => LLVMType::Null,
-//             Self::I64 => LLVMType::I64(LLVMType::new_i64()),
-//             Self::F64 => LLVMType::F64(LLVMType::new_f64()),
-//             _ => LLVMType::Null,
-//         }
-//     }
-// }
-
 impl Type {
-    pub fn into_llvm_type<'a>(self, ctx: &'a Context) -> LLVMType<'a> {
+    pub fn into_llvm_type<'a>(self, context: &'a Context) -> LLVMType<'a> {
         match self {
             Type::Null => LLVMType::Null,
-            Type::I64 => ctx.i64_type().into(),
-            Type::VecI64 => ctx
-                .struct_type(&[ctx.i64_type().into(), ctx.i64_type().into()], true)
+            Type::Int64 => context.i64_type().into(),
+            Type::Float64 => context.f64_type().into(),
+            Type::VecInt64 => context
+                .struct_type(
+                    &[context.i64_type().into(), context.i64_type().into()],
+                    true,
+                )
                 .into(),
             _ => unimplemented!(),
         }
@@ -64,8 +61,8 @@ impl Type {
     pub fn is_scalar(&self) -> bool {
         match self {
             Type::Null => false,
-            Type::I64 => true,
-            Type::F64 => true,
+            Type::Int64 => true,
+            Type::Float64 => true,
             _ => false,
         }
     }
@@ -75,10 +72,10 @@ impl Type {
 #[repr(C, align(16))]
 pub enum Value {
     Null,
-    I64(I64Value),
-    F64(f64),
-    VecI64(Rc<Vec<i64>>),
-    VecF64(Rc<Vec<f64>>),
+    Int64(I64Value),
+    Float64(f64),
+    VecInt64(Rc<Vec<i64>>),
+    VecFloat64(Rc<Vec<f64>>),
     List(Rc<Vec<Value>>),
 }
 
@@ -102,14 +99,28 @@ impl Value {
         )
     }
 
+    pub fn bs_type(&self) -> Type {
+        match self {
+            Value::Null => Type::Null,
+            Value::Int64(_) => Type::Int64,
+            Value::Float64(_) => Type::Float64,
+            Value::VecInt64(_) => Type::VecInt64,
+            Value::VecFloat64(_) => Type::VecFloat64,
+            Value::List(_) => Type::List,
+        }
+    }
+
     pub fn into_llvm_value<'a>(self, context: &'a Context) -> LLVMValue<'a> {
         unsafe {
+            let tag = self.bs_type() as u64 as i64;
             match self {
-                Value::Null => Self::into_llvm_struct(0, 0, context),
-                Value::I64(v) => Self::into_llvm_struct(1, v.into(), context),
-                Value::F64(v) => Self::into_llvm_struct(2, transmute(v), context),
-                Value::VecI64(v) => Self::into_llvm_struct(3, transmute::<_, i64>(v), context),
-                Value::VecF64(v) => Self::into_llvm_struct(4, transmute::<_, i64>(v), context),
+                Value::Null => Self::into_llvm_struct(tag, 0, context),
+                Value::Int64(v) => Self::into_llvm_struct(tag, v.into(), context),
+                Value::Float64(v) => Self::into_llvm_struct(tag, transmute(v), context),
+                Value::VecInt64(v) => Self::into_llvm_struct(tag, transmute::<_, i64>(v), context),
+                Value::VecFloat64(v) => {
+                    Self::into_llvm_struct(tag, transmute::<_, i64>(v), context)
+                }
                 _ => unimplemented!(),
             }
         }
@@ -122,25 +133,25 @@ impl Value {
 
 impl From<i64> for Value {
     fn from(value: i64) -> Self {
-        Value::I64(value.into())
+        Value::Int64(value.into())
     }
 }
 
 impl From<f64> for Value {
     fn from(value: f64) -> Self {
-        Value::F64(value)
+        Value::Float64(value)
     }
 }
 
 impl From<Vec<i64>> for Value {
     fn from(value: Vec<i64>) -> Self {
-        Value::VecI64(Rc::new(value))
+        Value::VecInt64(Rc::new(value))
     }
 }
 
 impl From<Vec<f64>> for Value {
     fn from(value: Vec<f64>) -> Self {
-        Value::VecF64(Rc::new(value))
+        Value::VecFloat64(Rc::new(value))
     }
 }
 
@@ -154,11 +165,11 @@ impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Value::Null => write!(f, "Null"),
-            Value::I64(v) => write!(f, "{}", v),
-            Value::F64(v) => write!(f, "{:.2}", v),
-            Value::VecI64(v) => write!(f, "{:?}", v),
-            Value::VecF64(v) => write!(f, "{:?}", v),
-            Value::List(v) => write!(f, "{:?}", v),
+            Value::Int64(v) => write!(f, "{}: {}", v, self.bs_type()),
+            Value::Float64(v) => write!(f, "{:.2}: {}", v, self.bs_type()),
+            Value::VecInt64(v) => write!(f, "{:?}: {}", v, self.bs_type()),
+            Value::VecFloat64(v) => write!(f, "{:?}: {}", v, self.bs_type()),
+            Value::List(v) => write!(f, "{:?}: {}", v, self.bs_type()),
         }
     }
 }

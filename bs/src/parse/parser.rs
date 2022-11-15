@@ -186,8 +186,8 @@ impl<'a> Parser<'a> {
     /// Parses a literal number.
     fn parse_nb_expr(&mut self) -> BSResult<Expr> {
         let r = match self.curr {
-            I64(v) => ok(Expr::I64(v)),
-            F64(v) => ok(Expr::F64(v)),
+            Int64(v) => ok(Expr::Int64(v)),
+            Float64(v) => ok(Expr::Float64(v)),
             _ => parse_error("Expected number literal.", self.lexer.pos()),
         };
 
@@ -418,15 +418,16 @@ impl<'a> Parser<'a> {
 
         loop {
             self.advance()?;
+
             match &self.curr {
-                I64(v) => {
+                Int64(v) => {
                     if vec_f64.len() == 0 {
                         vec_i64.push(*v);
                     } else {
                         vec_f64.push(*v as f64);
                     }
                 }
-                F64(v) => {
+                Float64(v) => {
                     if vec_i64.len() == 0 {
                         vec_f64.push(*v);
                     } else {
@@ -450,9 +451,9 @@ impl<'a> Parser<'a> {
         self.advance()?;
 
         if vec_i64.len() == 0 {
-            ok(Expr::VecF64(vec_f64))
+            ok(Expr::VecFloat64(vec_f64))
         } else {
-            ok(Expr::VecI64(vec_i64))
+            ok(Expr::VecInt64(vec_i64))
         }
     }
 
@@ -475,8 +476,8 @@ impl<'a> Parser<'a> {
         // })
 
         match self.curr {
-            I64(_) => self.parse_nb_expr(),
-            F64(_) => self.parse_nb_expr(),
+            Int64(_) => self.parse_nb_expr(),
+            Float64(_) => self.parse_nb_expr(),
             LBox => self.parse_vec_literal(),
             LParen => self.parse_paren_expr(),
             _ => parse_error(
@@ -547,8 +548,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    /// Parses the content of the parser.
-    pub fn parse(&mut self) -> BSResult<Function> {
+    fn parse_inner(&mut self) -> BSResult<Function> {
         self.advance()?;
 
         match self.parse_toplevel_expr() {
@@ -565,5 +565,24 @@ impl<'a> Parser<'a> {
 
             err => err,
         }
+    }
+
+    fn format_error(&self, pos: usize) {
+        let line = self.lexer.current_line();
+        println!("{}", line);
+    }
+
+    /// Parses the content of the parser.
+    pub fn parse(&mut self) -> BSResult<Function> {
+        let parse_result = self.parse_inner();
+        match &parse_result {
+            BSResult::Err(e) => match e {
+                BSError::ParseError { msg, pos } => self.format_error(*pos),
+                _ => {}
+            },
+            _ => {}
+        };
+
+        parse_result
     }
 }

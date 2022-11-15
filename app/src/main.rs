@@ -18,8 +18,8 @@ pub fn main() {
             .expect("Could not read from standard input.");
 
         let res = match runtime.parse_eval(input) {
-            BSResult::Ok(result) => format!("{}", result),
-            BSResult::Err(err) => format!("{}", err),
+            BSResult::Ok(result) => format!("=> {}", result),
+            BSResult::Err(err) => format!("=> {}", err),
         };
 
         println!("{}", res);

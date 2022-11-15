@@ -1,3 +1,4 @@
+use crate::base::bs_ops::Op;
 use crate::result::*;
 use std::iter::Peekable;
 use std::ops::DerefMut;
@@ -23,9 +24,9 @@ pub enum Token<'a> {
     RBox,
     LBrace,
     RBrace,
-    I64(i64),
-    F64(f64),
-    Op(char),
+    Int64(i64),
+    Float64(f64),
+    Op(Op),
     Then,
     Unary,
     Var,
@@ -37,6 +38,7 @@ pub struct Lexer<'a> {
     input: &'a str,
     chars: Box<Peekable<Chars<'a>>>,
     pos: usize,
+    line_start: usize,
 }
 
 impl<'a> Lexer<'a> {
@@ -46,6 +48,7 @@ impl<'a> Lexer<'a> {
             input,
             chars: Box::new(input.chars().peekable()),
             pos: 0,
+            line_start: 0,
         }
     }
 
@@ -58,9 +61,6 @@ impl<'a> Lexer<'a> {
 
         // Skip whitespaces
         loop {
-            // Note: the following lines are in their own scope to
-            // limit how long 'chars' is borrowed, and in order to allow
-            // it to be borrowed again in the loop by 'chars.next()'.
             {
                 let ch = chars.peek();
 
@@ -69,7 +69,13 @@ impl<'a> Lexer<'a> {
                     return ok(Token::EOF);
                 }
 
-                if !ch.unwrap().is_whitespace() {
+                let c = ch.unwrap();
+
+                if *c == '\n' {
+                    self.line_start = pos + 1;
+                }
+
+                if !c.is_whitespace() {
                     break;
                 }
             }
@@ -142,7 +148,7 @@ impl<'a> Lexer<'a> {
                         pos: start,
                     })?;
 
-                    ok(Token::F64(v))
+                    ok(Token::Float64(v))
                 } else {
                     let s = &src[start..pos];
                     let v = s.parse::<i64>().map_err(|_| BSError::ParseError {
@@ -150,7 +156,7 @@ impl<'a> Lexer<'a> {
                         pos: start,
                     })?;
 
-                    ok(Token::I64(v))
+                    ok(Token::Int64(v))
                 }
             }
 
@@ -187,10 +193,17 @@ impl<'a> Lexer<'a> {
                 }
             }
 
-            op => {
+            '+' | '-' | '*' | '/' | '&' => {
                 // Parse operator
-                ok(Token::Op(op))
+                ok(Token::Op(Op::try_from(&src[start..pos]).map_err(|e| {
+                    BSError::ParseError {
+                        msg: "Invalid binary op",
+                        pos: start,
+                    }
+                })?))
             }
+
+            c => parse_error("Unexpected character", pos),
         };
 
         // Update stored position, and return
@@ -201,5 +214,20 @@ impl<'a> Lexer<'a> {
 
     pub fn pos(&self) -> usize {
         self.pos
+    }
+
+    pub fn current_line(&self) -> &str {
+        let start = self.line_start;
+        let mut end = start;
+
+        for c in self.input[start..].chars() {
+            if c == '\n' {
+                break;
+            }
+
+            end += 1;
+        }
+
+        &self.input[start..end]
     }
 }

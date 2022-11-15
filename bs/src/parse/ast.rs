@@ -1,10 +1,12 @@
+use crate::base::bs_ops::Op;
+
 /// Defines a primitive expression.
 #[derive(Debug)]
 pub enum Expr {
     Null,
 
     Binary {
-        op: char,
+        op: Op,
         lhs: Box<Expr>,
         rhs: Box<Expr>,
     },
@@ -28,13 +30,13 @@ pub enum Expr {
         body: Box<Expr>,
     },
 
-    VecI64(Vec<i64>),
+    VecInt64(Vec<i64>),
 
-    VecF64(Vec<f64>),
+    VecFloat64(Vec<f64>),
 
-    I64(i64),
+    Int64(i64),
 
-    F64(f64),
+    Float64(f64),
 
     Variable(String),
 

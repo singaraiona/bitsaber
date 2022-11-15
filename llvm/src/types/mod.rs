@@ -43,8 +43,8 @@ impl Into<LLVMTypeRef> for TypeRef<'_> {
 #[derive(Clone, Debug)]
 pub enum Type<'a> {
     Null,
-    I64(I64Type<'a>),
-    F64(F64Type<'a>),
+    Int64(I64Type<'a>),
+    Float64(F64Type<'a>),
     Ptr(PtrType<'a>),
     Fn(FnType<'a>),
     Struct(StructType<'a>),
@@ -52,13 +52,13 @@ pub enum Type<'a> {
 
 impl<'a> From<I64Type<'a>> for Type<'a> {
     fn from(ty: I64Type<'a>) -> Self {
-        Self::I64(ty)
+        Self::Int64(ty)
     }
 }
 
 impl<'a> From<F64Type<'a>> for Type<'a> {
     fn from(ty: F64Type<'a>) -> Self {
-        Self::F64(ty)
+        Self::Float64(ty)
     }
 }
 
@@ -83,8 +83,8 @@ impl<'a> From<PtrType<'a>> for Type<'a> {
 impl<'a> Type<'a> {
     pub fn new(llvm_type: LLVMTypeRef) -> Type<'a> {
         match unsafe { llvm_sys::core::LLVMGetTypeKind(llvm_type) } {
-            llvm_sys::LLVMTypeKind::LLVMIntegerTypeKind => Type::I64(I64Type::new(llvm_type)),
-            llvm_sys::LLVMTypeKind::LLVMFloatTypeKind => Type::F64(F64Type::new(llvm_type)),
+            llvm_sys::LLVMTypeKind::LLVMIntegerTypeKind => Type::Int64(I64Type::new(llvm_type)),
+            llvm_sys::LLVMTypeKind::LLVMFloatTypeKind => Type::Float64(F64Type::new(llvm_type)),
             llvm_sys::LLVMTypeKind::LLVMFunctionTypeKind => Type::Fn(FnType::new(llvm_type)),
             llvm_sys::LLVMTypeKind::LLVMStructTypeKind => Type::Struct(StructType::new(llvm_type)),
             llvm_sys::LLVMTypeKind::LLVMPointerTypeKind => Type::Ptr(PtrType::new(llvm_type)),
@@ -107,8 +107,8 @@ impl<'a> TypeIntrinsics for Type<'a> {
     fn as_llvm_type_ref(&self) -> LLVMTypeRef {
         match self {
             Type::Null => panic!("Null type"),
-            Type::I64(t) => t.as_llvm_type_ref(),
-            Type::F64(t) => t.as_llvm_type_ref(),
+            Type::Int64(t) => t.as_llvm_type_ref(),
+            Type::Float64(t) => t.as_llvm_type_ref(),
             Type::Fn(t) => t.as_llvm_type_ref(),
             Type::Struct(t) => t.as_llvm_type_ref(),
             Type::Ptr(t) => t.as_llvm_type_ref(),
