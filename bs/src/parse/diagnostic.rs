@@ -56,15 +56,16 @@ fn format_diagnostic(
         lbl_start
     )?;
 
-    // write line
+    // create description marker
     let marker = format!(
         "{}{}",
         " ".repeat(lbl_start),
-        "^".repeat(lbl_end - lbl_start)
+        "^".repeat(lbl_end.saturating_sub(lbl_start))
     )
     .red()
     .bold();
 
+    // write line
     write!(
         f,
         "{:<3}{} {}\n   {} {} {}",

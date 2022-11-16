@@ -56,7 +56,7 @@ impl<'a> Lexer<'a> {
     pub fn next(&mut self) -> BSResult<Token<'a>> {
         let chars = self.chars.deref_mut();
         let src = self.input;
-        let mut label_end = self.span.label_end;
+        let mut seen_whitespaces = false;
 
         // Skip whitespaces
         loop {
@@ -64,33 +64,35 @@ impl<'a> Lexer<'a> {
                 let ch = chars.peek();
 
                 if ch.is_none() {
-                    self.span.label_end = label_end;
                     return ok(Token::EOF);
                 }
 
                 let c = ch.unwrap();
 
-                if *c == '\n' {
-                    self.span.line_end = label_end.wrapping_sub(1);
-                    self.span.line_start = label_end + 1;
-                    self.span.line_number += 1;
-                } else if !c.is_whitespace() {
+                if !c.is_whitespace() {
+                    if *c == '\n' {
+                        self.span.line_end = self.span.label_end.saturating_sub(1);
+                        self.span.line_start = self.span.label_end + 1;
+                        self.span.line_number += 1;
+                    }
                     break;
                 }
+
+                seen_whitespaces = true;
             }
 
             chars.next();
-            label_end += 1;
+            self.span.label_end += 1;
         }
 
-        self.span.label_start = label_end;
+        self.span.label_start = self.span.label_end;
         let next = chars.next();
 
         if next.is_none() {
             return ok(Token::EOF);
         }
 
-        label_end += 1;
+        self.span.label_end += 1;
 
         let next_c = next.ok_or_else(|| BSError::ParseError {
             msg: "Unexpected EOF",
@@ -98,8 +100,7 @@ impl<'a> Lexer<'a> {
             span: Some(self.span),
         })?;
 
-        // Actually get the next token.
-        let result = match next_c {
+        match next_c {
             '(' => ok(Token::LParen),
             ')' => ok(Token::RParen),
             '[' => ok(Token::LBox),
@@ -116,22 +117,22 @@ impl<'a> Lexer<'a> {
                     if ch == Some('\n') {
                         break;
                     }
-                    label_end += 1;
+                    self.span.label_end += 1;
                 }
 
                 ok(Token::Comment)
             }
 
-            '-' if self.span.label_end + 1 == label_end
+            '-' if !seen_whitespaces
                 && chars
                     .peek()
-                    .map(|c| c.is_digit(10) || c.is_whitespace())
+                    .map(|c| !c.is_whitespace())
                     .unwrap_or_else(|| false) =>
             {
                 ok(Token::Op(Op::Sub))
             }
 
-            '-' if self.span.label_end + 1 != label_end
+            '-' if seen_whitespaces
                 && chars
                     .peek()
                     .map(|c| c.is_whitespace())
@@ -143,13 +144,13 @@ impl<'a> Lexer<'a> {
             '+' | '*' | '/' | '&' | '%' | '|' | '&' | '^' => {
                 // Parse operator
                 ok(Token::Op(
-                    Op::try_from(&src[self.span.label_start..label_end]).map_err(|e| {
-                        BSError::ParseError {
+                    Op::try_from(&src[self.span.label_start..self.span.label_end]).map_err(
+                        |e| BSError::ParseError {
                             msg: "Invalid binary op",
                             desc: "Expected one of: +, -, *, /, %, &, |, ^",
                             span: Some(self.span()),
-                        }
-                    })?,
+                        },
+                    )?,
                 ))
             }
 
@@ -179,11 +180,11 @@ impl<'a> Lexer<'a> {
                     }
 
                     chars.next();
-                    label_end += 1;
+                    self.span.label_end += 1;
                 }
 
                 if is_float {
-                    let s = &src[self.span.label_start..label_end];
+                    let s = &src[self.span.label_start..self.span.label_end];
                     let v = s.parse::<f64>().map_err(|_| BSError::ParseError {
                         msg: "Invalid float literal",
                         desc: "Expected a valid float literal",
@@ -192,7 +193,7 @@ impl<'a> Lexer<'a> {
 
                     ok(Token::Float64(v))
                 } else {
-                    let s = &src[self.span.label_start..label_end];
+                    let s = &src[self.span.label_start..self.span.label_end];
                     let v = s.parse::<i64>().map_err(|_| BSError::ParseError {
                         msg: "Invalid integer literal",
                         desc: "Expected a valid integer literal",
@@ -217,10 +218,10 @@ impl<'a> Lexer<'a> {
                     }
 
                     chars.next();
-                    label_end += 1;
+                    self.span.label_end += 1;
                 }
 
-                match &src[self.span.label_start..label_end] {
+                match &src[self.span.label_start..self.span.label_end] {
                     "def" => ok(Token::Def),
                     "extern" => ok(Token::Extern),
                     "if" => ok(Token::If),
@@ -237,25 +238,15 @@ impl<'a> Lexer<'a> {
             }
 
             c => parse_error("Unexpected character", "", Some(self.span())),
-        };
-
-        // Update stored position, and return
-        self.span.label_end = label_end;
-
-        result
-    }
-
-    pub fn pos(&self) -> usize {
-        self.span.label_end
+        }
     }
 
     pub fn span(&mut self) -> Span {
         // update span line end
         if let Some(end) = self.chars.deref_mut().position(|c| c == '\n') {
-            self.span.line_end = self.span.line_start + end;
+            self.span.line_end = self.span.label_end + end;
         }
 
-        self.span.line_end = std::cmp::max(self.span.line_end, self.span.label_end);
         self.span
     }
 }
