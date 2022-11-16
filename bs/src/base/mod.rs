@@ -6,7 +6,7 @@ use std::fmt;
 use std::mem::transmute;
 use std::rc::Rc;
 
-pub mod bs_ops;
+pub mod binary;
 pub mod f64_value;
 pub mod i64_value;
 pub mod infer;

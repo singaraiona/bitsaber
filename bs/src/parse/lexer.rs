@@ -1,4 +1,4 @@
-use crate::base::bs_ops::Op;
+use crate::base::binary::Op;
 use crate::parse::span::Span;
 use crate::result::*;
 use std::iter::Peekable;
@@ -30,7 +30,7 @@ pub enum Token<'a> {
     Op(Op),
     Then,
     Unary,
-    Var,
+    Assign,
     Dot,
 }
 
@@ -122,6 +122,8 @@ impl<'a> Lexer<'a> {
 
                 ok(Token::Comment)
             }
+
+            '=' => ok(Token::Assign),
 
             '-' if !seen_whitespaces
                 && chars
@@ -231,7 +233,6 @@ impl<'a> Lexer<'a> {
                     "in" => ok(Token::In),
                     "unary" => ok(Token::Unary),
                     "binary" => ok(Token::Binary),
-                    "var" => ok(Token::Var),
 
                     ident => ok(Token::Ident(ident)),
                 }

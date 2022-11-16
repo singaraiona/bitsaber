@@ -1,4 +1,4 @@
-use crate::base::bs_ops::Op;
+use crate::base::binary::Op;
 use crate::base::infer::infer_type;
 use crate::base::Type as BSType;
 use crate::base::Value as BsValue;
@@ -109,6 +109,18 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 let lhs = self.compile_expr(&lhs)?;
                 let rhs = self.compile_expr(&rhs)?;
                 self.compile_binary_op(*op, lhs, rhs, expr.span)
+            }
+
+            ExprBody::Assign { variable, body } => {
+                let body = self.compile_expr(&body)?;
+
+                // let alloca = self.create_entry_block_alloca(variable);
+                // self.builder.build_store(alloca, initial_val);
+
+                // let variable = self.variables.get(variable).unwrap();
+                // self.builder.build_store(*variable, body.0);
+
+                ok(body)
             }
 
             e => compile_error(

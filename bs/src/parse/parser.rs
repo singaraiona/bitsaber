@@ -228,10 +228,38 @@ impl<'a> Parser<'a> {
 
     /// Parses an expression that starts with an identifier (either a variable or a function call).
     fn parse_id_expr(&mut self) -> BSResult<Expr> {
-        // let id = match self.curr() {
-        //     Ident(id) => id,
-        //     _ => return Err("Expected identifier."),
-        // };
+        let id = match self.curr {
+            Ident(id) => id,
+            _ => {
+                return parse_error(
+                    "Expected identifier",
+                    "Expected identifier here",
+                    Some(self.lexer.span()),
+                )
+            }
+        };
+
+        let span = self.lexer.span();
+        self.advance()?;
+
+        match self.curr {
+            Assign => {
+                self.advance()?;
+                let rhs = self.parse_expr()?;
+                self.advance()?;
+
+                ok(Expr::new(
+                    ExprBody::Assign {
+                        variable: id.to_string(),
+                        body: Box::new(rhs),
+                    },
+                    Some(span),
+                ))
+            }
+            _ => {
+                todo!()
+            }
+        }
 
         // if self.advance().is_err() {
         //     return Ok(Expr::Variable(id));
@@ -270,7 +298,10 @@ impl<'a> Parser<'a> {
         //     _ => Ok(Expr::Variable(id)),
         // }
 
-        todo!()
+        // ok(Expr::new(
+        //     ExprBody::Variable(id.to_string()),
+        //     Some(self.lexer.span()),
+        // ))
     }
 
     /// Parses a conditional if..then..else expression.
@@ -358,57 +389,6 @@ impl<'a> Parser<'a> {
         //     start: Box::new(start),
         //     end: Box::new(end),
         //     step: step.map(Box::new),
-        //     body: Box::new(body),
-        // })
-
-        todo!()
-    }
-
-    /// Parses a var..in expression.
-    fn parse_var_expr(&mut self) -> BSResult<Expr> {
-        // eat 'var' token
-        // self.advance()?;
-
-        // let mut variables = Vec::new();
-
-        // // parse variables
-        // loop {
-        //     let name = match self.curr() {
-        //         Ident(name) => name,
-        //         _ => return Err("Expected identifier in 'var..in' declaration."),
-        //     };
-
-        //     self.advance()?;
-
-        //     // read (optional) initializer
-        //     let initializer = match self.curr() {
-        //         Op('=') => Some({
-        //             self.advance()?;
-        //             self.parse_expr()?
-        //         }),
-
-        //         _ => None,
-        //     };
-
-        //     variables.push((name, initializer));
-
-        //     match self.curr() {
-        //         Comma => {
-        //             self.advance()?;
-        //         }
-        //         In => {
-        //             self.advance()?;
-        //             break;
-        //         }
-        //         _ => return Err("Expected comma or 'in' keyword in variable declaration."),
-        //     }
-        // }
-
-        // // parse body
-        // let body = self.parse_expr()?;
-
-        // Ok(Expr::VarIn {
-        //     variables,
         //     body: Box::new(body),
         // })
 
@@ -535,6 +515,7 @@ impl<'a> Parser<'a> {
                     Some(self.lexer.span()),
                 ))
             }
+
             _ => parse_error(
                 "Invalid operator.",
                 "Expected one of binary operators here",
@@ -560,7 +541,6 @@ impl<'a> Parser<'a> {
             Ident(_) => self.parse_id_expr(),
             If => self.parse_conditional_expr(),
             For => self.parse_for_expr(),
-            Var => self.parse_var_expr(),
             Dot => self.parse_dot_expr(),
             // Def => self.parse_def(),
             // Extern => self.parse_extern(),

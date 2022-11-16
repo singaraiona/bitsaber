@@ -23,6 +23,16 @@ impl Span {
             label_end,
         }
     }
+
+    // pub fn join(&self, other: &Span) -> Span {
+    //     Span {
+    //         line_number: self.line_number,
+    //         line_start: self.line_start,
+    //         line_end: other.line_end,
+    //         label_start: self.label_start,
+    //         label_end: other.label_end,
+    //     }
+    // }
 }
 
 impl Default for Span {

@@ -1,4 +1,4 @@
-use crate::base::bs_ops::Op;
+use crate::base::binary::Op;
 use crate::base::Type as BSType;
 use crate::parse::span::Span;
 use crate::result::*;

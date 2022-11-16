@@ -1,4 +1,4 @@
-use crate::base::bs_ops::Op;
+use crate::base::binary::Op;
 use crate::parse::span::Span;
 
 /// Defines a primitive expression.
@@ -36,6 +36,11 @@ pub enum ExprBody {
         body: Box<Expr>,
     },
 
+    Assign {
+        variable: String,
+        body: Box<Expr>,
+    },
+
     VecInt64(Vec<i64>),
 
     VecFloat64(Vec<f64>),
@@ -45,11 +50,6 @@ pub enum ExprBody {
     Float64(f64),
 
     Variable(String),
-
-    VarIn {
-        variables: Vec<(String, Option<Expr>)>,
-        body: Box<Expr>,
-    },
 }
 
 #[derive(Debug)]
