@@ -1,4 +1,5 @@
 use crate::base::bs_ops::Op;
+use crate::parse::span::Span;
 use crate::result::*;
 use std::iter::Peekable;
 use std::ops::DerefMut;
@@ -40,6 +41,7 @@ pub struct Lexer<'a> {
     chars: Box<Peekable<Chars<'a>>>,
     pos: usize,
     line_start: usize,
+    line_number: usize,
 }
 
 impl<'a> Lexer<'a> {
@@ -50,6 +52,7 @@ impl<'a> Lexer<'a> {
             chars: Box::new(input.chars().peekable()),
             pos: 0,
             line_start: 0,
+            line_number: 1,
         }
     }
 
@@ -73,6 +76,7 @@ impl<'a> Lexer<'a> {
 
                 if *c == '\n' {
                     self.line_start = pos + 1;
+                    self.line_number += 1;
                 }
 
                 if !c.is_whitespace() {
@@ -95,7 +99,7 @@ impl<'a> Lexer<'a> {
 
         let next_c = next.ok_or_else(|| BSError::ParseError {
             msg: "Unexpected EOF",
-            pos: pos,
+            span: None,
         })?;
 
         // Actually get the next token.
@@ -145,7 +149,7 @@ impl<'a> Lexer<'a> {
                 ok(Token::Op(Op::try_from(&src[start..pos]).map_err(|e| {
                     BSError::ParseError {
                         msg: "Invalid binary op",
-                        pos: start,
+                        span: Some(self.span()),
                     }
                 })?))
             }
@@ -183,7 +187,7 @@ impl<'a> Lexer<'a> {
                     let s = &src[start..pos];
                     let v = s.parse::<f64>().map_err(|_| BSError::ParseError {
                         msg: "Invalid float literal",
-                        pos: start,
+                        span: Some(self.span()),
                     })?;
 
                     ok(Token::Float64(v))
@@ -191,7 +195,7 @@ impl<'a> Lexer<'a> {
                     let s = &src[start..pos];
                     let v = s.parse::<i64>().map_err(|_| BSError::ParseError {
                         msg: "Invalid integer literal",
-                        pos: start,
+                        span: Some(self.span()),
                     })?;
 
                     ok(Token::Int64(v))
@@ -231,7 +235,7 @@ impl<'a> Lexer<'a> {
                 }
             }
 
-            c => parse_error("Unexpected character", pos),
+            c => parse_error("Unexpected character", Some(self.span())),
         };
 
         // Update stored position, and return
@@ -244,18 +248,18 @@ impl<'a> Lexer<'a> {
         self.pos
     }
 
-    pub fn current_line(&self) -> &str {
-        let start = self.line_start;
-        let mut end = start;
+    pub fn span(&self) -> Span {
+        let line_start = self.line_start;
+        let mut line_end = line_start;
 
-        for c in self.input[start..].chars() {
+        for c in self.input[line_start..].chars() {
             if c == '\n' {
                 break;
             }
 
-            end += 1;
+            line_end += 1;
         }
 
-        &self.input[start..end]
+        Span::new(self.line_number, line_start, line_end, 0, 1)
     }
 }

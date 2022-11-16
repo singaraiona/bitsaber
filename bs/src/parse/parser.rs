@@ -1,7 +1,6 @@
 use crate::parse::ast::*;
 use crate::parse::lexer::{Lexer, Token};
 use crate::result::*;
-use std::collections::HashMap;
 use Token::*;
 
 pub struct Parser<'a> {
@@ -188,7 +187,7 @@ impl<'a> Parser<'a> {
         let r = match self.curr {
             Int64(v) => ok(Expr::Int64(v)),
             Float64(v) => ok(Expr::Float64(v)),
-            _ => parse_error("Expected number literal.", self.lexer.pos()),
+            _ => parse_error("Expected number literal.", Some(self.lexer.span())),
         };
 
         match r {
@@ -442,7 +441,7 @@ impl<'a> Parser<'a> {
                 _ => {
                     return parse_error(
                         "Expected int or float in vector literal.",
-                        self.lexer.pos(),
+                        Some(self.lexer.span()),
                     )
                 }
             }
@@ -486,7 +485,7 @@ impl<'a> Parser<'a> {
             LParen => self.parse_paren_expr(),
             _ => parse_error(
                 "Expected int, float, vector or parenthesized expression.",
-                self.lexer.pos(),
+                Some(self.lexer.span()),
             ),
         }
     }
@@ -518,7 +517,7 @@ impl<'a> Parser<'a> {
                     rhs: Box::new(rhs),
                 })
             }
-            _ => parse_error("Invalid operator.", self.lexer.pos()),
+            _ => parse_error("Invalid operator.", Some(self.lexer.span())),
         }
 
         // }
@@ -560,7 +559,8 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_inner(&mut self) -> BSResult<Function> {
+    /// Parses the content of the parser.
+    pub fn parse(&mut self) -> BSResult<Function> {
         self.advance()?;
 
         match self.parse_toplevel_expr() {
@@ -568,7 +568,7 @@ impl<'a> Parser<'a> {
                 if !self.at_end() {
                     parse_error(
                         "Unexpected token after parsed expression.",
-                        self.lexer.pos(),
+                        Some(self.lexer.span()),
                     )
                 } else {
                     ok(expr)
@@ -577,24 +577,5 @@ impl<'a> Parser<'a> {
 
             err => err,
         }
-    }
-
-    fn format_error(&self, pos: usize) {
-        let line = self.lexer.current_line();
-        println!("{}", line);
-    }
-
-    /// Parses the content of the parser.
-    pub fn parse(&mut self) -> BSResult<Function> {
-        let parse_result = self.parse_inner();
-        match &parse_result {
-            BSResult::Err(e) => match e {
-                BSError::ParseError { msg, pos } => self.format_error(*pos),
-                _ => {}
-            },
-            _ => {}
-        };
-
-        parse_result
     }
 }

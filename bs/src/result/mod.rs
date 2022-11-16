@@ -1,17 +1,22 @@
+use crate::parse::span::Span;
 use core::fmt;
 use std::convert::Infallible;
 use std::io;
 use std::ops::{ControlFlow, FromResidual, Try};
 
+#[derive(Debug)]
 pub enum BSError {
-    ParseError { msg: &'static str, pos: usize },
+    ParseError {
+        msg: &'static str,
+        span: Option<Span>,
+    },
     CompileError(String),
     RuntimeError(String),
     IOError(String),
 }
 
-pub fn parse_error<T>(msg: &'static str, pos: usize) -> BSResult<T> {
-    BSResult::Err(BSError::ParseError { msg, pos })
+pub fn parse_error<T>(msg: &'static str, span: Option<Span>) -> BSResult<T> {
+    BSResult::Err(BSError::ParseError { msg, span })
 }
 
 pub fn compile_error<T>(msg: &str) -> BSResult<T> {
@@ -30,19 +35,6 @@ pub fn ok<T>(v: T) -> BSResult<T> {
     BSResult::Ok(v)
 }
 
-impl fmt::Display for BSError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ParseError { msg, pos } => {
-                write!(f, "** ParseError: {}\n   at: {}", msg, pos)
-            }
-            Self::CompileError(v) => write!(f, "** CompileError: {}", v),
-            Self::RuntimeError(v) => write!(f, "** RuntimeError: {}", v),
-            Self::IOError(v) => write!(f, "** IOError: {}", v),
-        }
-    }
-}
-
 pub enum BSResult<T> {
     Ok(T),
     Err(BSError),
@@ -55,15 +47,6 @@ impl<T> BSResult<T> {
 
     pub fn err(e: BSError) -> Self {
         Self::Err(e)
-    }
-}
-
-impl<T> fmt::Display for BSResult<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Ok(_v) => write!(f, "Ok"),
-            Self::Err(e) => write!(f, "{}", e),
-        }
     }
 }
 
@@ -98,7 +81,7 @@ impl<T> Into<io::Result<T>> for BSResult<T> {
     fn into(self) -> io::Result<T> {
         match self {
             Self::Ok(v) => Ok(v),
-            Self::Err(e) => Err(io::Error::new(io::ErrorKind::Other, format!("{}", e))),
+            Self::Err(e) => Err(io::Error::new(io::ErrorKind::Other, format!("{:?}", e))),
         }
     }
 }
@@ -107,7 +90,7 @@ impl<T> BSResult<T> {
     pub fn expect(self, msg: &str) -> T {
         match self {
             Self::Ok(t) => t,
-            Self::Err(e) => panic!("{msg}: {error}: ", msg = msg, error = e),
+            Self::Err(e) => panic!("{msg}: ", msg = msg),
         }
     }
 }
