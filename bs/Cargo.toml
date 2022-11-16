@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 llvm = { path = "../llvm" }
 rand = "*"
+colored = "2.0.0"

@@ -1,5 +1,6 @@
 use crate::parse::span::Span;
 use crate::result::BSError;
+use colored::Colorize;
 use std::fmt;
 
 /// Create diagnostic info with BSError to apply it's Span to an input
@@ -43,11 +44,35 @@ fn format_diagnostic(
     let lbl_end = span.label_end.wrapping_sub(span.line_start);
 
     // write header
-    writeln!(f, "** {}: {}", tag, msg)?;
+    writeln!(f, " {} {}: {}", "**".bold(), tag.red().bold(), msg.bold())?;
 
     // write line info
-    writeln!(f, "- <{}>:{}:{}", name, span.line_number, lbl_start)?;
+    writeln!(
+        f,
+        "  {} <{}>:{}:{}",
+        "-->".blue().bold(),
+        name,
+        span.line_number,
+        lbl_start
+    )?;
 
     // write line
-    writeln!(f, "{}\n{}", line, desc)
+    let marker = format!(
+        "{}{}",
+        " ".repeat(lbl_start),
+        "^".repeat(lbl_end - lbl_start)
+    )
+    .red()
+    .bold();
+
+    write!(
+        f,
+        "{:<3}{} {}\n   {} {} {}",
+        format!("{}", span.line_number).blue().bold(),
+        "|".blue().bold(),
+        line,
+        "|".blue().bold(),
+        marker,
+        desc.red().bold(),
+    )
 }
