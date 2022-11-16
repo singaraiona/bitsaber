@@ -51,7 +51,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         use BSType::*;
         use Op::*;
-        println!("COMPILE BINARY OP: {:?} {:?} {:?}", lhs_type, op, rhs_type);
+
         let result = match (op, lhs_type, rhs_type) {
             (Add, Int64, Int64) => self.builder.build_int_add(lhs, rhs, "addtmp"),
             (Add, Float64, Float64) => self.builder.build_float_add(lhs, rhs, "addtmp"),

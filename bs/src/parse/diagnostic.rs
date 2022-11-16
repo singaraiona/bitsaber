@@ -74,7 +74,7 @@ fn format_diagnostic(
     // write line
     write!(
         f,
-        "{:<3}{} {}\n   {} {} {}",
+        "{:<3}{} {}   {} {} {}",
         format!("{}", span.line_number).blue().bold(),
         "|".blue().bold(),
         line,
