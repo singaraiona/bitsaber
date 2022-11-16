@@ -61,9 +61,9 @@ impl<'a> Runtime<'a> {
         todo!()
     }
 
-    pub fn parse_eval(&mut self, input: String) -> BSResult<BSValue> {
+    pub fn parse_eval(&mut self, input: &str) -> BSResult<BSValue> {
         unsafe {
-            let parsed_fn = Parser::new(input.as_str()).parse()?;
+            let parsed_fn = Parser::new(input).parse()?;
 
             let mut module = self
                 .context

@@ -1,5 +1,6 @@
 extern crate bs;
 
+use bs::parse::diagnostic::Diagnostic;
 use bs::result::BSResult;
 use bs::rt::runtime::Runtime;
 use std::io::{self, Write};
@@ -17,9 +18,9 @@ pub fn main() {
             .read_line(&mut input)
             .expect("Could not read from standard input.");
 
-        let res = match runtime.parse_eval(input) {
+        let res = match runtime.parse_eval(input.as_str()) {
             BSResult::Ok(result) => format!("=> {}", result),
-            BSResult::Err(err) => format!("=> {:?}", err),
+            BSResult::Err(err) => format!("{}", Diagnostic::new("REPL", &input, err)),
         };
 
         println!("{}", res);

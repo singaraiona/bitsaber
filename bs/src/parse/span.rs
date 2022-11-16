@@ -24,3 +24,15 @@ impl Span {
         }
     }
 }
+
+impl Default for Span {
+    fn default() -> Self {
+        Span {
+            line_number: 1,
+            line_start: 0,
+            line_end: 0,
+            label_start: 0,
+            label_end: 0,
+        }
+    }
+}

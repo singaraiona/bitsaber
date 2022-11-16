@@ -39,9 +39,7 @@ pub enum Token<'a> {
 pub struct Lexer<'a> {
     input: &'a str,
     chars: Box<Peekable<Chars<'a>>>,
-    pos: usize,
-    line_start: usize,
-    line_number: usize,
+    span: Span,
 }
 
 impl<'a> Lexer<'a> {
@@ -50,9 +48,7 @@ impl<'a> Lexer<'a> {
         Lexer {
             input,
             chars: Box::new(input.chars().peekable()),
-            pos: 0,
-            line_start: 0,
-            line_number: 1,
+            span: Default::default(),
         }
     }
 
@@ -60,7 +56,7 @@ impl<'a> Lexer<'a> {
     pub fn next(&mut self) -> BSResult<Token<'a>> {
         let chars = self.chars.deref_mut();
         let src = self.input;
-        let mut pos = self.pos;
+        let mut label_end = self.span.label_end;
 
         // Skip whitespaces
         loop {
@@ -68,38 +64,38 @@ impl<'a> Lexer<'a> {
                 let ch = chars.peek();
 
                 if ch.is_none() {
-                    self.pos = pos;
+                    self.span.label_end = label_end;
                     return ok(Token::EOF);
                 }
 
                 let c = ch.unwrap();
 
                 if *c == '\n' {
-                    self.line_start = pos + 1;
-                    self.line_number += 1;
-                }
-
-                if !c.is_whitespace() {
+                    self.span.line_end = label_end.wrapping_sub(1);
+                    self.span.line_start = label_end + 1;
+                    self.span.line_number += 1;
+                } else if !c.is_whitespace() {
                     break;
                 }
             }
 
             chars.next();
-            pos += 1;
+            label_end += 1;
         }
 
-        let start = pos;
+        self.span.label_start = label_end;
         let next = chars.next();
 
         if next.is_none() {
             return ok(Token::EOF);
         }
 
-        pos += 1;
+        label_end += 1;
 
         let next_c = next.ok_or_else(|| BSError::ParseError {
             msg: "Unexpected EOF",
-            span: None,
+            desc: "Expected a character",
+            span: Some(self.span),
         })?;
 
         // Actually get the next token.
@@ -117,16 +113,16 @@ impl<'a> Lexer<'a> {
                 // Comment
                 loop {
                     let ch = chars.next();
-                    pos += 1;
                     if ch == Some('\n') {
                         break;
                     }
+                    label_end += 1;
                 }
 
                 ok(Token::Comment)
             }
 
-            '-' if self.pos + 1 == pos
+            '-' if self.span.label_end + 1 == label_end
                 && chars
                     .peek()
                     .map(|c| c.is_digit(10) || c.is_whitespace())
@@ -135,7 +131,7 @@ impl<'a> Lexer<'a> {
                 ok(Token::Op(Op::Sub))
             }
 
-            '-' if self.pos + 1 != pos
+            '-' if self.span.label_end + 1 != label_end
                 && chars
                     .peek()
                     .map(|c| c.is_whitespace())
@@ -146,12 +142,15 @@ impl<'a> Lexer<'a> {
 
             '+' | '*' | '/' | '&' | '%' | '|' | '&' | '^' => {
                 // Parse operator
-                ok(Token::Op(Op::try_from(&src[start..pos]).map_err(|e| {
-                    BSError::ParseError {
-                        msg: "Invalid binary op",
-                        span: Some(self.span()),
-                    }
-                })?))
+                ok(Token::Op(
+                    Op::try_from(&src[self.span.label_start..label_end]).map_err(|e| {
+                        BSError::ParseError {
+                            msg: "Invalid binary op",
+                            desc: "Expected one of: +, -, *, /, %, &, |, ^",
+                            span: Some(self.span()),
+                        }
+                    })?,
+                ))
             }
 
             '.' if chars
@@ -180,21 +179,23 @@ impl<'a> Lexer<'a> {
                     }
 
                     chars.next();
-                    pos += 1;
+                    label_end += 1;
                 }
 
                 if is_float {
-                    let s = &src[start..pos];
+                    let s = &src[self.span.label_start..label_end];
                     let v = s.parse::<f64>().map_err(|_| BSError::ParseError {
                         msg: "Invalid float literal",
+                        desc: "Expected a valid float literal",
                         span: Some(self.span()),
                     })?;
 
                     ok(Token::Float64(v))
                 } else {
-                    let s = &src[start..pos];
+                    let s = &src[self.span.label_start..label_end];
                     let v = s.parse::<i64>().map_err(|_| BSError::ParseError {
                         msg: "Invalid integer literal",
+                        desc: "Expected a valid integer literal",
                         span: Some(self.span()),
                     })?;
 
@@ -216,10 +217,10 @@ impl<'a> Lexer<'a> {
                     }
 
                     chars.next();
-                    pos += 1;
+                    label_end += 1;
                 }
 
-                match &src[start..pos] {
+                match &src[self.span.label_start..label_end] {
                     "def" => ok(Token::Def),
                     "extern" => ok(Token::Extern),
                     "if" => ok(Token::If),
@@ -235,31 +236,26 @@ impl<'a> Lexer<'a> {
                 }
             }
 
-            c => parse_error("Unexpected character", Some(self.span())),
+            c => parse_error("Unexpected character", "", Some(self.span())),
         };
 
         // Update stored position, and return
-        self.pos = pos;
+        self.span.label_end = label_end;
 
         result
     }
 
     pub fn pos(&self) -> usize {
-        self.pos
+        self.span.label_end
     }
 
-    pub fn span(&self) -> Span {
-        let line_start = self.line_start;
-        let mut line_end = line_start;
-
-        for c in self.input[line_start..].chars() {
-            if c == '\n' {
-                break;
-            }
-
-            line_end += 1;
+    pub fn span(&mut self) -> Span {
+        // update span line end
+        if let Some(end) = self.chars.deref_mut().position(|c| c == '\n') {
+            self.span.line_end = self.span.line_start + end;
         }
 
-        Span::new(self.line_number, line_start, line_end, 0, 1)
+        self.span.line_end = std::cmp::max(self.span.line_end, self.span.label_end);
+        self.span
     }
 }

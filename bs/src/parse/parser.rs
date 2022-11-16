@@ -187,7 +187,11 @@ impl<'a> Parser<'a> {
         let r = match self.curr {
             Int64(v) => ok(Expr::Int64(v)),
             Float64(v) => ok(Expr::Float64(v)),
-            _ => parse_error("Expected number literal.", Some(self.lexer.span())),
+            _ => parse_error(
+                "Invalid literal",
+                "Expected number literal here",
+                Some(self.lexer.span()),
+            ),
         };
 
         match r {
@@ -440,6 +444,7 @@ impl<'a> Parser<'a> {
                 RBox => break,
                 _ => {
                     return parse_error(
+                        "Invalid number literal",
                         "Expected int or float in vector literal.",
                         Some(self.lexer.span()),
                     )
@@ -484,7 +489,8 @@ impl<'a> Parser<'a> {
             LBox => self.parse_vec_literal(),
             LParen => self.parse_paren_expr(),
             _ => parse_error(
-                "Expected int, float, vector or parenthesized expression.",
+                "Invalid expression",
+                "Expected int, float, vector or parenthesized expression here",
                 Some(self.lexer.span()),
             ),
         }
@@ -517,7 +523,11 @@ impl<'a> Parser<'a> {
                     rhs: Box::new(rhs),
                 })
             }
-            _ => parse_error("Invalid operator.", Some(self.lexer.span())),
+            _ => parse_error(
+                "Invalid operator.",
+                "Expected one of binary operators here",
+                Some(self.lexer.span()),
+            ),
         }
 
         // }
@@ -568,6 +578,7 @@ impl<'a> Parser<'a> {
                 if !self.at_end() {
                     parse_error(
                         "Unexpected token after parsed expression.",
+                        "",
                         Some(self.lexer.span()),
                     )
                 } else {
