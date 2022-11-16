@@ -11,7 +11,11 @@ pub enum BSError {
         desc: &'static str,
         span: Option<Span>,
     },
-    CompileError(String),
+    CompileError {
+        msg: String,
+        desc: String,
+        span: Option<Span>,
+    },
     RuntimeError(String),
     IOError(String),
 }
@@ -20,8 +24,8 @@ pub fn parse_error<T>(msg: &'static str, desc: &'static str, span: Option<Span>)
     BSResult::Err(BSError::ParseError { msg, desc, span })
 }
 
-pub fn compile_error<T>(msg: &str) -> BSResult<T> {
-    BSResult::Err(BSError::CompileError(msg.to_string()))
+pub fn compile_error<T>(msg: String, desc: String, span: Option<Span>) -> BSResult<T> {
+    BSResult::Err(BSError::CompileError { msg, desc, span })
 }
 
 pub fn runtime_error<T>(msg: String) -> BSResult<T> {

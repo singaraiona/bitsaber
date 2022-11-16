@@ -1,8 +1,9 @@
 use crate::base::bs_ops::Op;
+use crate::parse::span::Span;
 
 /// Defines a primitive expression.
 #[derive(Debug)]
-pub enum Expr {
+pub enum ExprBody {
     Null,
 
     Binary {
@@ -51,6 +52,18 @@ pub enum Expr {
     },
 }
 
+#[derive(Debug)]
+pub struct Expr {
+    pub body: ExprBody,
+    pub span: Option<Span>,
+}
+
+impl Expr {
+    pub fn new(body: ExprBody, span: Option<Span>) -> Expr {
+        Expr { body, span }
+    }
+}
+
 /// Defines the prototype (name and parameters) of a function.
 #[derive(Debug)]
 pub struct Prototype {
@@ -66,4 +79,5 @@ pub struct Function {
     pub prototype: Prototype,
     pub body: Option<Expr>,
     pub is_anon: bool,
+    pub span: Option<Span>,
 }

@@ -1,5 +1,6 @@
 use crate::base::bs_ops::Op;
 use crate::base::Type as BSType;
+use crate::parse::span::Span;
 use crate::result::*;
 use BSType::*;
 use Op::*;
@@ -24,13 +25,17 @@ pub static OPS_TABLE: [(Op, BSType, BSType, BSType); 16] = [
     (Xor, Float64, Float64, Float64),
 ];
 
-pub fn infer_type(op: Op, lhs: BSType, rhs: BSType) -> BSResult<BSType> {
+pub fn infer_type(op: Op, lhs: BSType, rhs: BSType, span: Option<Span>) -> BSResult<BSType> {
     match OPS_TABLE
         .iter()
         .find(|(op_, lhs_, rhs_, _)| op == *op_ && lhs == *lhs_ && rhs == *rhs_)
         .map(|(_, _, _, ret)| *ret)
     {
         Some(ty) => ok(ty),
-        None => compile_error(&format!("Invalid types for op: {:?} {} {}", op, lhs, rhs)),
+        None => compile_error(
+            "Type inference error".to_string(),
+            format!("No such op: {:?} for types: {} {}", op, lhs, rhs),
+            span,
+        ),
     }
 }

@@ -243,8 +243,11 @@ impl<'a> Lexer<'a> {
 
     pub fn span(&mut self) -> Span {
         // update span line end
-        if let Some(end) = self.chars.deref_mut().position(|c| c == '\n') {
-            self.span.line_end = self.span.label_end + end;
+        for c in self.input[self.span.line_end..].chars() {
+            self.span.line_end += 1;
+            if c == '\n' {
+                break;
+            }
         }
 
         self.span

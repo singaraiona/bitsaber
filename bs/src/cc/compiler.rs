@@ -3,7 +3,9 @@ use crate::base::infer::infer_type;
 use crate::base::Type as BSType;
 use crate::base::Value as BsValue;
 use crate::llvm::values::ptr_value::PtrValue;
+use crate::parse::ast::ExprBody;
 use crate::parse::ast::{Expr, Function, Prototype};
+use crate::parse::span::Span;
 use crate::result::*;
 use llvm::builder::Builder;
 use llvm::context::Context;
@@ -41,14 +43,15 @@ impl<'a, 'b> Compiler<'a, 'b> {
         op: Op,
         lhs: (Value<'a>, BSType),
         rhs: (Value<'a>, BSType),
+        span: Option<Span>,
     ) -> BSResult<(Value<'a>, BSType)> {
         let (lhs, lhs_type) = lhs;
         let (rhs, rhs_type) = rhs;
-        let result_type = infer_type(op, lhs_type, rhs_type)?;
+        let result_type = infer_type(op, lhs_type, rhs_type, span)?;
 
         use BSType::*;
         use Op::*;
-
+        println!("COMPILE BINARY OP: {:?} {:?} {:?}", lhs_type, op, rhs_type);
         let result = match (op, lhs_type, rhs_type) {
             (Add, Int64, Int64) => self.builder.build_int_add(lhs, rhs, "addtmp"),
             (Add, Float64, Float64) => self.builder.build_float_add(lhs, rhs, "addtmp"),
@@ -66,42 +69,53 @@ impl<'a, 'b> Compiler<'a, 'b> {
             (And, Float64, Float64) => self.builder.build_and(lhs, rhs, "andtmp"),
             (Xor, Int64, Int64) => self.builder.build_xor(lhs, rhs, "xortmp"),
             (Xor, Float64, Float64) => self.builder.build_xor(lhs, rhs, "xortmp"),
-            op => return compile_error(&format!("Unsupported binary op: {:?}", op)),
+            op => {
+                return compile_error(
+                    format!("Unsupported binary op: {:?}", op),
+                    "Refer to a supported binary operations".to_string(),
+                    span,
+                )
+            }
         };
 
         ok((result, result_type))
     }
 
     fn compile_expr(&self, expr: &Expr) -> BSResult<(Value<'a>, BSType)> {
-        match expr {
+        match &expr.body {
             // Expr::Null => ok((Value::Null, BSType::Null)),
-            Expr::Int64(v) => ok((
+            ExprBody::Int64(v) => ok((
                 self.context.i64_type().const_value(*v).into(),
                 BSType::Int64,
             )),
-            Expr::Float64(v) => ok((
+            ExprBody::Float64(v) => ok((
                 self.context.f64_type().const_value(*v).into(),
                 BSType::Float64,
             )),
-            Expr::VecInt64(v) => {
+            ExprBody::VecInt64(v) => {
                 let bsval = unsafe {
                     std::mem::transmute(BsValue::from(v.clone()).into_llvm_value(&self.context))
                 };
                 ok((bsval, BSType::VecInt64))
             }
-            Expr::VecFloat64(v) => {
+            ExprBody::VecFloat64(v) => {
                 let bsval = unsafe {
                     std::mem::transmute(BsValue::from(v.clone()).into_llvm_value(&self.context))
                 };
                 ok((bsval, BSType::VecFloat64))
             }
             // Expr::VecFloat64(v) => ok(BsValue::from(v.clone())),
-            Expr::Binary { op, lhs, rhs } => {
-                let lhs = self.compile_expr(lhs)?;
-                let rhs = self.compile_expr(rhs)?;
-                self.compile_binary_op(*op, lhs, rhs)
+            ExprBody::Binary { op, lhs, rhs } => {
+                let lhs = self.compile_expr(&lhs)?;
+                let rhs = self.compile_expr(&rhs)?;
+                self.compile_binary_op(*op, lhs, rhs, expr.span)
             }
-            e => compile_error(&format!("Compiler: unknown expression: {:?}", e)),
+
+            e => compile_error(
+                format!("Compiler: unknown expression: {:?}", e),
+                "".to_string(),
+                expr.span,
+            ),
         }
     }
 
@@ -189,7 +203,11 @@ impl<'a, 'b> Compiler<'a, 'b> {
             }
             Err(e) => {
                 function.delete();
-                compile_error(&e.to_string())
+                compile_error(
+                    "Compile function failed".to_string(),
+                    e.to_string(),
+                    self.function.span,
+                )
             }
         }
     }

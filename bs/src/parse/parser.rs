@@ -185,8 +185,8 @@ impl<'a> Parser<'a> {
     /// Parses a literal number.
     fn parse_nb_expr(&mut self) -> BSResult<Expr> {
         let r = match self.curr {
-            Int64(v) => ok(Expr::Int64(v)),
-            Float64(v) => ok(Expr::Float64(v)),
+            Int64(v) => ok(Expr::new(ExprBody::Int64(v), Some(self.lexer.span()))),
+            Float64(v) => ok(Expr::new(ExprBody::Float64(v), Some(self.lexer.span()))),
             _ => parse_error(
                 "Invalid literal",
                 "Expected number literal here",
@@ -455,9 +455,15 @@ impl<'a> Parser<'a> {
         self.advance()?;
 
         if vec_i64.len() == 0 {
-            ok(Expr::VecFloat64(vec_f64))
+            ok(Expr::new(
+                ExprBody::VecFloat64(vec_f64),
+                Some(self.lexer.span()),
+            ))
         } else {
-            ok(Expr::VecInt64(vec_i64))
+            ok(Expr::new(
+                ExprBody::VecInt64(vec_i64),
+                Some(self.lexer.span()),
+            ))
         }
     }
 
@@ -501,27 +507,33 @@ impl<'a> Parser<'a> {
         if self.at_end() {
             return ok(lhs);
         }
-
         // loop {
+        let span = Some(self.lexer.span());
         match self.curr {
             Op(op) => {
                 self.advance()?;
                 let mut rhs = self.parse_unary_expr()?;
                 self.advance()?;
-                ok(Expr::Binary {
-                    op,
-                    lhs: Box::new(lhs),
-                    rhs: Box::new(rhs),
-                })
+                ok(Expr::new(
+                    ExprBody::Binary {
+                        op,
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs),
+                    },
+                    span,
+                ))
             }
             Dot => {
                 self.advance()?;
                 let rhs = self.parse_dot_expr()?;
                 self.advance()?;
-                ok(Expr::Dot {
-                    lhs: Box::new(lhs),
-                    rhs: Box::new(rhs),
-                })
+                ok(Expr::new(
+                    ExprBody::Dot {
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs),
+                    },
+                    Some(self.lexer.span()),
+                ))
             }
             _ => parse_error(
                 "Invalid operator.",
@@ -544,7 +556,7 @@ impl<'a> Parser<'a> {
     /// for easier compilation.
     fn parse_toplevel_expr(&mut self) -> BSResult<Function> {
         let expr = match self.curr {
-            EOF => ok(Expr::Null),
+            EOF => ok(Expr::new(ExprBody::Null, Some(self.lexer.span()))),
             Ident(_) => self.parse_id_expr(),
             If => self.parse_conditional_expr(),
             For => self.parse_for_expr(),
@@ -566,6 +578,7 @@ impl<'a> Parser<'a> {
             },
             body: Some(expr),
             is_anon: true,
+            span: Some(self.lexer.span()),
         })
     }
 

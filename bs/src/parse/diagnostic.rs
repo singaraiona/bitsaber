@@ -25,6 +25,12 @@ impl fmt::Display for Diagnostic<'_> {
                 }
                 None => write!(f, "{}", msg),
             },
+            BSError::CompileError { msg, desc, span } => match span {
+                Some(span) => {
+                    format_diagnostic(self.name, self.input, "CompileError", msg, desc, span, f)
+                }
+                None => write!(f, "{}", msg),
+            },
             _ => write!(f, "{}", ""),
         }
     }
