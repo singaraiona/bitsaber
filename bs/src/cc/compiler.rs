@@ -2,6 +2,7 @@ use crate::base::binary::Op;
 use crate::base::infer::infer_type;
 use crate::base::Type as BSType;
 use crate::base::Value as BsValue;
+use crate::base::NULL_VALUE;
 use crate::llvm::values::ptr_value::PtrValue;
 use crate::parse::ast::ExprBody;
 use crate::parse::ast::{Expr, Function, Prototype};
@@ -85,7 +86,10 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
     fn compile_expr(&mut self, expr: &Expr) -> BSResult<(Value<'a>, BSType)> {
         match &expr.body {
-            // Expr::Null => ok((Value::Null, BSType::Null)),
+            ExprBody::Null => ok((
+                self.context.i64_type().const_value(NULL_VALUE).into(),
+                BSType::Null,
+            )),
             ExprBody::Int64(v) => ok((
                 self.context.i64_type().const_value(*v).into(),
                 BSType::Int64,

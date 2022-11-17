@@ -92,6 +92,7 @@ impl<'a> Runtime<'a> {
                     let f: extern "C" fn() -> f64 = mem::transmute(addr);
                     ok(BSValue::Float64(f().into()))
                 }
+                BSType::Null => ok(BSValue::Null),
                 _ => {
                     let f: extern "C" fn() -> BSValue = mem::transmute(addr);
                     ok(f())

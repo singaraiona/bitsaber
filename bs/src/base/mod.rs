@@ -6,6 +6,8 @@ use std::fmt;
 use std::mem::transmute;
 use std::rc::Rc;
 
+pub const NULL_VALUE: i64 = std::i64::MAX;
+
 pub mod binary;
 pub mod f64_value;
 pub mod i64_value;

@@ -51,6 +51,7 @@ impl Into<LLVMValueRef> for ValueRef<'_> {
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum Value<'a> {
+    Null(I64Value<'a>),
     Int64(I64Value<'a>),
     Float64(F64Value<'a>),
     Fn(FnValue<'a>),
@@ -207,6 +208,7 @@ impl ValueIntrinsics for Value<'_> {
             Value::Instruction(v) => v.as_llvm_value_ref(),
             Value::Struct(v) => v.as_llvm_value_ref(),
             Value::Ptr(v) => v.as_llvm_value_ref(),
+            Value::Null(v) => v.as_llvm_value_ref(),
         }
     }
     fn set_name(self, name: &str) {
@@ -217,6 +219,7 @@ impl ValueIntrinsics for Value<'_> {
             Value::Instruction(v) => v.set_name(name),
             Value::Struct(v) => v.set_name(name),
             Value::Ptr(v) => v.set_name(name),
+            Value::Null(v) => v.set_name(name),
         }
     }
 
@@ -228,6 +231,7 @@ impl ValueIntrinsics for Value<'_> {
             Value::Instruction(v) => v.get_name(),
             Value::Struct(v) => v.get_name(),
             Value::Ptr(v) => v.get_name(),
+            Value::Null(v) => v.get_name(),
         }
     }
     fn get_llvm_type_ref(&self) -> LLVMTypeRef {
@@ -238,6 +242,7 @@ impl ValueIntrinsics for Value<'_> {
             Value::Instruction(v) => v.get_llvm_type_ref(),
             Value::Struct(v) => v.get_llvm_type_ref(),
             Value::Ptr(v) => v.get_llvm_type_ref(),
+            Value::Null(v) => v.get_llvm_type_ref(),
         }
     }
 }
@@ -251,6 +256,7 @@ impl fmt::Display for Value<'_> {
             Value::Instruction(v) => write!(f, "{:?}", v),
             Value::Struct(v) => write!(f, "{:?}", v),
             Value::Ptr(v) => write!(f, "{:?}", v),
+            Value::Null(v) => write!(f, "{:?}", v),
         }
     }
 }
