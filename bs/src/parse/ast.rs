@@ -77,7 +77,7 @@ pub struct Prototype {
 #[derive(Debug)]
 pub struct Function {
     pub prototype: Prototype,
-    pub body: Option<Expr>,
+    pub body: Vec<Expr>,
     pub is_anon: bool,
     pub span: Option<Span>,
 }

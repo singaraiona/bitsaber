@@ -40,6 +40,7 @@ pub fn ok<T>(v: T) -> BSResult<T> {
     BSResult::Ok(v)
 }
 
+#[derive(Debug)]
 pub enum BSResult<T> {
     Ok(T),
     Err(BSError),

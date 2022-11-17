@@ -6,7 +6,7 @@ use std::ops::DerefMut;
 use std::str::Chars;
 
 /// Represents a primitive syntax token.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token<'a> {
     Binary,
     Comma,
@@ -32,6 +32,7 @@ pub enum Token<'a> {
     Unary,
     Assign,
     Dot,
+    Semi,
 }
 
 /// Defines a lexer which transforms an input `String` into
@@ -110,6 +111,8 @@ impl<'a> Lexer<'a> {
 
             ',' => ok(Token::Comma),
 
+            ';' => ok(Token::Semi),
+
             '#' => {
                 // Comment
                 loop {
@@ -143,11 +146,11 @@ impl<'a> Lexer<'a> {
                 ok(Token::Op(Op::Sub))
             }
 
-            '+' | '*' | '/' | '&' | '%' | '|' | '&' | '^' => {
+            '+' | '*' | '/' | '&' | '%' | '|' | '^' => {
                 // Parse operator
                 ok(Token::Op(
                     Op::try_from(&src[self.span.label_start..self.span.label_end]).map_err(
-                        |e| BSError::ParseError {
+                        |_| BSError::ParseError {
                             msg: "Invalid binary op",
                             desc: "Expected one of: +, -, *, /, %, &, |, ^",
                             span: Some(self.span()),

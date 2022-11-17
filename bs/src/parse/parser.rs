@@ -246,7 +246,6 @@ impl<'a> Parser<'a> {
             Assign => {
                 self.advance()?;
                 let rhs = self.parse_expr()?;
-                self.advance()?;
 
                 ok(Expr::new(
                     ExprBody::Assign {
@@ -256,9 +255,7 @@ impl<'a> Parser<'a> {
                     Some(span),
                 ))
             }
-            _ => {
-                todo!()
-            }
+            _ => ok(Expr::new(ExprBody::Variable(id.to_string()), Some(span))),
         }
 
         // if self.advance().is_err() {
@@ -474,6 +471,7 @@ impl<'a> Parser<'a> {
             Float64(_) => self.parse_nb_expr(),
             LBox => self.parse_vec_literal(),
             LParen => self.parse_paren_expr(),
+            Ident(_) => self.parse_id_expr(),
             _ => parse_error(
                 "Invalid expression",
                 "Expected int, float, vector or parenthesized expression here",
@@ -483,7 +481,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parses a binary expression, given its left-hand expression.
-    fn parse_binary_expr(&mut self, mut lhs: Expr) -> BSResult<Expr> {
+    fn parse_binary_expr(&mut self, lhs: Expr) -> BSResult<Expr> {
         if self.at_end() {
             return ok(lhs);
         }
@@ -492,8 +490,7 @@ impl<'a> Parser<'a> {
         match self.curr {
             Op(op) => {
                 self.advance()?;
-                let mut rhs = self.parse_unary_expr()?;
-                self.advance()?;
+                let rhs = self.parse_unary_expr()?;
                 ok(Expr::new(
                     ExprBody::Binary {
                         op,
@@ -506,7 +503,6 @@ impl<'a> Parser<'a> {
             Dot => {
                 self.advance()?;
                 let rhs = self.parse_dot_expr()?;
-                self.advance()?;
                 ok(Expr::new(
                     ExprBody::Dot {
                         lhs: Box::new(lhs),
@@ -516,14 +512,8 @@ impl<'a> Parser<'a> {
                 ))
             }
 
-            _ => parse_error(
-                "Invalid operator.",
-                "Expected one of binary operators here",
-                Some(self.lexer.span()),
-            ),
+            _ => ok(lhs),
         }
-
-        // }
     }
 
     fn parse_expr(&mut self) -> BSResult<Expr> {
@@ -533,21 +523,26 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Parses a top-level expression and makes an anonymous function out of it,
-    /// for easier compilation.
-    fn parse_toplevel_expr(&mut self) -> BSResult<Function> {
-        let expr = match self.curr {
-            EOF => ok(Expr::new(ExprBody::Null, Some(self.lexer.span()))),
-            Ident(_) => self.parse_id_expr(),
-            If => self.parse_conditional_expr(),
-            For => self.parse_for_expr(),
-            Dot => self.parse_dot_expr(),
-            // Def => self.parse_def(),
-            // Extern => self.parse_extern(),
-            _ => self.parse_expr(),
-        }?;
+    fn parse_program(&mut self) -> BSResult<Function> {
+        let mut body = vec![];
 
-        self.advance()?;
+        while !self.at_end() {
+            let e = match self.curr {
+                If => self.parse_conditional_expr(),
+                For => self.parse_for_expr(),
+                Dot => self.parse_dot_expr(),
+                // Def => self.parse_def(),
+                // Extern => self.parse_extern(),
+                _ => self.parse_expr(),
+            }?;
+
+            body.push(e);
+
+            if self.curr == Semi {
+                self.advance()?;
+                continue;
+            }
+        }
 
         ok(Function {
             prototype: Prototype {
@@ -556,7 +551,7 @@ impl<'a> Parser<'a> {
                 is_op: false,
                 prec: 0,
             },
-            body: Some(expr),
+            body: body,
             is_anon: true,
             span: Some(self.lexer.span()),
         })
@@ -565,8 +560,7 @@ impl<'a> Parser<'a> {
     /// Parses the content of the parser.
     pub fn parse(&mut self) -> BSResult<Function> {
         self.advance()?;
-
-        match self.parse_toplevel_expr() {
+        match self.parse_program() {
             BSResult::Ok(expr) => {
                 if !self.at_end() {
                     parse_error(

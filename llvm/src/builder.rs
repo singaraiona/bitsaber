@@ -77,6 +77,20 @@ impl<'a> Builder<'a> {
         InstructionValue::new(value).into()
     }
 
+    pub fn build_load(&self, ptr: Value<'a>, name: &str) -> Value<'a> {
+        let c_string = to_c_str(name);
+        let value = unsafe {
+            LLVMBuildLoad2(
+                self.llvm_builder,
+                LLVMGetElementType(ptr.get_llvm_type_ref()),
+                ptr.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            )
+        };
+
+        Value::new(value)
+    }
+
     // -- OPS
 
     pub fn build_int_add(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {

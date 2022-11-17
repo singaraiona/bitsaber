@@ -19,7 +19,8 @@ pub struct Compiler<'a, 'b> {
     builder: &'a mut Builder<'b>,
     module: &'a mut Module<'b>,
     function: Function,
-    variables: HashMap<String, PtrValue<'b>>,
+    variables: HashMap<String, Value<'b>>,
+    fn_value_opt: Option<FnValue<'b>>,
 }
 
 impl<'a, 'b> Compiler<'a, 'b> {
@@ -35,6 +36,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             module,
             function,
             variables: HashMap::new(),
+            fn_value_opt: None,
         }
     }
 
@@ -81,7 +83,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         ok((result, result_type))
     }
 
-    fn compile_expr(&self, expr: &Expr) -> BSResult<(Value<'a>, BSType)> {
+    fn compile_expr(&mut self, expr: &Expr) -> BSResult<(Value<'a>, BSType)> {
         match &expr.body {
             // Expr::Null => ok((Value::Null, BSType::Null)),
             ExprBody::Int64(v) => ok((
@@ -104,7 +106,14 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 };
                 ok((bsval, BSType::VecFloat64))
             }
-            // Expr::VecFloat64(v) => ok(BsValue::from(v.clone())),
+            ExprBody::Variable(ref name) => match self.variables.get(name.as_str()) {
+                Some(v) => ok((self.builder.build_load(*v, name.as_str()), BSType::Int64)),
+                None => compile_error(
+                    format!("Undefined symbol '{}'", name),
+                    "Symbol not found".to_string(),
+                    expr.span,
+                ),
+            },
             ExprBody::Binary { op, lhs, rhs } => {
                 let lhs = self.compile_expr(&lhs)?;
                 let rhs = self.compile_expr(&rhs)?;
@@ -113,13 +122,9 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
             ExprBody::Assign { variable, body } => {
                 let body = self.compile_expr(&body)?;
-
-                // let alloca = self.create_entry_block_alloca(variable);
-                // self.builder.build_store(alloca, initial_val);
-
-                // let variable = self.variables.get(variable).unwrap();
-                // self.builder.build_store(*variable, body.0);
-
+                let alloca = self.create_entry_block_alloca(variable);
+                self.builder.build_store(alloca, body.0);
+                self.variables.insert(variable.clone(), alloca);
                 ok(body)
             }
 
@@ -129,6 +134,28 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 expr.span,
             ),
         }
+    }
+
+    #[inline]
+    fn fn_value(&self) -> FnValue<'b> {
+        self.fn_value_opt.unwrap()
+    }
+
+    /// Creates a new stack allocation instruction in the entry block of the function.
+    fn create_entry_block_alloca(&self, name: &str) -> Value<'b> {
+        let builder = self
+            .context
+            .create_builder()
+            .expect("unable to create builder");
+
+        let entry = self.fn_value().get_first_basic_block().unwrap();
+
+        match entry.get_first_instruction() {
+            Some(first_instr) => builder.position_before(&first_instr),
+            None => builder.position_at_end(entry),
+        }
+
+        builder.build_alloca(self.context.i64_type().into(), name)
     }
 
     fn compile_prototype(&self, ret_type: BSType) -> BSResult<(FnValue<'b>, BSType)> {
@@ -157,44 +184,35 @@ impl<'a, 'b> Compiler<'a, 'b> {
         ok((fn_val, ret_type))
     }
 
-    /// Creates a new stack allocation instruction in the entry block of the function.
-    fn create_entry_block_alloca(&self, name: &str, fn_value: FnValue<'_>) -> Value<'b> {
-        let builder = self
-            .context
-            .create_builder()
-            .expect("unable to create builder");
-
-        let entry = fn_value.get_first_basic_block().unwrap();
-
-        match entry.get_first_instruction() {
-            Some(first_instr) => builder.position_before(&first_instr),
-            None => builder.position_at_end(entry),
-        }
-
-        builder.build_alloca(self.context.f64_type().into(), name)
-    }
-
     fn compile_fn(&mut self) -> BSResult<(FnValue<'b>, BSType)> {
-        // compile body
-        let (body, ret_ty) = self.compile_expr(self.function.body.as_ref().unwrap())?;
-        let (function, ret_ty) = self.compile_prototype(ret_ty)?;
-
-        let variables = &mut self.variables;
+        let (function, ret_ty) = self.compile_prototype(BSType::Int64)?;
 
         // got external function, returning only compiled prototype
-        if self.function.body.is_none() {
+        if self.function.body.is_empty() {
             return ok((function, ret_ty));
         }
 
         let entry = self.context.append_basic_block(function, "entry");
         self.builder.position_at_end(entry);
 
+        // compile body
+        self.fn_value_opt = Some(function);
+        let (body, ret_ty) = {
+            // TODO: Fix this hack
+            let body: &mut Vec<_> = unsafe { std::mem::transmute(&mut self.function.body) };
+            body.into_iter()
+                .map(|e| self.compile_expr(&e))
+                .last()
+                .unwrap()?
+        };
+
+        let variables = &mut self.variables;
         // build variables map
         variables.reserve(self.function.prototype.args.len());
 
         for (i, arg) in function.get_params_iter().enumerate() {
             let arg_name = self.function.prototype.args[i].as_str();
-            let alloca = self.create_entry_block_alloca(arg_name, function);
+            let alloca = self.create_entry_block_alloca(arg_name);
             self.builder.build_store(alloca, arg);
             self.variables
                 .insert(self.function.prototype.args[i].clone(), alloca.into());
