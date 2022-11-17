@@ -8,17 +8,9 @@ use std::str::Chars;
 /// Represents a primitive syntax token.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token<'a> {
-    Binary,
     Comma,
     Comment,
-    Def,
-    Else,
-    EOF,
-    Extern,
-    For,
     Ident(&'a str),
-    If,
-    In,
     LParen,
     RParen,
     LBox,
@@ -28,11 +20,10 @@ pub enum Token<'a> {
     Int64(i64),
     Float64(f64),
     Op(Op),
-    Then,
-    Unary,
     Assign,
     Dot,
     Semi,
+    EOF,
 }
 
 /// Defines a lexer which transforms an input `String` into
@@ -227,21 +218,11 @@ impl<'a> Lexer<'a> {
                 }
 
                 match &src[self.span.label_start..self.span.label_end] {
-                    "def" => ok(Token::Def),
-                    "extern" => ok(Token::Extern),
-                    "if" => ok(Token::If),
-                    "then" => ok(Token::Then),
-                    "else" => ok(Token::Else),
-                    "for" => ok(Token::For),
-                    "in" => ok(Token::In),
-                    "unary" => ok(Token::Unary),
-                    "binary" => ok(Token::Binary),
-
                     ident => ok(Token::Ident(ident)),
                 }
             }
 
-            c => parse_error("Unexpected character", "", Some(self.span())),
+            _ => parse_error("Unexpected character", "", Some(self.span())),
         }
     }
 

@@ -38,150 +38,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Parses the prototype of a function, whether external or user-defined.
-    fn parse_prototype(&mut self) -> BSResult<Prototype> {
-        // let (id, is_operator, precedence) = match self.curr() {
-        //     Ident(id) => {
-        //         self.advance()?;
-
-        //         (id, false, 0)
-        //     }
-
-        //     Binary => {
-        //         self.advance()?;
-
-        //         let op = match self.curr() {
-        //             Op(ch) => ch,
-        //             _ => return Err("Expected operator in custom operator declaration."),
-        //         };
-
-        //         self.advance()?;
-
-        //         let mut name = String::from("binary");
-
-        //         name.push(op);
-
-        //         let prec = if let Number(prec) = self.curr() {
-        //             self.advance()?;
-
-        //             prec as usize
-        //         } else {
-        //             0
-        //         };
-
-        //         self.prec.insert(op, prec as i32);
-
-        //         (name, true, prec)
-        //     }
-
-        //     Unary => {
-        //         self.advance()?;
-
-        //         let op = match self.curr() {
-        //             Op(ch) => ch,
-        //             _ => return Err("Expected operator in custom operator declaration."),
-        //         };
-
-        //         let mut name = String::from("unary");
-
-        //         name.push(op);
-
-        //         self.advance()?;
-
-        //         (name, true, 0)
-        //     }
-
-        //     _ => return Err("Expected identifier in prototype declaration."),
-        // };
-
-        // match self.curr() {
-        //     LParen => (),
-        //     _ => return Err("Expected '(' character in prototype declaration."),
-        // }
-
-        // self.advance()?;
-
-        // if let RParen = self.curr() {
-        //     self.advance();
-
-        //     return Ok(Prototype {
-        //         name: id,
-        //         args: vec![],
-        //         is_op: is_operator,
-        //         prec: precedence,
-        //     });
-        // }
-
-        // let mut args = vec![];
-
-        // loop {
-        //     match self.curr() {
-        //         Ident(name) => args.push(name),
-        //         _ => return Err("Expected identifier in parameter declaration."),
-        //     }
-
-        //     self.advance()?;
-
-        //     match self.curr() {
-        //         RParen => {
-        //             self.advance();
-        //             break;
-        //         }
-        //         Comma => {
-        //             self.advance();
-        //         }
-        //         _ => return Err("Expected ',' or ')' character in prototype declaration."),
-        //     }
-        // }
-
-        // Ok(Prototype {
-        //     name: id,
-        //     args,
-        //     is_op: is_operator,
-        //     prec: precedence,
-        // })
-
-        todo!()
-    }
-
-    /// Parses a user-defined function.
-    fn parse_def(&mut self) -> BSResult<Function> {
-        // Eat 'def' keyword
-        // self.pos += 1;
-
-        // // Parse signature of function
-        // let proto = self.parse_prototype()?;
-
-        // // Parse body of function
-        // let body = self.parse_expr()?;
-
-        // // Return new function
-        // Ok(Function {
-        //     prototype: proto,
-        //     body: Some(body),
-        //     is_anon: false,
-        // })
-
-        todo!()
-    }
-
-    /// Parses an external function declaration.
-    fn parse_extern(&mut self) -> BSResult<Function> {
-        // Eat 'extern' keyword
-        // self.pos += 1;
-
-        // // Parse signature of extern function
-        // let proto = self.parse_prototype()?;
-
-        // Ok(Function {
-        //     prototype: proto,
-        //     body: None,
-        //     is_anon: false,
-        // })
-
-        todo!()
-    }
-
     /// Parses a literal number.
     fn parse_nb_expr(&mut self) -> BSResult<Expr> {
         let r = match self.curr {
@@ -201,29 +57,6 @@ impl<'a> Parser<'a> {
             }
             _ => r,
         }
-    }
-
-    /// Parses an expression enclosed in parenthesis.
-    fn parse_paren_expr(&mut self) -> BSResult<Expr> {
-        // match self.current()? {
-        //     LParen => (),
-        //     _ => return Err("Expected '(' character at start of parenthesized expression."),
-        // }
-
-        // self.advance()?;
-
-        // let expr = self.parse_expr()?;
-
-        // match self.current()? {
-        //     RParen => (),
-        //     _ => return Err("Expected ')' character at end of parenthesized expression."),
-        // }
-
-        // self.advance();
-
-        // Ok(expr)
-
-        todo!()
     }
 
     /// Parses an expression that starts with an identifier (either a variable or a function call).
@@ -257,139 +90,6 @@ impl<'a> Parser<'a> {
             }
             _ => ok(Expr::new(ExprBody::Variable(id.to_string()), Some(span))),
         }
-
-        // if self.advance().is_err() {
-        //     return Ok(Expr::Variable(id));
-        // }
-
-        // match self.curr() {
-        //     LParen => {
-        //         self.advance()?;
-
-        //         if let RParen = self.curr() {
-        //             return Ok(Expr::Call {
-        //                 fn_name: id,
-        //                 args: vec![],
-        //             });
-        //         }
-
-        //         let mut args = vec![];
-
-        //         loop {
-        //             args.push(self.parse_expr()?);
-
-        //             match self.current()? {
-        //                 Comma => (),
-        //                 RParen => break,
-        //                 _ => return Err("Expected ',' character in function call."),
-        //             }
-
-        //             self.advance()?;
-        //         }
-
-        //         self.advance();
-
-        //         Ok(Expr::Call { fn_name: id, args })
-        //     }
-
-        //     _ => Ok(Expr::Variable(id)),
-        // }
-
-        // ok(Expr::new(
-        //     ExprBody::Variable(id.to_string()),
-        //     Some(self.lexer.span()),
-        // ))
-    }
-
-    /// Parses a conditional if..then..else expression.
-    fn parse_conditional_expr(&mut self) -> BSResult<Expr> {
-        // eat 'if' token
-        // self.advance()?;
-
-        // let cond = self.parse_expr()?;
-
-        // // eat 'then' token
-        // match self.current() {
-        //     Ok(Then) => self.advance()?,
-        //     _ => return Err("Expected 'then' keyword."),
-        // }
-
-        // let then = self.parse_expr()?;
-
-        // // eat 'else' token
-        // match self.current() {
-        //     Ok(Else) => self.advance()?,
-        //     _ => return Err("Expected 'else' keyword."),
-        // }
-
-        // let otherwise = self.parse_expr()?;
-
-        // Ok(Expr::Conditional {
-        //     cond: Box::new(cond),
-        //     consequence: Box::new(then),
-        //     alternative: Box::new(otherwise),
-        // })
-
-        todo!()
-    }
-
-    /// Parses a loop for..in.. expression.
-    fn parse_for_expr(&mut self) -> BSResult<Expr> {
-        // eat 'for' token
-        // self.advance()?;
-
-        // let name = match self.curr() {
-        //     Ident(n) => n,
-        //     _ => return Err("Expected identifier in for loop."),
-        // };
-
-        // // eat identifier
-        // self.advance()?;
-
-        // // eat '=' token
-        // match self.curr() {
-        //     Op('=') => self.advance()?,
-        //     _ => return Err("Expected '=' character in for loop."),
-        // }
-
-        // let start = self.parse_expr()?;
-
-        // // eat ',' token
-        // match self.current()? {
-        //     Comma => self.advance()?,
-        //     _ => return Err("Expected ',' character in for loop."),
-        // }
-
-        // let end = self.parse_expr()?;
-
-        // // parse (optional) step expression
-        // let step = match self.current()? {
-        //     Comma => {
-        //         self.advance()?;
-
-        //         Some(self.parse_expr()?)
-        //     }
-
-        //     _ => None,
-        // };
-
-        // // eat 'in' token
-        // match self.current()? {
-        //     In => self.advance()?,
-        //     _ => return Err("Expected 'in' keyword in for loop."),
-        // }
-
-        // let body = self.parse_expr()?;
-
-        // Ok(Expr::For {
-        //     var_name: name,
-        //     start: Box::new(start),
-        //     end: Box::new(end),
-        //     step: step.map(Box::new),
-        //     body: Box::new(body),
-        // })
-
-        todo!()
     }
 
     fn parse_vec_literal(&mut self) -> BSResult<Expr> {
@@ -449,28 +149,10 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_unary_expr(&mut self) -> BSResult<Expr> {
-        // let op = match self.current()? {
-        //     Op(ch) => {
-        //         self.advance()?;
-        //         ch
-        //     }
-        //     _ => return self.parse_primary(),
-        // };
-
-        // let mut name = String::from("unary");
-
-        // name.push(op);
-
-        // Ok(Expr::Call {
-        //     fn_name: name,
-        //     args: vec![self.parse_unary_expr()?],
-        // })
-
         match self.curr {
             Int64(_) => self.parse_nb_expr(),
             Float64(_) => self.parse_nb_expr(),
             LBox => self.parse_vec_literal(),
-            LParen => self.parse_paren_expr(),
             Ident(_) => self.parse_id_expr(),
             _ => parse_error(
                 "Invalid expression",
@@ -480,12 +162,10 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Parses a binary expression, given its left-hand expression.
     fn parse_binary_expr(&mut self, lhs: Expr) -> BSResult<Expr> {
         if self.at_end() {
             return ok(lhs);
         }
-        // loop {
         let span = Some(self.lexer.span());
         match self.curr {
             Op(op) => {
@@ -528,11 +208,7 @@ impl<'a> Parser<'a> {
 
         while !self.at_end() {
             let e = match self.curr {
-                If => self.parse_conditional_expr(),
-                For => self.parse_for_expr(),
                 Dot => self.parse_dot_expr(),
-                // Def => self.parse_def(),
-                // Extern => self.parse_extern(),
                 _ => self.parse_expr(),
             }?;
 
@@ -557,7 +233,6 @@ impl<'a> Parser<'a> {
         })
     }
 
-    /// Parses the content of the parser.
     pub fn parse(&mut self) -> BSResult<Function> {
         self.advance()?;
         match self.parse_program() {
