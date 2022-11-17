@@ -47,7 +47,7 @@ impl fmt::Display for Type {
 impl Type {
     pub fn into_llvm_type<'a>(self, context: &'a Context) -> LLVMType<'a> {
         match self {
-            Type::Null => context.void_type().into(),
+            Type::Null => context.i64_type().into(),
             Type::Int64 => context.i64_type().into(),
             Type::Float64 => context.f64_type().into(),
             Type::VecInt64 => context

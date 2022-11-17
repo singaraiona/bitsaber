@@ -84,6 +84,11 @@ impl<'a> Runtime<'a> {
                 .map_err(|e| BSError::RuntimeError(e.to_string()))?;
 
             match ret_ty {
+                BSType::Null => {
+                    let f: extern "C" fn() -> i64 = mem::transmute(addr);
+                    let _ = f();
+                    ok(BSValue::Null)
+                }
                 BSType::Int64 => {
                     let f: extern "C" fn() -> i64 = mem::transmute(addr);
                     ok(BSValue::Int64(f().into()))
@@ -92,7 +97,6 @@ impl<'a> Runtime<'a> {
                     let f: extern "C" fn() -> f64 = mem::transmute(addr);
                     ok(BSValue::Float64(f().into()))
                 }
-                BSType::Null => ok(BSValue::Null),
                 _ => {
                     let f: extern "C" fn() -> BSValue = mem::transmute(addr);
                     ok(f())
