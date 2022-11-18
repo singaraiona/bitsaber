@@ -1,4 +1,5 @@
 use crate::basic_block::BasicBlock;
+use crate::enums::*;
 use crate::types::{prelude::*, Type, TypeIntrinsics};
 use crate::utils::to_c_str;
 use crate::values::i64_value::I64Value;
@@ -230,6 +231,83 @@ impl<'a> Builder<'a> {
             let c_string = to_c_str(name);
             Value::new(LLVMBuildXor(
                 self.llvm_builder,
+                lhs.as_llvm_value_ref(),
+                rhs.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+        }
+    }
+
+    pub fn build_shl(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildShl(
+                self.llvm_builder,
+                lhs.as_llvm_value_ref(),
+                rhs.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+        }
+    }
+
+    pub fn build_lshr(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildLShr(
+                self.llvm_builder,
+                lhs.as_llvm_value_ref(),
+                rhs.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+        }
+    }
+
+    pub fn build_ashr(&self, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildAShr(
+                self.llvm_builder,
+                lhs.as_llvm_value_ref(),
+                rhs.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+        }
+    }
+
+    pub fn build_neg(&self, val: Value<'a>, name: &str) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildNeg(
+                self.llvm_builder,
+                val.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+        }
+    }
+
+    pub fn build_not(&self, val: Value<'a>, name: &str) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildNot(
+                self.llvm_builder,
+                val.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+        }
+    }
+
+    pub fn build_int_compare(
+        &self,
+        predicate: IntPredicate,
+        lhs: Value<'a>,
+        rhs: Value<'a>,
+        name: &str,
+    ) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildICmp(
+                self.llvm_builder,
+                predicate.into(),
                 lhs.as_llvm_value_ref(),
                 rhs.as_llvm_value_ref(),
                 c_string.as_ptr(),

@@ -1,12 +1,12 @@
-use crate::base::binary::Op;
 use crate::base::Type as BSType;
+use crate::parse::ast::BinaryOp;
 use crate::parse::span::Span;
 use crate::result::*;
 use BSType::*;
-use Op::*;
+use BinaryOp::*;
 
 // Basic type inference table for binary ops/functions
-pub static OPS_TABLE: [(Op, BSType, BSType, BSType); 16] = [
+pub static OPS_TABLE: [(BinaryOp, BSType, BSType, BSType); 18] = [
     (Add, Int64, Int64, Int64),
     (Add, Float64, Float64, Float64),
     (Sub, Int64, Int64, Int64),
@@ -23,9 +23,11 @@ pub static OPS_TABLE: [(Op, BSType, BSType, BSType); 16] = [
     (And, Float64, Float64, Float64),
     (Xor, Int64, Int64, Int64),
     (Xor, Float64, Float64, Float64),
+    (Equal, Int64, Int64, Int64),
+    (Equal, Float64, Float64, Int64),
 ];
 
-pub fn infer_type(op: Op, lhs: BSType, rhs: BSType, span: Option<Span>) -> BSResult<BSType> {
+pub fn infer_type(op: BinaryOp, lhs: BSType, rhs: BSType, span: Option<Span>) -> BSResult<BSType> {
     match OPS_TABLE
         .iter()
         .find(|(op_, lhs_, rhs_, _)| op == *op_ && lhs == *lhs_ && rhs == *rhs_)
@@ -34,7 +36,7 @@ pub fn infer_type(op: Op, lhs: BSType, rhs: BSType, span: Option<Span>) -> BSRes
         Some(ty) => ok(ty),
         None => compile_error(
             "Type inference error".to_string(),
-            format!("No such op: {:?} for types: {} {}", op, lhs, rhs),
+            format!("No such op: {} for types: {} {}", op, lhs, rhs),
             span,
         ),
     }

@@ -1,9 +1,10 @@
-use crate::base::binary::Op;
 use crate::base::Type as BSType;
 use crate::base::Value as BsValue;
 use crate::base::NULL_VALUE;
+use crate::llvm::enums::*;
 use crate::llvm::values::ptr_value::PtrValue;
 use crate::llvm::values::ValueIntrinsics;
+use crate::parse::ast::BinaryOp;
 use crate::parse::ast::ExprBody;
 use crate::parse::ast::{infer_types, Expr, Function};
 use crate::parse::span::Span;
@@ -44,7 +45,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
     pub fn compile_binary_op(
         &self,
-        op: Op,
+        op: BinaryOp,
         lhs: (Value<'a>, BSType),
         rhs: (Value<'a>, BSType),
         span: Option<Span>,
@@ -53,7 +54,8 @@ impl<'a, 'b> Compiler<'a, 'b> {
         let (rhs, rhs_type) = rhs;
 
         use BSType::*;
-        use Op::*;
+        use BinaryOp::*;
+        use IntPredicate::*;
 
         let result = match (op, lhs_type, rhs_type) {
             (Add, Int64, Int64) => self.builder.build_int_add(lhs, rhs, "addtmp"),
@@ -72,9 +74,14 @@ impl<'a, 'b> Compiler<'a, 'b> {
             (And, Float64, Float64) => self.builder.build_and(lhs, rhs, "andtmp"),
             (Xor, Int64, Int64) => self.builder.build_xor(lhs, rhs, "xortmp"),
             (Xor, Float64, Float64) => self.builder.build_xor(lhs, rhs, "xortmp"),
-            op => {
+            // (Shl, Int64, Int64) => self.builder.build_shl(lhs, rhs, "shltmp"),
+            // (Shl, Float64, Float64) => self.builder.build_shl(lhs, rhs, "shltmp"),
+            // (Shr, Int64, Int64) => self.builder.build_shr(lhs, rhs, "shrtmp"),
+            // (Shr, Float64, Float64) => self.builder.build_shr(lhs, rhs, "shrtmp"),
+            (Equal, Int64, Int64) => self.builder.build_int_compare(EQ, lhs, rhs, "eqtmp"),
+            (op, _, _) => {
                 return compile_error(
-                    format!("Unsupported binary op: {:?}", op),
+                    format!("Unsupported binary op: '{}'", op),
                     "Refer to a supported binary operations".to_string(),
                     span,
                 )

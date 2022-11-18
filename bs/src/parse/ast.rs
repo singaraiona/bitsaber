@@ -1,9 +1,49 @@
 use crate::analysis::infer;
-use crate::base::binary::Op;
 use crate::base::Type as BSType;
 use crate::parse::span::Span;
 use crate::result::*;
 use std::collections::HashMap;
+use std::fmt;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[repr(u8)]
+pub enum BinaryOp {
+    Add = 0,
+    Sub,
+    Mul,
+    Div,
+    Rem,
+    Or,
+    And,
+    Xor,
+    Equal,
+    Less,
+    Greater,
+    LessOrEqual,
+    GreaterOrEqual,
+    NotEqual,
+}
+
+impl fmt::Display for BinaryOp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            BinaryOp::Add => write!(f, "+"),
+            BinaryOp::Sub => write!(f, "-"),
+            BinaryOp::Mul => write!(f, "*"),
+            BinaryOp::Div => write!(f, "/"),
+            BinaryOp::Rem => write!(f, "%"),
+            BinaryOp::Or => write!(f, "|"),
+            BinaryOp::And => write!(f, "&"),
+            BinaryOp::Xor => write!(f, "^"),
+            BinaryOp::Equal => write!(f, "=="),
+            BinaryOp::Less => write!(f, "<"),
+            BinaryOp::Greater => write!(f, ">"),
+            BinaryOp::LessOrEqual => write!(f, "<="),
+            BinaryOp::GreaterOrEqual => write!(f, ">="),
+            BinaryOp::NotEqual => write!(f, "!="),
+        }
+    }
+}
 
 /// Defines a primitive expression.
 #[derive(Debug)]
@@ -11,7 +51,7 @@ pub enum ExprBody {
     Null,
 
     Binary {
-        op: Op,
+        op: BinaryOp,
         lhs: Box<Expr>,
         rhs: Box<Expr>,
     },

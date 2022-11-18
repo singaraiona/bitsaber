@@ -1,6 +1,6 @@
-use crate::base::binary::Op;
 use crate::parse::span::Span;
 use crate::result::*;
+use std::fmt;
 use std::iter::Peekable;
 use std::ops::DerefMut;
 use std::str::Chars;
@@ -9,10 +9,9 @@ use std::str::Chars;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token<'a> {
     Comment(&'a str),
-    Tag(&'a str),
+    Ident(&'a str),
     Int64(i64),
     Float64(f64),
-    Op(Op),
     LeftParen,
     RightParen,
     LeftSquare,
@@ -41,6 +40,45 @@ pub enum Token<'a> {
     Circ,
     Underscore,
     EOF,
+}
+
+impl<'a> fmt::Display for Token<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Token::Comment(s) => write!(f, "#{}", s),
+            Token::Ident(s) => write!(f, "{}", s),
+            Token::Int64(i) => write!(f, "{}", i),
+            Token::Float64(v) => write!(f, "{}", v),
+            Token::LeftParen => write!(f, "("),
+            Token::RightParen => write!(f, ")"),
+            Token::LeftSquare => write!(f, "["),
+            Token::RightSquare => write!(f, "]"),
+            Token::LeftBrace => write!(f, "{{"),
+            Token::RightBrace => write!(f, "}}"),
+            Token::DoubleQuote => write!(f, "\""),
+            Token::SingleQuote => write!(f, "'"),
+            Token::Dollar => write!(f, "$"),
+            Token::Ampersand => write!(f, "&"),
+            Token::Percent => write!(f, "%"),
+            Token::Comma => write!(f, ","),
+            Token::Colon => write!(f, ":"),
+            Token::SemiColon => write!(f, ";"),
+            Token::Period => write!(f, "."),
+            Token::Excl => write!(f, "!"),
+            Token::Equal => write!(f, "="),
+            Token::Less => write!(f, "<"),
+            Token::Greater => write!(f, ">"),
+            Token::Minus => write!(f, "-"),
+            Token::Plus => write!(f, "+"),
+            Token::Asterisk => write!(f, "*"),
+            Token::Slash => write!(f, "/"),
+            Token::BackSlash => write!(f, "\\"),
+            Token::BackTick => write!(f, "`"),
+            Token::Circ => write!(f, "^"),
+            Token::Underscore => write!(f, "_"),
+            Token::EOF => write!(f, "EOF"),
+        }
+    }
 }
 
 /// Defines a lexer which transforms an input `String` into
@@ -110,6 +148,31 @@ impl<'a> Lexer<'a> {
         })?;
 
         match next_c {
+            '(' => ok(Token::LeftParen),
+            ')' => ok(Token::RightParen),
+            '[' => ok(Token::LeftSquare),
+            ']' => ok(Token::RightSquare),
+            '{' => ok(Token::LeftBrace),
+            '}' => ok(Token::RightBrace),
+            ',' => ok(Token::Comma),
+            ';' => ok(Token::SemiColon),
+            '=' => ok(Token::Equal),
+            '>' => ok(Token::Greater),
+            '<' => ok(Token::Less),
+            '!' => ok(Token::Excl),
+            '+' => ok(Token::Plus),
+            '*' => ok(Token::Asterisk),
+            '/' => ok(Token::Slash),
+            '\\' => ok(Token::BackSlash),
+            '^' => ok(Token::Circ),
+            ':' => ok(Token::Colon),
+            '$' => ok(Token::Dollar),
+            '&' => ok(Token::Ampersand),
+            '%' => ok(Token::Percent),
+            '\'' => ok(Token::SingleQuote),
+            '"' => ok(Token::DoubleQuote),
+            '`' => ok(Token::BackTick),
+
             '#' => {
                 // Comment
                 loop {
@@ -124,23 +187,27 @@ impl<'a> Lexer<'a> {
                     &src[self.span.label_start..self.span.label_end],
                 ))
             }
+
             '-' if !seen_whitespaces
+                && self.span.label_start + 1 != self.span.label_end
                 && chars
                     .peek()
                     .map(|c| !c.is_whitespace())
                     .unwrap_or_else(|| false) =>
             {
-                ok(Token::Op(Op::Sub))
+                ok(Token::Minus)
             }
+
             '-' if seen_whitespaces
                 && chars
                     .peek()
                     .map(|c| c.is_whitespace())
                     .unwrap_or_else(|| false) =>
             {
-                ok(Token::Op(Op::Sub))
+                ok(Token::Minus)
             }
-            '-' | '.' | '0'..='9' => {
+
+            '-' | '0'..='9' => {
                 // Parse number literal
                 let mut is_float = false;
                 loop {
@@ -150,6 +217,9 @@ impl<'a> Lexer<'a> {
                     };
 
                     if ch == '.' {
+                        if is_float {
+                            break;
+                        }
                         is_float = true;
                     } else if ch == '-' {
                         break;
@@ -199,35 +269,13 @@ impl<'a> Lexer<'a> {
                     self.span.label_end += 1;
                 }
 
-                ok(Token::Tag(&src[self.span.label_start..self.span.label_end]))
+                ok(Token::Ident(
+                    &src[self.span.label_start..self.span.label_end],
+                ))
             }
 
-            '(' => ok(Token::LeftParen),
-            ')' => ok(Token::RightParen),
-            '[' => ok(Token::LeftSquare),
-            ']' => ok(Token::RightSquare),
-            '{' => ok(Token::LeftBrace),
-            '}' => ok(Token::RightBrace),
-            ',' => ok(Token::Comma),
-            ';' => ok(Token::SemiColon),
-            '=' => ok(Token::Equal),
-            '>' => ok(Token::Greater),
-            '<' => ok(Token::Less),
-            '!' => ok(Token::Excl),
-            '+' => ok(Token::Plus),
-            '*' => ok(Token::Asterisk),
-            '/' => ok(Token::Slash),
-            '\\' => ok(Token::BackSlash),
-            '^' => ok(Token::Circ),
-            '_' => ok(Token::Underscore),
-            ':' => ok(Token::Colon),
             '.' => ok(Token::Period),
-            '$' => ok(Token::Dollar),
-            '&' => ok(Token::Ampersand),
-            '%' => ok(Token::Percent),
-            '\'' => ok(Token::SingleQuote),
-            '"' => ok(Token::DoubleQuote),
-            '`' => ok(Token::BackTick),
+
             _ => parse_error("Unexpected character", "".to_string(), Some(self.span())),
         }
     }
