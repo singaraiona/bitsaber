@@ -38,6 +38,13 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn at_term(&self) -> bool {
+        match self.curr {
+            Token::EOF | Token::RParen | Token::RBrace | Token::RBox => true,
+            _ => false,
+        }
+    }
+
     /// Parses a literal number.
     fn parse_nb_expr(&mut self) -> BSResult<Expr> {
         let r = match self.curr {
@@ -216,8 +223,15 @@ impl<'a> Parser<'a> {
 
             if self.curr == Semi {
                 self.advance()?;
+                if self.at_term() {
+                    body.push(Expr::new(ExprBody::Null, Some(self.lexer.span())));
+                }
                 continue;
             }
+        }
+
+        if body.is_empty() {
+            body.push(Expr::new(ExprBody::Null, Some(self.lexer.span())));
         }
 
         ok(Function {

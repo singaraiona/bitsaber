@@ -67,9 +67,7 @@ impl Type {
 
     pub fn is_scalar(&self) -> bool {
         match self {
-            Type::Null => false,
-            Type::Int64 => true,
-            Type::Float64 => true,
+            Type::Null | Type::Int64 | Type::Float64 => true,
             _ => false,
         }
     }

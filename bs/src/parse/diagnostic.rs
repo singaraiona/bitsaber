@@ -23,17 +23,22 @@ impl fmt::Display for Diagnostic<'_> {
                 Some(span) => {
                     format_diagnostic(self.name, self.input, "ParseError", msg, desc, span, f)
                 }
-                None => write!(f, "{}", msg),
+                None => write!(f, "** ParseError: {}", msg),
             },
             BSError::CompileError { msg, desc, span } => match span {
                 Some(span) => {
                     format_diagnostic(self.name, self.input, "CompileError", msg, desc, span, f)
                 }
-                None => write!(f, "{}", msg),
+                None => format_diagnoistic_header("CompileError", msg, f),
             },
-            _ => write!(f, "{}", ""),
+            BSError::RuntimeError(msg) => format_diagnoistic_header("RuntimeError", msg, f),
+            _ => write!(f, "E: {}", ""),
         }
     }
+}
+
+fn format_diagnoistic_header(tag: &str, msg: &str, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    writeln!(f, " {} {}: {}", "**".bold(), tag.red().bold(), msg.bold())
 }
 
 fn format_diagnostic(
@@ -50,7 +55,7 @@ fn format_diagnostic(
     let lbl_end = span.label_end.wrapping_sub(span.line_start);
 
     // write header
-    writeln!(f, " {} {}: {}", "**".bold(), tag.red().bold(), msg.bold())?;
+    format_diagnoistic_header(tag, msg, f)?;
 
     // write line info
     writeln!(
