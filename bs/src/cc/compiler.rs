@@ -11,6 +11,7 @@ use crate::result::*;
 use llvm::builder::Builder;
 use llvm::context::Context;
 use llvm::module::Module;
+use llvm::types::Type;
 use llvm::values::fn_value::FnValue;
 use llvm::values::Value;
 use std::collections::HashMap;
@@ -120,7 +121,10 @@ impl<'a, 'b> Compiler<'a, 'b> {
             ExprBody::Assign { variable, body } => {
                 let initializer_ty = body.get_type()?;
                 let body = self.compile_expr(&body)?;
-                let alloca = self.create_entry_block_alloca(variable, &initializer_ty);
+                let alloca = self.create_entry_block_alloca(
+                    variable,
+                    initializer_ty.into_llvm_type(&self.context),
+                );
                 self.builder.build_store(alloca, body);
                 self.variables.insert(variable.clone(), alloca);
                 ok(body)
@@ -140,7 +144,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
     }
 
     /// Creates a new stack allocation instruction in the entry block of the function.
-    fn create_entry_block_alloca(&self, name: &str, ty: &'a BSType) -> Value<'b> {
+    fn create_entry_block_alloca(&self, name: &str, ty: Type<'_>) -> Value<'b> {
         let builder = self
             .context
             .create_builder()
@@ -152,7 +156,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             Some(first_instr) => builder.position_before(&first_instr),
             None => builder.position_at_end(entry),
         }
-        let ini = unsafe { std::mem::transmute(ty.into_llvm_type(&self.context)) };
+        let ini = unsafe { std::mem::transmute(ty) };
         builder.build_alloca(ini, name)
     }
 
@@ -210,9 +214,10 @@ impl<'a, 'b> Compiler<'a, 'b> {
         variables.reserve(self.function.prototype.args.len());
 
         for (i, arg) in function.get_params_iter().enumerate() {
+            let ty = arg.get_llvm_type_ref();
             let arg_name = self.function.prototype.args[i].as_str();
             // TODO: add return type infer here
-            let alloca = self.create_entry_block_alloca(arg_name, &BSType::Int64);
+            let alloca = self.create_entry_block_alloca(arg_name, Type::new(ty));
             //
             self.builder.build_store(alloca, arg);
             self.variables
