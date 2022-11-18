@@ -215,6 +215,10 @@ impl<'a> Parser<'a> {
 
         while !self.at_end() {
             let e = match self.curr {
+                Comment => {
+                    self.advance()?;
+                    continue;
+                }
                 Dot => self.parse_dot_expr(),
                 _ => self.parse_expr(),
             }?;
