@@ -11,7 +11,6 @@ pub const NULL_VALUE: i64 = std::i64::MAX;
 pub mod binary;
 pub mod f64_value;
 pub mod i64_value;
-pub mod infer;
 
 pub mod prelude {
     pub use super::f64_value::F64Value;

@@ -1,5 +1,6 @@
 #![feature(try_trait_v2)]
 
+pub mod analysis;
 pub mod base;
 pub mod cc;
 pub mod parse;

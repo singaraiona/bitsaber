@@ -1,9 +1,9 @@
 use crate::base::binary::Op;
-use crate::base::infer::infer_type;
 use crate::base::Type as BSType;
 use crate::base::Value as BsValue;
 use crate::base::NULL_VALUE;
 use crate::llvm::values::ptr_value::PtrValue;
+use crate::llvm::values::ValueIntrinsics;
 use crate::parse::ast::ExprBody;
 use crate::parse::ast::{Expr, Function, Prototype};
 use crate::parse::span::Span;
@@ -20,7 +20,7 @@ pub struct Compiler<'a, 'b> {
     builder: &'a mut Builder<'b>,
     module: &'a mut Module<'b>,
     function: Function,
-    variables: HashMap<String, Value<'b>>,
+    variables: HashMap<String, (Value<'b>, BSType)>,
     fn_value_opt: Option<FnValue<'b>>,
 }
 
@@ -47,10 +47,9 @@ impl<'a, 'b> Compiler<'a, 'b> {
         lhs: (Value<'a>, BSType),
         rhs: (Value<'a>, BSType),
         span: Option<Span>,
-    ) -> BSResult<(Value<'a>, BSType)> {
+    ) -> BSResult<Value<'a>> {
         let (lhs, lhs_type) = lhs;
         let (rhs, rhs_type) = rhs;
-        let result_type = infer_type(op, lhs_type, rhs_type, span)?;
 
         use BSType::*;
         use Op::*;
@@ -81,37 +80,26 @@ impl<'a, 'b> Compiler<'a, 'b> {
             }
         };
 
-        ok((result, result_type))
+        ok(result)
     }
 
-    fn compile_expr(&mut self, expr: &Expr) -> BSResult<(Value<'a>, BSType)> {
+    fn compile_expr(&mut self, expr: &Expr) -> BSResult<Value<'a>> {
         match &expr.body {
-            ExprBody::Null => ok((
-                self.context.i64_type().const_value(NULL_VALUE).into(),
-                BSType::Null,
-            )),
-            ExprBody::Int64(v) => ok((
-                self.context.i64_type().const_value(*v).into(),
-                BSType::Int64,
-            )),
-            ExprBody::Float64(v) => ok((
-                self.context.f64_type().const_value(*v).into(),
-                BSType::Float64,
-            )),
-            ExprBody::VecInt64(v) => {
-                let bsval = unsafe {
-                    std::mem::transmute(BsValue::from(v.clone()).into_llvm_value(&self.context))
-                };
-                ok((bsval, BSType::VecInt64))
-            }
-            ExprBody::VecFloat64(v) => {
-                let bsval = unsafe {
-                    std::mem::transmute(BsValue::from(v.clone()).into_llvm_value(&self.context))
-                };
-                ok((bsval, BSType::VecFloat64))
-            }
+            ExprBody::Null => ok(self.context.i64_type().const_value(NULL_VALUE).into()),
+            ExprBody::Int64(v) => ok(self.context.i64_type().const_value(*v).into()),
+            ExprBody::Float64(v) => ok(self.context.f64_type().const_value(*v).into()),
+            ExprBody::VecInt64(v) => unsafe {
+                ok(std::mem::transmute(
+                    BsValue::from(v.clone()).into_llvm_value(&self.context),
+                ))
+            },
+            ExprBody::VecFloat64(v) => unsafe {
+                ok(std::mem::transmute(
+                    BsValue::from(v.clone()).into_llvm_value(&self.context),
+                ))
+            },
             ExprBody::Variable(ref name) => match self.variables.get(name.as_str()) {
-                Some(v) => ok((self.builder.build_load(*v, name.as_str()), BSType::Int64)),
+                Some(v) => ok(self.builder.build_load(*v, name.as_str())),
                 None => compile_error(
                     format!("Undefined symbol '{}'", name),
                     "Symbol not found".to_string(),
@@ -119,16 +107,23 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 ),
             },
             ExprBody::Binary { op, lhs, rhs } => {
-                let lhs = self.compile_expr(&lhs)?;
-                let rhs = self.compile_expr(&rhs)?;
-                self.compile_binary_op(*op, lhs, rhs, expr.span)
+                let lhs_e = self.compile_expr(&lhs)?;
+                let rhs_e = self.compile_expr(&rhs)?;
+                self.compile_binary_op(
+                    *op,
+                    (lhs_e, lhs.get_type()?),
+                    (rhs_e, rhs.get_type()?),
+                    expr.span,
+                )
             }
 
             ExprBody::Assign { variable, body } => {
+                let initializer_ty = body.get_type()?;
                 let body = self.compile_expr(&body)?;
-                let alloca = self.create_entry_block_alloca(variable);
-                self.builder.build_store(alloca, body.0);
-                self.variables.insert(variable.clone(), alloca);
+                let alloca = self.create_entry_block_alloca(variable, &initializer_ty);
+                self.builder.build_store(alloca, body);
+                self.variables
+                    .insert(variable.clone(), (alloca, initializer_ty));
                 ok(body)
             }
 
@@ -146,7 +141,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
     }
 
     /// Creates a new stack allocation instruction in the entry block of the function.
-    fn create_entry_block_alloca(&self, name: &str) -> Value<'b> {
+    fn create_entry_block_alloca(&self, name: &str, ty: &'a BSType) -> Value<'b> {
         let builder = self
             .context
             .create_builder()
@@ -158,11 +153,11 @@ impl<'a, 'b> Compiler<'a, 'b> {
             Some(first_instr) => builder.position_before(&first_instr),
             None => builder.position_at_end(entry),
         }
-
-        builder.build_alloca(self.context.i64_type().into(), name)
+        let ini = unsafe { std::mem::transmute(ty.into_llvm_type(&self.context)) };
+        builder.build_alloca(ini, name)
     }
 
-    fn compile_prototype(&self, ret_type: BSType) -> BSResult<(FnValue<'b>, BSType)> {
+    fn compile_prototype(&self, ret_type: BSType) -> BSResult<FnValue<'b>> {
         let proto = &self.function.prototype;
         // let args_types = std::iter::repeat(BsValue::llvm_type(self.context))
         //     .take(proto.args.len())
@@ -185,11 +180,17 @@ impl<'a, 'b> Compiler<'a, 'b> {
         // }
 
         // finally return built prototype
-        ok((fn_val, ret_type))
+        ok(fn_val)
     }
 
     fn compile_fn(&mut self) -> BSResult<(FnValue<'b>, BSType)> {
-        let (function, ret_ty) = self.compile_prototype(BSType::Int64)?;
+        let mut ret_ty = BSType::Null;
+
+        for expr in &mut self.function.body {
+            ret_ty = expr.infer_type()?;
+        }
+
+        let function = self.compile_prototype(ret_ty)?;
 
         // got external function, returning only compiled prototype
         if self.function.body.is_empty() {
@@ -201,7 +202,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         // compile body
         self.fn_value_opt = Some(function);
-        let (body, ret_ty) = {
+        let body = {
             // TODO: Fix this hack
             let body: &mut Vec<_> = unsafe { std::mem::transmute(&mut self.function.body) };
             body.into_iter()
@@ -216,7 +217,10 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         for (i, arg) in function.get_params_iter().enumerate() {
             let arg_name = self.function.prototype.args[i].as_str();
-            let alloca = self.create_entry_block_alloca(arg_name);
+            // TODO: add return type infer here
+            let alloca = self.create_entry_block_alloca(arg_name, &BSType::Int64);
+            //
+
             self.builder.build_store(alloca, arg);
             self.variables
                 .insert(self.function.prototype.args[i].clone(), alloca.into());

@@ -1,5 +1,10 @@
+use crate::analysis::infer;
 use crate::base::binary::Op;
+use crate::base::Type as BSType;
 use crate::parse::span::Span;
+use crate::result::*;
+use llvm::values::Value;
+use std::collections::HashMap;
 
 /// Defines a primitive expression.
 #[derive(Debug)]
@@ -55,12 +60,85 @@ pub enum ExprBody {
 #[derive(Debug)]
 pub struct Expr {
     pub body: ExprBody,
+    pub expr_type: Option<BSType>,
     pub span: Option<Span>,
 }
 
 impl Expr {
     pub fn new(body: ExprBody, span: Option<Span>) -> Expr {
-        Expr { body, span }
+        Expr {
+            body,
+            expr_type: None,
+            span,
+        }
+    }
+
+    pub fn get_type(&self) -> BSResult<BSType> {
+        match &self.expr_type {
+            Some(t) => ok(t.clone()),
+            None => compile_error(
+                "Unknown expression type".to_string(),
+                "".to_string(),
+                self.span,
+            ),
+        }
+    }
+
+    pub fn infer_type(
+        &mut self,
+        variables: &HashMap<String, (Value<'_>, BSType)>,
+    ) -> BSResult<BSType> {
+        use ExprBody::*;
+
+        if let Some(ty) = self.expr_type {
+            return ok(ty);
+        }
+
+        match &mut self.body {
+            Null => {
+                self.expr_type = Some(BSType::Null);
+                ok(BSType::Null)
+            }
+            Int64(_) => {
+                self.expr_type = Some(BSType::Int64);
+                ok(BSType::Int64)
+            }
+            Float64(_) => {
+                self.expr_type = Some(BSType::Float64);
+                ok(BSType::Float64)
+            }
+            VecInt64(_) => {
+                self.expr_type = Some(BSType::VecInt64);
+                ok(BSType::VecInt64)
+            }
+            VecFloat64(_) => {
+                self.expr_type = Some(BSType::VecFloat64);
+                ok(BSType::VecFloat64)
+            }
+            Assign { variable, body } => {
+                let body_ty = body.infer_type(variables)?;
+                self.expr_type = Some(body_ty.clone());
+                ok(body_ty)
+            }
+            Variable() => {}
+            Binary {
+                op,
+                ref mut lhs,
+                ref mut rhs,
+            } => {
+                let lhs_type = lhs.infer_type(variables)?;
+                let rhs_type = rhs.infer_type(variables)?;
+                let res_type = infer::infer_type(*op, lhs_type, rhs_type, self.span)?;
+                self.expr_type = Some(res_type);
+                ok(res_type)
+            }
+
+            e => compile_error(
+                format!("Cannot infer type for {:?}", e),
+                "Unknown ambiguous type for expression".to_string(),
+                self.span,
+            ),
+        }
     }
 }
 
