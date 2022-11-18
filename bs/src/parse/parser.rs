@@ -82,7 +82,7 @@ impl<'a> Parser<'a> {
     /// Parses an expression that starts with an identifier (either a variable or a function call).
     fn parse_id_expr(&mut self) -> BSResult<Expr> {
         let id = match self.curr {
-            Ident(id) => id,
+            Tag(id) => id,
             _ => {
                 return parse_error(
                     "Expected identifier",
@@ -168,8 +168,8 @@ impl<'a> Parser<'a> {
         match self.curr {
             Map => {
                 self.advance()?;
-                self.expect(LParen)?;
-                self.expect(RParen)?;
+                self.expect(LeftParen)?;
+                self.expect(RightParen)?;
                 ok(Expr::new(ExprBody::Null, Some(self.lexer.span())))
             }
             _ => {
@@ -188,7 +188,7 @@ impl<'a> Parser<'a> {
             Int64(_) => self.parse_nb_expr(),
             Float64(_) => self.parse_nb_expr(),
             LBox => self.parse_vec_literal(),
-            Ident(_) => self.parse_id_expr(),
+            Tag(_) => self.parse_id_expr(),
             _ => parse_error(
                 "Invalid expression",
                 "Expected int, float, vector or parenthesized expression here".to_string(),
@@ -243,17 +243,17 @@ impl<'a> Parser<'a> {
 
         while !self.at_end() {
             let e = match self.curr {
-                Comment => {
+                Comment(_) => {
                     self.advance()?;
                     continue;
                 }
-                Dot => self.parse_dot_expr(),
+                Period => self.parse_dot_expr(),
                 _ => self.parse_expr(),
             }?;
 
             body.push(e);
 
-            if self.curr == Semi {
+            if self.curr == SemiColon {
                 self.advance()?;
                 if self.at_term() {
                     body.push(Expr::new(ExprBody::Null, Some(self.lexer.span())));

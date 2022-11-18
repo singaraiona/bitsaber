@@ -8,22 +8,38 @@ use std::str::Chars;
 /// Represents a primitive syntax token.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token<'a> {
-    Comma,
-    Comment,
-    Ident(&'a str),
-    LParen,
-    RParen,
-    LBox,
-    RBox,
-    LBrace,
-    RBrace,
+    Comment(&'a str),
+    Tag(&'a str),
     Int64(i64),
     Float64(f64),
     Op(Op),
-    Assign,
-    Dot,
-    Semi,
-    Map,
+    LeftParen,
+    RightParen,
+    LeftSquare,
+    RightSquare,
+    LeftBrace,
+    RightBrace,
+    DoubleQuote,
+    SingleQuote,
+    Dollar,
+    Ampersand,
+    Percent,
+    Comma,
+    Colon,
+    SemiColon,
+    Period,
+    Excl,
+    Equal,
+    Less,
+    Greater,
+    Minus,
+    Plus,
+    Asterisk,
+    Slash,
+    BackSlash,
+    BackTick,
+    Circ,
+    Underscore,
     EOF,
 }
 
@@ -94,17 +110,6 @@ impl<'a> Lexer<'a> {
         })?;
 
         match next_c {
-            '(' => ok(Token::LParen),
-            ')' => ok(Token::RParen),
-            '[' => ok(Token::LBox),
-            ']' => ok(Token::RBox),
-            '{' => ok(Token::LBrace),
-            '}' => ok(Token::RBrace),
-
-            ',' => ok(Token::Comma),
-
-            ';' => ok(Token::Semi),
-
             '#' => {
                 // Comment
                 loop {
@@ -115,11 +120,10 @@ impl<'a> Lexer<'a> {
                     self.span.label_end += 1;
                 }
 
-                ok(Token::Comment)
+                ok(Token::Comment(
+                    &src[self.span.label_start..self.span.label_end],
+                ))
             }
-
-            '=' => ok(Token::Assign),
-
             '-' if !seen_whitespaces
                 && chars
                     .peek()
@@ -128,7 +132,6 @@ impl<'a> Lexer<'a> {
             {
                 ok(Token::Op(Op::Sub))
             }
-
             '-' if seen_whitespaces
                 && chars
                     .peek()
@@ -137,28 +140,6 @@ impl<'a> Lexer<'a> {
             {
                 ok(Token::Op(Op::Sub))
             }
-
-            '+' | '*' | '/' | '&' | '%' | '|' | '^' => {
-                // Parse operator
-                ok(Token::Op(
-                    Op::try_from(&src[self.span.label_start..self.span.label_end]).map_err(
-                        |_| BSError::ParseError {
-                            msg: "Invalid binary op",
-                            desc: "Expected one of: +, -, *, /, %, &, |, ^".to_string(),
-                            span: Some(self.span()),
-                        },
-                    )?,
-                ))
-            }
-
-            '.' if chars
-                .peek()
-                .map(|c| !c.is_digit(10))
-                .unwrap_or_else(|| false) =>
-            {
-                ok(Token::Dot)
-            }
-
             '-' | '.' | '0'..='9' => {
                 // Parse number literal
                 let mut is_float = false;
@@ -218,12 +199,35 @@ impl<'a> Lexer<'a> {
                     self.span.label_end += 1;
                 }
 
-                match &src[self.span.label_start..self.span.label_end] {
-                    "map" => ok(Token::Map),
-                    ident => ok(Token::Ident(ident)),
-                }
+                ok(Token::Tag(&src[self.span.label_start..self.span.label_end]))
             }
 
+            '(' => ok(Token::LeftParen),
+            ')' => ok(Token::RightParen),
+            '[' => ok(Token::LeftSquare),
+            ']' => ok(Token::RightSquare),
+            '{' => ok(Token::LeftBrace),
+            '}' => ok(Token::RightBrace),
+            ',' => ok(Token::Comma),
+            ';' => ok(Token::SemiColon),
+            '=' => ok(Token::Equal),
+            '>' => ok(Token::Greater),
+            '<' => ok(Token::Less),
+            '!' => ok(Token::Excl),
+            '+' => ok(Token::Plus),
+            '*' => ok(Token::Asterisk),
+            '/' => ok(Token::Slash),
+            '\\' => ok(Token::BackSlash),
+            '^' => ok(Token::Circ),
+            '_' => ok(Token::Underscore),
+            ':' => ok(Token::Colon),
+            '.' => ok(Token::Period),
+            '$' => ok(Token::Dollar),
+            '&' => ok(Token::Ampersand),
+            '%' => ok(Token::Percent),
+            '\'' => ok(Token::SingleQuote),
+            '"' => ok(Token::DoubleQuote),
+            '`' => ok(Token::BackTick),
             _ => parse_error("Unexpected character", "".to_string(), Some(self.span())),
         }
     }
