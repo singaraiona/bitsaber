@@ -5,7 +5,7 @@ use crate::base::NULL_VALUE;
 use crate::llvm::values::ptr_value::PtrValue;
 use crate::llvm::values::ValueIntrinsics;
 use crate::parse::ast::ExprBody;
-use crate::parse::ast::{Expr, Function, Prototype};
+use crate::parse::ast::{infer_types, Expr, Function};
 use crate::parse::span::Span;
 use crate::result::*;
 use llvm::builder::Builder;
@@ -20,7 +20,7 @@ pub struct Compiler<'a, 'b> {
     builder: &'a mut Builder<'b>,
     module: &'a mut Module<'b>,
     function: Function,
-    variables: HashMap<String, (Value<'b>, BSType)>,
+    variables: HashMap<String, Value<'b>>,
     fn_value_opt: Option<FnValue<'b>>,
 }
 
@@ -122,8 +122,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 let body = self.compile_expr(&body)?;
                 let alloca = self.create_entry_block_alloca(variable, &initializer_ty);
                 self.builder.build_store(alloca, body);
-                self.variables
-                    .insert(variable.clone(), (alloca, initializer_ty));
+                self.variables.insert(variable.clone(), alloca);
                 ok(body)
             }
 
@@ -184,12 +183,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
     }
 
     fn compile_fn(&mut self) -> BSResult<(FnValue<'b>, BSType)> {
-        let mut ret_ty = BSType::Null;
-
-        for expr in &mut self.function.body {
-            ret_ty = expr.infer_type()?;
-        }
-
+        let ret_ty = infer_types(&mut self.function.body)?;
         let function = self.compile_prototype(ret_ty)?;
 
         // got external function, returning only compiled prototype
@@ -220,7 +214,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
             // TODO: add return type infer here
             let alloca = self.create_entry_block_alloca(arg_name, &BSType::Int64);
             //
-
             self.builder.build_store(alloca, arg);
             self.variables
                 .insert(self.function.prototype.args[i].clone(), alloca.into());

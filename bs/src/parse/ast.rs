@@ -3,7 +3,6 @@ use crate::base::binary::Op;
 use crate::base::Type as BSType;
 use crate::parse::span::Span;
 use crate::result::*;
-use llvm::values::Value;
 use std::collections::HashMap;
 
 /// Defines a primitive expression.
@@ -84,10 +83,7 @@ impl Expr {
         }
     }
 
-    pub fn infer_type(
-        &mut self,
-        variables: &HashMap<String, (Value<'_>, BSType)>,
-    ) -> BSResult<BSType> {
+    fn _infer_type(&mut self, variables: &mut HashMap<String, BSType>) -> BSResult<BSType> {
         use ExprBody::*;
 
         if let Some(ty) = self.expr_type {
@@ -116,18 +112,29 @@ impl Expr {
                 ok(BSType::VecFloat64)
             }
             Assign { variable, body } => {
-                let body_ty = body.infer_type(variables)?;
+                let body_ty = body._infer_type(variables)?;
                 self.expr_type = Some(body_ty.clone());
+                variables.insert(variable.clone(), body_ty);
                 ok(body_ty)
             }
-            Variable() => {}
+            Variable(name) => match variables.get(name) {
+                Some(ty) => {
+                    self.expr_type = Some(ty.clone());
+                    ok(ty.clone())
+                }
+                None => compile_error(
+                    format!("Unknown variable: {}", name),
+                    "".to_string(),
+                    self.span,
+                ),
+            },
             Binary {
                 op,
                 ref mut lhs,
                 ref mut rhs,
             } => {
-                let lhs_type = lhs.infer_type(variables)?;
-                let rhs_type = rhs.infer_type(variables)?;
+                let lhs_type = lhs._infer_type(variables)?;
+                let rhs_type = rhs._infer_type(variables)?;
                 let res_type = infer::infer_type(*op, lhs_type, rhs_type, self.span)?;
                 self.expr_type = Some(res_type);
                 ok(res_type)
@@ -140,6 +147,20 @@ impl Expr {
             ),
         }
     }
+
+    pub fn infer_type(&mut self) -> BSResult<BSType> {
+        let mut variables = HashMap::new();
+        self._infer_type(&mut variables)
+    }
+}
+
+pub fn infer_types(exprs: &mut [Expr]) -> BSResult<BSType> {
+    let mut variables = HashMap::new();
+    let mut res_ty = BSType::Null;
+    for e in exprs {
+        res_ty = e._infer_type(&mut variables)?;
+    }
+    ok(res_ty)
 }
 
 /// Defines the prototype (name and parameters) of a function.
