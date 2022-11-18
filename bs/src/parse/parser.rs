@@ -45,6 +45,19 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn expect(&mut self, expected: Token<'a>) -> BSResult<()> {
+        if self.curr == expected {
+            self.advance()?;
+            ok(())
+        } else {
+            parse_error(
+                "Invalid syntax",
+                format!("Expected {:?} here", expected),
+                Some(self.lexer.span()),
+            )
+        }
+    }
+
     /// Parses a literal number.
     fn parse_nb_expr(&mut self) -> BSResult<Expr> {
         let r = match self.curr {
@@ -52,7 +65,7 @@ impl<'a> Parser<'a> {
             Float64(v) => ok(Expr::new(ExprBody::Float64(v), Some(self.lexer.span()))),
             _ => parse_error(
                 "Invalid literal",
-                "Expected number literal here",
+                "Expected number literal here".to_string(),
                 Some(self.lexer.span()),
             ),
         };
@@ -73,7 +86,7 @@ impl<'a> Parser<'a> {
             _ => {
                 return parse_error(
                     "Expected identifier",
-                    "Expected identifier here",
+                    "Expected identifier here".to_string(),
                     Some(self.lexer.span()),
                 )
             }
@@ -129,7 +142,7 @@ impl<'a> Parser<'a> {
                 _ => {
                     return parse_error(
                         "Invalid number literal",
-                        "Expected int or float in vector literal.",
+                        "Expected int or float in vector literal here".to_string(),
                         Some(self.lexer.span()),
                     )
                 }
@@ -152,7 +165,22 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_dot_expr(&mut self) -> BSResult<Expr> {
-        todo!()
+        match self.curr {
+            Map => {
+                self.advance()?;
+                self.expect(LParen)?;
+                self.expect(RParen)?;
+                ok(Expr::new(ExprBody::Null, Some(self.lexer.span())))
+            }
+            _ => {
+                println!("self curr :{:?}", self.curr);
+                return parse_error(
+                    "Expected combinator",
+                    "Consider using one of map, filter, fold, zip.. etc. here".to_string(),
+                    Some(self.lexer.span()),
+                );
+            }
+        }
     }
 
     fn parse_unary_expr(&mut self) -> BSResult<Expr> {
@@ -163,7 +191,7 @@ impl<'a> Parser<'a> {
             Ident(_) => self.parse_id_expr(),
             _ => parse_error(
                 "Invalid expression",
-                "Expected int, float, vector or parenthesized expression here",
+                "Expected int, float, vector or parenthesized expression here".to_string(),
                 Some(self.lexer.span()),
             ),
         }
@@ -258,7 +286,7 @@ impl<'a> Parser<'a> {
                 if !self.at_end() {
                     parse_error(
                         "Unexpected token after parsed expression.",
-                        "",
+                        "".to_string(),
                         Some(self.lexer.span()),
                     )
                 } else {

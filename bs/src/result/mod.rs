@@ -8,7 +8,7 @@ use std::ops::{ControlFlow, FromResidual, Try};
 pub enum BSError {
     ParseError {
         msg: &'static str,
-        desc: &'static str,
+        desc: String,
         span: Option<Span>,
     },
     CompileError {
@@ -20,7 +20,7 @@ pub enum BSError {
     IOError(String),
 }
 
-pub fn parse_error<T>(msg: &'static str, desc: &'static str, span: Option<Span>) -> BSResult<T> {
+pub fn parse_error<T>(msg: &'static str, desc: String, span: Option<Span>) -> BSResult<T> {
     BSResult::Err(BSError::ParseError { msg, desc, span })
 }
 

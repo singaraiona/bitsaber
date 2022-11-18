@@ -23,6 +23,7 @@ pub enum Token<'a> {
     Assign,
     Dot,
     Semi,
+    Map,
     EOF,
 }
 
@@ -88,7 +89,7 @@ impl<'a> Lexer<'a> {
 
         let next_c = next.ok_or_else(|| BSError::ParseError {
             msg: "Unexpected EOF",
-            desc: "Expected a character",
+            desc: "Expected a character".to_string(),
             span: Some(self.span),
         })?;
 
@@ -143,7 +144,7 @@ impl<'a> Lexer<'a> {
                     Op::try_from(&src[self.span.label_start..self.span.label_end]).map_err(
                         |_| BSError::ParseError {
                             msg: "Invalid binary op",
-                            desc: "Expected one of: +, -, *, /, %, &, |, ^",
+                            desc: "Expected one of: +, -, *, /, %, &, |, ^".to_string(),
                             span: Some(self.span()),
                         },
                     )?,
@@ -183,7 +184,7 @@ impl<'a> Lexer<'a> {
                     let s = &src[self.span.label_start..self.span.label_end];
                     let v = s.parse::<f64>().map_err(|_| BSError::ParseError {
                         msg: "Invalid float literal",
-                        desc: "Expected a valid float literal",
+                        desc: "Expected a valid float literal".to_string(),
                         span: Some(self.span()),
                     })?;
 
@@ -192,7 +193,7 @@ impl<'a> Lexer<'a> {
                     let s = &src[self.span.label_start..self.span.label_end];
                     let v = s.parse::<i64>().map_err(|_| BSError::ParseError {
                         msg: "Invalid integer literal",
-                        desc: "Expected a valid integer literal",
+                        desc: "Expected a valid integer literal".to_string(),
                         span: Some(self.span()),
                     })?;
 
@@ -218,11 +219,12 @@ impl<'a> Lexer<'a> {
                 }
 
                 match &src[self.span.label_start..self.span.label_end] {
+                    "map" => ok(Token::Map),
                     ident => ok(Token::Ident(ident)),
                 }
             }
 
-            _ => parse_error("Unexpected character", "", Some(self.span())),
+            _ => parse_error("Unexpected character", "".to_string(), Some(self.span())),
         }
     }
 
