@@ -94,6 +94,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
     fn compile_expr(&mut self, expr: &Expr) -> BSResult<Value<'a>> {
         match &expr.body {
             ExprBody::Null => ok(self.context.i64_type().const_value(NULL_VALUE).into()),
+            ExprBody::Bool(b) => ok(self.context.bool_type().const_value(*b).into()),
             ExprBody::Int64(v) => ok(self.context.i64_type().const_value(*v).into()),
             ExprBody::Float64(v) => ok(self.context.f64_type().const_value(*v).into()),
             ExprBody::VecInt64(v) => unsafe {

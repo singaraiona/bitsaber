@@ -98,9 +98,21 @@ impl<'a> Parser<'a> {
         };
 
         let span = self.lexer.span();
-        self.advance()?;
 
-        ok(Expr::new(ExprBody::Variable(id.to_string()), Some(span)))
+        match id {
+            "True" => {
+                self.advance()?;
+                ok(Expr::new(ExprBody::Bool(true), Some(self.lexer.span())))
+            }
+            "False" => {
+                self.advance()?;
+                ok(Expr::new(ExprBody::Bool(false), Some(self.lexer.span())))
+            }
+            _ => {
+                self.advance()?;
+                ok(Expr::new(ExprBody::Variable(id.to_string()), Some(span)))
+            }
+        }
     }
 
     fn parse_vec_literal(&mut self) -> BSResult<Expr> {

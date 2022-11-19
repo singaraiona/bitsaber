@@ -22,6 +22,7 @@ use prelude::*;
 #[repr(u64)]
 pub enum Type {
     Null = 0,
+    Bool,
     Int64,
     Float64,
     VecInt64,
@@ -33,6 +34,7 @@ impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Type::Null => write!(f, "Null"),
+            Type::Bool => write!(f, "Bool"),
             Type::Int64 => write!(f, "Int64"),
             Type::Float64 => write!(f, "Float64"),
             Type::VecInt64 => write!(f, "Int64[]"),
@@ -46,6 +48,7 @@ impl Type {
     pub fn into_llvm_type<'a>(self, context: &'a Context) -> LLVMType<'a> {
         match self {
             Type::Null => context.i64_type().into(),
+            Type::Bool => context.bool_type().into(),
             Type::Int64 => context.i64_type().into(),
             Type::Float64 => context.f64_type().into(),
             Type::VecInt64 => context
@@ -76,6 +79,7 @@ impl Type {
 #[repr(C, align(16))]
 pub enum Value {
     Null,
+    Bool(bool),
     Int64(I64Value),
     Float64(f64),
     VecInt64(Rc<Vec<i64>>),
@@ -106,6 +110,7 @@ impl Value {
     pub fn bs_type(&self) -> Type {
         match self {
             Value::Null => Type::Null,
+            Value::Bool(_) => Type::Bool,
             Value::Int64(_) => Type::Int64,
             Value::Float64(_) => Type::Float64,
             Value::VecInt64(_) => Type::VecInt64,
@@ -119,6 +124,7 @@ impl Value {
             let tag = self.bs_type() as u64 as i64;
             match self {
                 Value::Null => Self::into_llvm_struct(tag, 0, context),
+                Value::Bool(b) => Self::into_llvm_struct(tag, b as i64, context),
                 Value::Int64(v) => Self::into_llvm_struct(tag, v.into(), context),
                 Value::Float64(v) => Self::into_llvm_struct(tag, transmute(v), context),
                 Value::VecInt64(v) => Self::into_llvm_struct(tag, transmute::<_, i64>(v), context),
@@ -133,6 +139,12 @@ impl Value {
 
     pub fn llvm_type<'a>(context: &'a Context) -> LLVMType<'a> {
         Self::llvm_struct_type(context).into()
+    }
+}
+
+impl From<bool> for Value {
+    fn from(value: bool) -> Self {
+        Value::Bool(value)
     }
 }
 
@@ -170,6 +182,7 @@ impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Value::Null => write!(f, "Null"),
+            Value::Bool(b) => write!(f, "{}: {}", b, self.bs_type()),
             Value::Int64(v) => write!(f, "{}: {}", v, self.bs_type()),
             Value::Float64(v) => write!(f, "{:.2}: {}", v, self.bs_type()),
             Value::VecInt64(v) => write!(f, "{:?}: {}", v, self.bs_type()),

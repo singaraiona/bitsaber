@@ -1,6 +1,7 @@
 use llvm_sys::prelude::LLVMTypeRef;
 use std::marker::PhantomData;
 
+pub mod bool_type;
 pub mod f64_type;
 pub mod fn_type;
 pub mod i64_type;
@@ -9,6 +10,7 @@ pub mod struct_type;
 pub mod void_type;
 
 pub mod prelude {
+    pub use super::bool_type::BoolType;
     pub use super::f64_type::F64Type;
     pub use super::fn_type::FnType;
     pub use super::i64_type::I64Type;
@@ -45,6 +47,7 @@ impl Into<LLVMTypeRef> for TypeRef<'_> {
 #[derive(Clone, Debug)]
 pub enum Type<'a> {
     Null(VoidType<'a>),
+    Bool(BoolType<'a>),
     Int64(I64Type<'a>),
     Float64(F64Type<'a>),
     Ptr(PtrType<'a>),
@@ -55,6 +58,12 @@ pub enum Type<'a> {
 impl<'a> From<I64Type<'a>> for Type<'a> {
     fn from(ty: I64Type<'a>) -> Self {
         Self::Int64(ty)
+    }
+}
+
+impl<'a> From<BoolType<'a>> for Type<'a> {
+    fn from(ty: BoolType<'a>) -> Self {
+        Self::Bool(ty)
     }
 }
 
@@ -92,7 +101,13 @@ impl<'a> Type<'a> {
     pub fn new(llvm_type: LLVMTypeRef) -> Type<'a> {
         match unsafe { llvm_sys::core::LLVMGetTypeKind(llvm_type) } {
             llvm_sys::LLVMTypeKind::LLVMVoidTypeKind => Type::Null(VoidType::new(llvm_type)),
-            llvm_sys::LLVMTypeKind::LLVMIntegerTypeKind => Type::Int64(I64Type::new(llvm_type)),
+            llvm_sys::LLVMTypeKind::LLVMIntegerTypeKind => {
+                if unsafe { llvm_sys::core::LLVMGetIntTypeWidth(llvm_type) } == 1 {
+                    Type::Bool(BoolType::new(llvm_type))
+                } else {
+                    Type::Int64(I64Type::new(llvm_type))
+                }
+            }
             llvm_sys::LLVMTypeKind::LLVMFloatTypeKind => Type::Float64(F64Type::new(llvm_type)),
             llvm_sys::LLVMTypeKind::LLVMFunctionTypeKind => Type::Fn(FnType::new(llvm_type)),
             llvm_sys::LLVMTypeKind::LLVMStructTypeKind => Type::Struct(StructType::new(llvm_type)),
@@ -116,6 +131,7 @@ impl<'a> TypeIntrinsics for Type<'a> {
     fn as_llvm_type_ref(&self) -> LLVMTypeRef {
         match self {
             Type::Null(t) => t.as_llvm_type_ref(),
+            Type::Bool(t) => t.as_llvm_type_ref(),
             Type::Int64(t) => t.as_llvm_type_ref(),
             Type::Float64(t) => t.as_llvm_type_ref(),
             Type::Fn(t) => t.as_llvm_type_ref(),

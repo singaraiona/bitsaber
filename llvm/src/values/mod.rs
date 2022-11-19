@@ -1,4 +1,5 @@
 use libc::c_char;
+use llvm_sys::core::LLVMGetIntTypeWidth;
 use llvm_sys::core::LLVMGetTypeKind;
 use llvm_sys::core::LLVMTypeOf;
 use llvm_sys::core::{LLVMGetValueName2, LLVMSetValueName2};
@@ -10,6 +11,7 @@ use std::ffi::CStr;
 use std::fmt;
 use std::marker::PhantomData;
 
+pub mod bool_value;
 pub mod f64_value;
 pub mod fn_value;
 pub mod i64_value;
@@ -18,6 +20,7 @@ pub mod ptr_value;
 pub mod struct_value;
 
 pub mod prelude {
+    pub use super::bool_value::BoolValue;
     pub use super::f64_value::F64Value;
     pub use super::fn_value::FnValue;
     pub use super::i64_value::I64Value;
@@ -52,6 +55,7 @@ impl Into<LLVMValueRef> for ValueRef<'_> {
 #[derive(Copy, Clone, PartialEq)]
 pub enum Value<'a> {
     Null(I64Value<'a>),
+    Bool(BoolValue<'a>),
     Int64(I64Value<'a>),
     Float64(F64Value<'a>),
     Fn(FnValue<'a>),
@@ -61,6 +65,12 @@ pub enum Value<'a> {
     Struct(StructValue<'a>),
     Instruction(InstructionValue<'a>),
     Ptr(PtrValue<'a>),
+}
+
+impl<'a> From<BoolValue<'a>> for Value<'a> {
+    fn from(val: BoolValue<'a>) -> Self {
+        Value::Bool(val)
+    }
 }
 
 impl<'a> From<I64Value<'a>> for Value<'a> {
@@ -96,6 +106,15 @@ impl<'a> From<InstructionValue<'a>> for Value<'a> {
 impl<'a> From<PtrValue<'a>> for Value<'a> {
     fn from(val: PtrValue<'a>) -> Self {
         Self::Ptr(val)
+    }
+}
+
+impl<'a> Into<BoolValue<'a>> for Value<'a> {
+    fn into(self) -> BoolValue<'a> {
+        match self {
+            Value::Bool(val) => val,
+            _ => panic!("Expected I8Value"),
+        }
     }
 }
 
@@ -160,11 +179,17 @@ impl<'a> Value<'a> {
                 LLVMTypeKind::LLVMFloatTypeKind
                 | LLVMTypeKind::LLVMDoubleTypeKind
                 | LLVMTypeKind::LLVMHalfTypeKind => Value::Float64(F64Value::new(llvm_value)),
-                LLVMTypeKind::LLVMIntegerTypeKind => Value::Int64(I64Value::new(llvm_value)),
+                LLVMTypeKind::LLVMIntegerTypeKind => {
+                    let width = LLVMGetIntTypeWidth(LLVMTypeOf(llvm_value));
+
+                    match width {
+                        1 => Value::Bool(BoolValue::new(llvm_value)),
+                        _ => Value::Int64(I64Value::new(llvm_value)),
+                    }
+                }
                 LLVMTypeKind::LLVMStructTypeKind => Value::Struct(StructValue::new(llvm_value)),
                 LLVMTypeKind::LLVMFunctionTypeKind => Value::Fn(FnValue::new(llvm_value)),
                 LLVMTypeKind::LLVMPointerTypeKind => Value::Ptr(PtrValue::new(llvm_value)),
-                // _ => Value::Instruction(InstructionValue::new(llvm_value)),
                 kind => panic!("Unknown value: {:?}", kind),
             }
         }
@@ -202,6 +227,7 @@ impl ValueIntrinsics for ValueRef<'_> {
 impl ValueIntrinsics for Value<'_> {
     fn as_llvm_value_ref(&self) -> LLVMValueRef {
         match self {
+            Value::Bool(val) => val.as_llvm_value_ref(),
             Value::Int64(v) => v.as_llvm_value_ref(),
             Value::Float64(v) => v.as_llvm_value_ref(),
             Value::Fn(v) => v.as_llvm_value_ref(),
@@ -213,6 +239,7 @@ impl ValueIntrinsics for Value<'_> {
     }
     fn set_name(self, name: &str) {
         match self {
+            Value::Bool(val) => val.set_name(name),
             Value::Int64(v) => v.set_name(name),
             Value::Float64(v) => v.set_name(name),
             Value::Fn(v) => v.set_name(name),
@@ -225,6 +252,7 @@ impl ValueIntrinsics for Value<'_> {
 
     fn get_name(&self) -> &CStr {
         match self {
+            Value::Bool(val) => val.get_name(),
             Value::Int64(v) => v.get_name(),
             Value::Float64(v) => v.get_name(),
             Value::Fn(v) => v.get_name(),
@@ -236,6 +264,7 @@ impl ValueIntrinsics for Value<'_> {
     }
     fn get_llvm_type_ref(&self) -> LLVMTypeRef {
         match self {
+            Value::Bool(val) => val.get_llvm_type_ref(),
             Value::Int64(v) => v.get_llvm_type_ref(),
             Value::Float64(v) => v.get_llvm_type_ref(),
             Value::Fn(v) => v.get_llvm_type_ref(),
@@ -250,6 +279,7 @@ impl ValueIntrinsics for Value<'_> {
 impl fmt::Display for Value<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Value::Bool(val) => write!(f, "{:?}", val),
             Value::Int64(v) => write!(f, "{:?}", v),
             Value::Float64(v) => write!(f, "{:?}", v),
             Value::Fn(v) => write!(f, "{:?}", v),

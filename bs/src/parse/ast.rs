@@ -89,6 +89,8 @@ pub enum ExprBody {
 
     VecFloat64(Vec<f64>),
 
+    Bool(bool),
+
     Int64(i64),
 
     Float64(f64),
@@ -134,6 +136,10 @@ impl Expr {
             Null => {
                 self.expr_type = Some(BSType::Null);
                 ok(BSType::Null)
+            }
+            Bool(_) => {
+                self.expr_type = Some(BSType::Bool);
+                ok(BSType::Bool)
             }
             Int64(_) => {
                 self.expr_type = Some(BSType::Int64);

@@ -75,6 +75,10 @@ impl Context {
         }
     }
 
+    pub fn bool_type<'a>(&self) -> BoolType<'a> {
+        unsafe { BoolType::new(LLVMInt1TypeInContext(self.llvm_context)) }
+    }
+
     pub fn i64_type<'a>(&self) -> I64Type<'a> {
         unsafe { I64Type::new(LLVMInt64TypeInContext(self.llvm_context)) }
     }

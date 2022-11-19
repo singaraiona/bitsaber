@@ -2,7 +2,6 @@ use crate::basic_block::BasicBlock;
 use crate::enums::*;
 use crate::types::{prelude::*, Type, TypeIntrinsics};
 use crate::utils::to_c_str;
-use crate::values::i64_value::I64Value;
 use crate::values::instruction_value::InstructionValue;
 use crate::values::ptr_value::PtrValue;
 use crate::values::{Value, ValueIntrinsics};

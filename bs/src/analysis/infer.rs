@@ -23,8 +23,8 @@ pub static OPS_TABLE: [(BinaryOp, BSType, BSType, BSType); 18] = [
     (And, Float64, Float64, Float64),
     (Xor, Int64, Int64, Int64),
     (Xor, Float64, Float64, Float64),
-    (Equal, Int64, Int64, Int64),
-    (Equal, Float64, Float64, Int64),
+    (Equal, Int64, Int64, Bool),
+    (Equal, Float64, Float64, Bool),
 ];
 
 pub fn infer_type(op: BinaryOp, lhs: BSType, rhs: BSType, span: Option<Span>) -> BSResult<BSType> {

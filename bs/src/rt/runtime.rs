@@ -89,6 +89,11 @@ impl<'a> Runtime<'a> {
                     let _ = f();
                     ok(BSValue::Null)
                 }
+                BSType::Bool => {
+                    let f: extern "C" fn() -> bool = mem::transmute(addr);
+                    let result = f();
+                    ok(BSValue::Bool(result))
+                }
                 BSType::Int64 => {
                     let f: extern "C" fn() -> i64 = mem::transmute(addr);
                     ok(BSValue::Int64(f().into()))
