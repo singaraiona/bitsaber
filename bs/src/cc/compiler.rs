@@ -55,7 +55,8 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         use BSType::*;
         use BinaryOp::*;
-        use IntPredicate::*;
+        use FloatPredicate as FP;
+        use IntPredicate as IP;
 
         let result = match (op, lhs_type, rhs_type) {
             (Add, Int64, Int64) => self.builder.build_int_add(lhs, rhs, "addtmp"),
@@ -78,7 +79,16 @@ impl<'a, 'b> Compiler<'a, 'b> {
             // (Shl, Float64, Float64) => self.builder.build_shl(lhs, rhs, "shltmp"),
             // (Shr, Int64, Int64) => self.builder.build_shr(lhs, rhs, "shrtmp"),
             // (Shr, Float64, Float64) => self.builder.build_shr(lhs, rhs, "shrtmp"),
-            (Equal, Int64, Int64) => self.builder.build_int_compare(EQ, lhs, rhs, "eqtmp"),
+            (Equal, Int64, Int64) => {
+                let cmp = self.builder.build_int_compare(IP::EQ, lhs, rhs, "eqtmp");
+                self.builder
+                    .build_int_cast(cmp, self.context.i64_type().into(), "booltmp")
+            }
+            (Equal, Float64, Float64) => {
+                let cmp = self.builder.build_float_compare(FP::ULT, lhs, rhs, "eqtmp");
+                self.builder
+                    .build_int_cast(cmp, self.context.i64_type().into(), "booltmp")
+            }
             (op, _, _) => {
                 return compile_error(
                     format!("Unsupported binary op: '{}'", op),

@@ -305,11 +305,55 @@ impl<'a> Builder<'a> {
     ) -> Value<'a> {
         unsafe {
             let c_string = to_c_str(name);
+
             Value::new(LLVMBuildICmp(
                 self.llvm_builder,
                 predicate.into(),
                 lhs.as_llvm_value_ref(),
                 rhs.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+        }
+    }
+
+    pub fn build_float_compare(
+        &self,
+        predicate: FloatPredicate,
+        lhs: Value<'a>,
+        rhs: Value<'a>,
+        name: &str,
+    ) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildFCmp(
+                self.llvm_builder,
+                predicate.into(),
+                lhs.as_llvm_value_ref(),
+                rhs.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+        }
+    }
+
+    pub fn build_int_cast(&self, val: Value<'a>, dest_type: Type<'a>, name: &str) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildIntCast(
+                self.llvm_builder,
+                val.as_llvm_value_ref(),
+                dest_type.as_llvm_type_ref(),
+                c_string.as_ptr(),
+            ))
+        }
+    }
+
+    pub fn build_float_cast(&self, val: Value<'a>, dest_type: Type<'a>, name: &str) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildFPCast(
+                self.llvm_builder,
+                val.as_llvm_value_ref(),
+                dest_type.as_llvm_type_ref(),
                 c_string.as_ptr(),
             ))
         }
