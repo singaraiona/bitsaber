@@ -46,7 +46,7 @@ pub fn infer_type(op: BinaryOp, lhs: BSType, rhs: BSType, span: Option<Span>) ->
         Some(ty) => ok(ty),
         None => compile_error(
             "Type inference error".to_string(),
-            format!("No such op: {} for types: {} {}", op, lhs, rhs),
+            format!("No such op: '{}' for types: {} {}", op, lhs, rhs),
             span,
         ),
     }
