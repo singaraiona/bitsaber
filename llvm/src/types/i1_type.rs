@@ -5,11 +5,11 @@ use llvm_sys::core::LLVMConstInt;
 use llvm_sys::prelude::LLVMTypeRef;
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
-pub struct BoolType<'a> {
+pub struct I1Type<'a> {
     ty: TypeRef<'a>,
 }
 
-impl<'a> BoolType<'a> {
+impl<'a> I1Type<'a> {
     pub(crate) fn new(llvm_type: LLVMTypeRef) -> Self {
         Self {
             ty: TypeRef::new(llvm_type),
@@ -21,7 +21,7 @@ impl<'a> BoolType<'a> {
     }
 }
 
-impl<'a> TypeIntrinsics for BoolType<'a> {
+impl<'a> TypeIntrinsics for I1Type<'a> {
     fn as_llvm_type_ref(&self) -> LLVMTypeRef {
         self.ty.as_llvm_type_ref()
     }

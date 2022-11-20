@@ -48,7 +48,7 @@ impl Type {
     pub fn into_llvm_type<'a>(self, context: &'a Context) -> LLVMType<'a> {
         match self {
             Type::Null => context.i64_type().into(),
-            Type::Bool => context.bool_type().into(),
+            Type::Bool => context.i1_type().into(),
             Type::Int64 => context.i64_type().into(),
             Type::Float64 => context.f64_type().into(),
             Type::VecInt64 => context
@@ -69,7 +69,7 @@ impl Type {
 
     pub fn is_scalar(&self) -> bool {
         match self {
-            Type::Null | Type::Int64 | Type::Float64 => true,
+            Type::Null | Type::Int64 | Type::Float64 | Type::Bool => true,
             _ => false,
         }
     }

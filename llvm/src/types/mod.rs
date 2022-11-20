@@ -1,18 +1,18 @@
 use llvm_sys::prelude::LLVMTypeRef;
 use std::marker::PhantomData;
 
-pub mod bool_type;
 pub mod f64_type;
 pub mod fn_type;
+pub mod i1_type;
 pub mod i64_type;
 pub mod ptr_type;
 pub mod struct_type;
 pub mod void_type;
 
 pub mod prelude {
-    pub use super::bool_type::BoolType;
     pub use super::f64_type::F64Type;
     pub use super::fn_type::FnType;
+    pub use super::i1_type::I1Type;
     pub use super::i64_type::I64Type;
     pub use super::ptr_type::PtrType;
     pub use super::struct_type::StructType;
@@ -47,7 +47,7 @@ impl Into<LLVMTypeRef> for TypeRef<'_> {
 #[derive(Clone, Debug)]
 pub enum Type<'a> {
     Null(VoidType<'a>),
-    Bool(BoolType<'a>),
+    Bool(I1Type<'a>),
     Int64(I64Type<'a>),
     Float64(F64Type<'a>),
     Ptr(PtrType<'a>),
@@ -61,8 +61,8 @@ impl<'a> From<I64Type<'a>> for Type<'a> {
     }
 }
 
-impl<'a> From<BoolType<'a>> for Type<'a> {
-    fn from(ty: BoolType<'a>) -> Self {
+impl<'a> From<I1Type<'a>> for Type<'a> {
+    fn from(ty: I1Type<'a>) -> Self {
         Self::Bool(ty)
     }
 }
@@ -103,7 +103,7 @@ impl<'a> Type<'a> {
             llvm_sys::LLVMTypeKind::LLVMVoidTypeKind => Type::Null(VoidType::new(llvm_type)),
             llvm_sys::LLVMTypeKind::LLVMIntegerTypeKind => {
                 if unsafe { llvm_sys::core::LLVMGetIntTypeWidth(llvm_type) } == 1 {
-                    Type::Bool(BoolType::new(llvm_type))
+                    Type::Bool(I1Type::new(llvm_type))
                 } else {
                     Type::Int64(I64Type::new(llvm_type))
                 }
