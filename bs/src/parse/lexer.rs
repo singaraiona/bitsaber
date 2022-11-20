@@ -8,38 +8,42 @@ use std::str::Chars;
 /// Represents a primitive syntax token.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token<'a> {
-    Comment(&'a str),
-    Ident(&'a str),
-    Int64(i64),
-    Float64(f64),
-    LeftParen,
-    RightParen,
-    LeftSquare,
-    RightSquare,
-    LeftBrace,
-    RightBrace,
-    DoubleQuote,
-    SingleQuote,
-    Dollar,
-    Ampersand,
-    Percent,
-    Comma,
-    Colon,
-    SemiColon,
-    Period,
-    Excl,
-    Equal,
-    Less,
-    Greater,
-    Minus,
-    Plus,
-    Asterisk,
-    Slash,
-    BackSlash,
-    BackTick,
-    Circ,
-    Underscore,
-    EOF,
+    Comment(&'a str), // #asdfasdf
+    Ident(&'a str),   // asdfasdf
+    Int64(i64),       // 123
+    Float64(f64),     // 123.123
+    LeftParen,        // (
+    RightParen,       // )
+    LeftSquare,       // [
+    RightSquare,      // ]
+    LeftBrace,        // {
+    RightBrace,       // }
+    DoubleQuote,      // "
+    SingleQuote,      // '
+    Dollar,           // $
+    Ampersand,        // &
+    Percent,          // %
+    Comma,            // ,
+    Colon,            // :
+    SemiColon,        // ;
+    Period,           // .
+    Excl,             // !
+    Assign,           // =
+    Equal,            // ==
+    Less,             // <
+    Greater,          // >
+    LessOrEqual,      // <=
+    GreaterOrEqual,   // >=
+    NotEqual,         // !=
+    Minus,            // -
+    Plus,             // +
+    Asterisk,         // *
+    Slash,            // /
+    BackSlash,        // \
+    BackTick,         // `
+    Circ,             // ^
+    Underscore,       // _
+    EOF,              // end of input
 }
 
 impl<'a> fmt::Display for Token<'a> {
@@ -65,9 +69,13 @@ impl<'a> fmt::Display for Token<'a> {
             Token::SemiColon => write!(f, ";"),
             Token::Period => write!(f, "."),
             Token::Excl => write!(f, "!"),
+            Token::Assign => write!(f, "="),
             Token::Equal => write!(f, "="),
             Token::Less => write!(f, "<"),
             Token::Greater => write!(f, ">"),
+            Token::LessOrEqual => write!(f, "<="),
+            Token::GreaterOrEqual => write!(f, ">="),
+            Token::NotEqual => write!(f, "!="),
             Token::Minus => write!(f, "-"),
             Token::Plus => write!(f, "+"),
             Token::Asterisk => write!(f, "*"),
@@ -156,10 +164,6 @@ impl<'a> Lexer<'a> {
             '}' => ok(Token::RightBrace),
             ',' => ok(Token::Comma),
             ';' => ok(Token::SemiColon),
-            '=' => ok(Token::Equal),
-            '>' => ok(Token::Greater),
-            '<' => ok(Token::Less),
-            '!' => ok(Token::Excl),
             '+' => ok(Token::Plus),
             '*' => ok(Token::Asterisk),
             '/' => ok(Token::Slash),
@@ -249,6 +253,46 @@ impl<'a> Lexer<'a> {
                     })?;
 
                     ok(Token::Int64(v))
+                }
+            }
+
+            '=' => {
+                if chars.peek().map(|c| *c == '=').unwrap_or_else(|| false) {
+                    chars.next();
+                    self.span.label_end += 1;
+                    ok(Token::Equal)
+                } else {
+                    ok(Token::Assign)
+                }
+            }
+
+            '<' => {
+                if chars.peek().map(|c| *c == '=').unwrap_or_else(|| false) {
+                    chars.next();
+                    self.span.label_end += 1;
+                    ok(Token::LessOrEqual)
+                } else {
+                    ok(Token::Less)
+                }
+            }
+
+            '>' => {
+                if chars.peek().map(|c| *c == '=').unwrap_or_else(|| false) {
+                    chars.next();
+                    self.span.label_end += 1;
+                    ok(Token::GreaterOrEqual)
+                } else {
+                    ok(Token::Greater)
+                }
+            }
+
+            '!' => {
+                if chars.peek().map(|c| *c == '=').unwrap_or_else(|| false) {
+                    chars.next();
+                    self.span.label_end += 1;
+                    ok(Token::NotEqual)
+                } else {
+                    ok(Token::Excl)
                 }
             }
 

@@ -54,7 +54,8 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         use BSType::*;
         use BinaryOp::*;
-        use IntPredicate::*;
+        use FloatPredicate as FP;
+        use IntPredicate as IP;
 
         let result = match (op, lhs_type, rhs_type) {
             (Add, Int64, Int64) => self.builder.build_int_add(lhs, rhs, "addtmp"),
@@ -77,7 +78,35 @@ impl<'a, 'b> Compiler<'a, 'b> {
             // (Shl, Float64, Float64) => self.builder.build_shl(lhs, rhs, "shltmp"),
             // (Shr, Int64, Int64) => self.builder.build_shr(lhs, rhs, "shrtmp"),
             // (Shr, Float64, Float64) => self.builder.build_shr(lhs, rhs, "shrtmp"),
-            (Equal, Int64, Int64) => self.builder.build_int_compare(EQ, lhs, rhs, "eqtmp"),
+            (Equal, Int64, Int64) => self.builder.build_int_compare(IP::EQ, lhs, rhs, "eqtmp"),
+            (Equal, Float64, Float64) => {
+                self.builder.build_float_compare(FP::UEQ, lhs, rhs, "eqtmp")
+            }
+            (Less, Int64, Int64) => self.builder.build_int_compare(IP::SLT, lhs, rhs, "lttmp"),
+            (Less, Float64, Float64) => {
+                self.builder.build_float_compare(FP::ULT, lhs, rhs, "lttmp")
+            }
+            (LessOrEqual, Int64, Int64) => {
+                self.builder.build_int_compare(IP::SLE, lhs, rhs, "letmp")
+            }
+            (LessOrEqual, Float64, Float64) => {
+                self.builder.build_float_compare(FP::ULE, lhs, rhs, "letmp")
+            }
+            (Greater, Int64, Int64) => self.builder.build_int_compare(IP::SGT, lhs, rhs, "gttmp"),
+            (Greater, Float64, Float64) => {
+                self.builder.build_float_compare(FP::UGT, lhs, rhs, "gttmp")
+            }
+            (GreaterOrEqual, Int64, Int64) => {
+                self.builder.build_int_compare(IP::SGE, lhs, rhs, "getmp")
+            }
+            (GreaterOrEqual, Float64, Float64) => {
+                self.builder.build_float_compare(FP::UGE, lhs, rhs, "getmp")
+            }
+            (NotEqual, Int64, Int64) => self.builder.build_int_compare(IP::NE, lhs, rhs, "neqtmp"),
+            (NotEqual, Float64, Float64) => {
+                self.builder
+                    .build_float_compare(FP::UNE, lhs, rhs, "neqtmp")
+            }
             (op, _, _) => {
                 return compile_error(
                     format!("Unsupported binary op: '{}'", op),

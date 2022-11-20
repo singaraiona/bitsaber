@@ -100,11 +100,11 @@ impl<'a> Parser<'a> {
         let span = self.lexer.span();
 
         match id {
-            "True" => {
+            "true" => {
                 self.advance()?;
                 ok(Expr::new(ExprBody::Bool(true), Some(self.lexer.span())))
             }
-            "False" => {
+            "false" => {
                 self.advance()?;
                 ok(Expr::new(ExprBody::Bool(false), Some(self.lexer.span())))
             }
@@ -201,13 +201,20 @@ impl<'a> Parser<'a> {
         let span = Some(self.lexer.span());
 
         match self.curr {
-            Plus | Minus | Asterisk | Slash | Ampersand => {
+            Plus | Minus | Asterisk | Slash | Ampersand | Equal | Less | Greater | LessOrEqual
+            | GreaterOrEqual | NotEqual => {
                 let op = match self.curr {
                     Plus => BinaryOp::Add,
                     Minus => BinaryOp::Sub,
                     Asterisk => BinaryOp::Mul,
                     Slash => BinaryOp::Div,
                     Ampersand => BinaryOp::And,
+                    Equal => BinaryOp::Equal,
+                    Less => BinaryOp::Less,
+                    Greater => BinaryOp::Greater,
+                    LessOrEqual => BinaryOp::LessOrEqual,
+                    GreaterOrEqual => BinaryOp::GreaterOrEqual,
+                    NotEqual => BinaryOp::NotEqual,
 
                     _ => {
                         return parse_error(
@@ -232,42 +239,27 @@ impl<'a> Parser<'a> {
                 ))
             }
 
-            Equal => {
+            Assign => {
                 self.advance()?;
                 let span = self.span();
 
-                match self.curr {
-                    Equal => {
-                        self.advance()?;
-                        let rhs = self.parse_unary_expr()?;
+                match lhs.body {
+                    ExprBody::Variable(name) => {
+                        let rhs = self.parse_expr()?;
                         ok(Expr::new(
-                            ExprBody::Binary {
-                                op: BinaryOp::Equal,
-                                lhs: Box::new(lhs),
-                                rhs: Box::new(rhs),
+                            ExprBody::Assign {
+                                variable: name,
+                                body: Box::new(rhs),
                             },
                             span,
                         ))
                     }
 
-                    _ => match lhs.body {
-                        ExprBody::Variable(name) => {
-                            let rhs = self.parse_unary_expr()?;
-                            ok(Expr::new(
-                                ExprBody::Assign {
-                                    variable: name,
-                                    body: Box::new(rhs),
-                                },
-                                span,
-                            ))
-                        }
-
-                        _ => parse_error(
-                            "Invalid assignment",
-                            "Expected variable on the left hand side of the assignment".to_string(),
-                            span,
-                        ),
-                    },
+                    _ => parse_error(
+                        "Invalid assignment",
+                        "Expected variable on the left hand side of the assignment".to_string(),
+                        span,
+                    ),
                 }
             }
 

@@ -313,6 +313,25 @@ impl<'a> Builder<'a> {
             ))
         }
     }
+
+    pub fn build_float_compare(
+        &self,
+        predicate: FloatPredicate,
+        lhs: Value<'a>,
+        rhs: Value<'a>,
+        name: &str,
+    ) -> Value<'a> {
+        unsafe {
+            let c_string = to_c_str(name);
+            Value::new(LLVMBuildFCmp(
+                self.llvm_builder,
+                predicate.into(),
+                lhs.as_llvm_value_ref(),
+                rhs.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            ))
+        }
+    }
 }
 
 impl<'a> Drop for Builder<'a> {

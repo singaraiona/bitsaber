@@ -181,13 +181,13 @@ impl From<Vec<Value>> for Value {
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Value::Null => write!(f, "Null"),
-            Value::Bool(b) => write!(f, "{}: {}", b, self.bs_type()),
-            Value::Int64(v) => write!(f, "{}: {}", v, self.bs_type()),
-            Value::Float64(v) => write!(f, "{:.2}: {}", v, self.bs_type()),
-            Value::VecInt64(v) => write!(f, "{:?}: {}", v, self.bs_type()),
-            Value::VecFloat64(v) => write!(f, "{:?}: {}", v, self.bs_type()),
-            Value::List(v) => write!(f, "{:?}: {}", v, self.bs_type()),
+            Value::Null => write!(f, "null"),
+            Value::Bool(b) => write!(f, "{}", b),
+            Value::Int64(v) => write!(f, "{}", v),
+            Value::Float64(v) => write!(f, "{:.2}", v),
+            Value::VecInt64(v) => write!(f, "{:?}", v),
+            Value::VecFloat64(v) => write!(f, "{:?}", v),
+            Value::List(v) => write!(f, "{:?}", v),
         }
     }
 }
