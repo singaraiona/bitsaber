@@ -1,3 +1,4 @@
+use crate::base::Type as BSType;
 use crate::parse::ast::*;
 use crate::parse::lexer::{Lexer, Token};
 use crate::parse::span::Span;
@@ -38,7 +39,7 @@ impl<'a> Parser<'a> {
     /// has reached the end of the input.
     fn at_end(&self) -> bool {
         match self.curr {
-            Token::EOF => true,
+            Token::EOF | Token::RightBrace => true,
             _ => false,
         }
     }
@@ -50,16 +51,98 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn expect(&mut self, expected: Token<'a>) -> BSResult<()> {
+    fn expect(&mut self, expected: Token<'a>) -> BSResult<Token> {
         if self.curr == expected {
+            let tok = self.curr.clone();
             self.advance()?;
-            ok(())
+            ok(tok)
         } else {
             parse_error(
                 "Invalid syntax",
                 format!("Expected '{}' here", expected),
                 Some(self.lexer.span()),
             )
+        }
+    }
+
+    fn parse_type(&mut self) -> BSResult<BSType> {
+        match self.curr {
+            Token::Ident(name) => match BSType::try_from(name) {
+                Ok(ty) => {
+                    self.advance()?;
+                    ok(ty)
+                }
+                Err(_) => parse_error(
+                    "Invalid type",
+                    format!("'{}' is not a valid type", name),
+                    self.span(),
+                ),
+            },
+            _ => parse_error(
+                "Invalid syntax",
+                "Expected type name here".into(),
+                self.span(),
+            ),
+        }
+    }
+
+    fn parse_prototype(
+        &mut self,
+        name: &str,
+        open_paren: Token<'a>,
+        close_paren: Token<'a>,
+    ) -> BSResult<Expr> {
+        self.expect(open_paren)?;
+        let mut args = vec![];
+        while self.curr != close_paren {
+            let arg_name = match self.curr {
+                Token::Ident(name) => name,
+                _ => {
+                    return parse_error(
+                        "Invalid syntax",
+                        "Expected identifier here".to_string(),
+                        self.span(),
+                    )
+                }
+            };
+            self.advance()?;
+            self.expect(Colon)?;
+            let ty = self.parse_type()?;
+            args.push((arg_name.to_string(), ty));
+            if self.curr == Comma {
+                self.advance()?;
+            }
+        }
+
+        self.expect(close_paren)?;
+        self.expect(Token::LeftBrace)?;
+        let body = self.parse_program()?;
+        self.expect(Token::RightBrace)?;
+        self.expect(close_paren)?;
+
+        ok(Expr::new(
+            ExprBody::Function {
+                name: name.into(),
+                args,
+                body,
+                is_anon: false,
+            },
+            self.span(),
+        ))
+    }
+
+    fn parse_def_expr(&mut self) -> BSResult<Expr> {
+        self.advance()?; // eat 'def'
+        match self.curr {
+            Token::Ident(name) => {
+                self.advance()?; // eat ident
+                self.parse_prototype(name, Token::LeftParen, Token::RightParen)
+            }
+            _ => parse_error(
+                "Invalid syntax",
+                "Expected identifier after 'def'".into(),
+                self.span(),
+            ),
         }
     }
 
@@ -108,6 +191,7 @@ impl<'a> Parser<'a> {
                 self.advance()?;
                 ok(Expr::new(ExprBody::Bool(false), Some(self.lexer.span())))
             }
+            "def" => self.parse_def_expr(),
             _ => {
                 self.advance()?;
                 ok(Expr::new(ExprBody::Variable(id.to_string()), Some(span)))
@@ -286,7 +370,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_program(&mut self) -> BSResult<Function> {
+    fn parse_program(&mut self) -> BSResult<Expr> {
         let mut body = vec![];
 
         while !self.at_end() {
@@ -314,20 +398,18 @@ impl<'a> Parser<'a> {
             body.push(Expr::new(ExprBody::Null, Some(self.lexer.span())));
         }
 
-        ok(Function {
-            prototype: Prototype {
-                name: "anonymous".to_string(),
+        ok(Expr::new(
+            ExprBody::Function {
+                name: "anonymous".into(),
                 args: vec![],
-                is_op: false,
-                prec: 0,
+                body: body,
+                is_anon: true,
             },
-            body: body,
-            is_anon: true,
-            span: Some(self.lexer.span()),
-        })
+            self.span(),
+        ))
     }
 
-    pub fn parse(&mut self) -> BSResult<Function> {
+    pub fn parse(&mut self) -> BSResult<Expr> {
         self.advance()?;
         match self.parse_program() {
             BSResult::Ok(expr) => {

@@ -1,5 +1,6 @@
 use crate::analysis::infer;
 use crate::base::Type as BSType;
+use crate::base::Type;
 use crate::parse::span::Span;
 use crate::result::*;
 use std::collections::HashMap;
@@ -46,7 +47,7 @@ impl fmt::Display for BinaryOp {
 }
 
 /// Defines a primitive expression.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExprBody {
     Null,
 
@@ -85,6 +86,13 @@ pub enum ExprBody {
         body: Box<Expr>,
     },
 
+    Function {
+        name: String,
+        args: Vec<(String, Type)>,
+        body: Vec<Expr>,
+        is_anon: bool,
+    },
+
     VecInt64(Vec<i64>),
 
     VecFloat64(Vec<f64>),
@@ -98,7 +106,7 @@ pub enum ExprBody {
     Variable(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Expr {
     pub body: ExprBody,
     pub expr_type: Option<BSType>,
@@ -207,22 +215,4 @@ pub fn infer_types(exprs: &mut [Expr]) -> BSResult<BSType> {
         res_ty = e._infer_type(&mut variables)?;
     }
     ok(res_ty)
-}
-
-/// Defines the prototype (name and parameters) of a function.
-#[derive(Debug)]
-pub struct Prototype {
-    pub name: String,
-    pub args: Vec<String>,
-    pub is_op: bool,
-    pub prec: usize,
-}
-
-/// Defines a user-defined or external function.
-#[derive(Debug)]
-pub struct Function {
-    pub prototype: Prototype,
-    pub body: Vec<Expr>,
-    pub is_anon: bool,
-    pub span: Option<Span>,
 }

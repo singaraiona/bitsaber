@@ -1,6 +1,7 @@
 use crate::base::Type as BSType;
 use crate::base::Value as BSValue;
 use crate::cc::compiler::Compiler;
+use crate::parse::ast::ExprBody;
 use crate::parse::parser::*;
 use crate::result::*;
 use llvm::builder::Builder;
@@ -63,7 +64,7 @@ impl<'a> Runtime<'a> {
 
     pub fn parse_eval(&mut self, input: &str) -> BSResult<BSValue> {
         unsafe {
-            let parsed_fn = Parser::new(input).parse()?;
+            let parsed_expr = Parser::new(input).parse()?;
 
             let mut module = self
                 .context
@@ -74,10 +75,12 @@ impl<'a> Runtime<'a> {
                 .create_mcjit_execution_engine()
                 .map_err(|e| BSError::RuntimeError(e.to_string()))?;
 
-            let mut compiler =
-                Compiler::new(&mut self.context, &mut self.builder, &mut module, parsed_fn);
-
-            let (compiled_fn, ret_ty) = compiler.compile()?;
+            let (compiled_fn, ret_ty) = Compiler::compile(
+                &mut self.context,
+                &mut self.builder,
+                &mut module,
+                parsed_expr,
+            )?;
 
             let addr = execution_engine
                 .get_function_address("anonymous")

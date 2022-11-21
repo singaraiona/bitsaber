@@ -30,6 +30,22 @@ pub enum Type {
     List,
 }
 
+impl TryFrom<&str> for Type {
+    type Error = ();
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        match s {
+            "Null" => Ok(Type::Null),
+            "Bool" => Ok(Type::Bool),
+            "Int64" => Ok(Type::Int64),
+            "Float64" => Ok(Type::Float64),
+            "Int64[]" => Ok(Type::VecInt64),
+            "Float64[]" => Ok(Type::VecFloat64),
+            "[]" => Ok(Type::List),
+            _ => Err(()),
+        }
+    }
+}
+
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
