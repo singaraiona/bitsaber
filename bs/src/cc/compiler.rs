@@ -5,7 +5,7 @@ use crate::llvm::enums::*;
 use crate::llvm::values::ValueIntrinsics;
 use crate::parse::ast::BinaryOp;
 use crate::parse::ast::ExprBody;
-use crate::parse::ast::{infer_types, Expr};
+use crate::parse::ast::{infer_types, Expr, Function};
 use crate::parse::span::Span;
 use crate::result::*;
 use llvm::builder::Builder;
@@ -16,35 +16,27 @@ use llvm::values::fn_value::FnValue;
 use llvm::values::Value;
 use std::collections::HashMap;
 
-struct Prototype {
-    name: String,
-    args: Vec<(String, BSType)>,
-    body: Vec<Expr>,
-    is_anon: bool,
-    span: Option<Span>,
-}
-
 pub struct Compiler<'a, 'b> {
     context: &'a mut Context,
     builder: &'a mut Builder<'b>,
     module: &'a mut Module<'b>,
-    prototype: Prototype,
+    function: Function,
     variables: HashMap<String, Value<'b>>,
     fn_value_opt: Option<FnValue<'b>>,
 }
 
 impl<'a, 'b> Compiler<'a, 'b> {
-    fn new(
+    pub fn new(
         context: &'a mut Context,
         builder: &'a mut Builder<'b>,
         module: &'a mut Module<'b>,
-        prototype: Prototype,
+        function: Function,
     ) -> Self {
         Compiler {
             context,
             builder,
             module,
-            prototype,
+            function,
             variables: HashMap::new(),
             fn_value_opt: None,
         }
@@ -174,16 +166,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 ok(body)
             }
 
-            ExprBody::Function {
-                name,
-                args,
-                body,
-                is_anon,
-            } => {
-                Compiler::compile(self.context, self.builder, self.module, expr.clone())?;
-                ok(self.context.i64_type().const_value(NULL_VALUE).into())
-            }
-
             e => compile_error(
                 format!("Compiler: unknown expression: {:?}", e),
                 "".to_string(),
@@ -215,7 +197,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
     }
 
     fn compile_prototype(&self, ret_type: BSType) -> BSResult<FnValue<'b>> {
-        let proto = &self.prototype;
+        let proto = &self.function;
         let args_types = std::iter::repeat(BsValue::llvm_type(self.context))
             .take(proto.args.len())
             .map(|f| f.into())
@@ -238,40 +220,40 @@ impl<'a, 'b> Compiler<'a, 'b> {
     }
 
     fn compile_fn(&mut self) -> BSResult<(FnValue<'b>, BSType)> {
-        let ret_ty = infer_types(&mut self.prototype.body)?;
+        let ret_ty = infer_types(&mut self.function.body)?;
         let function = self.compile_prototype(ret_ty)?;
 
         // got external function, returning only compiled prototype
-        if self.prototype.body.is_empty() {
+        if self.function.body.is_empty() {
             return ok((function, ret_ty));
         }
 
         let entry = self.context.append_basic_block(function, "entry");
         self.builder.position_at_end(entry);
 
-        // compile body
         self.fn_value_opt = Some(function);
+
+        // build variables map
+        self.variables.reserve(self.function.args.len());
+
+        for (i, arg) in function.get_params_iter().enumerate() {
+            let ty = arg.get_llvm_type_ref();
+            let arg_name = self.function.args[i].0.as_str();
+            let alloca = self.create_entry_block_alloca(arg_name, Type::new(ty));
+            self.builder.build_store(alloca, arg);
+            self.variables
+                .insert(self.function.args[i].0.clone(), alloca.into());
+        }
+
+        // compile body
         let body = {
             // TODO: Fix this hack
-            let body: &mut Vec<_> = unsafe { std::mem::transmute(&mut self.prototype.body) };
+            let body: &mut Vec<_> = unsafe { std::mem::transmute(&mut self.function.body) };
             body.into_iter()
                 .map(|e| self.compile_expr(&e))
                 .last()
                 .unwrap()?
         };
-
-        let variables = &mut self.variables;
-        // build variables map
-        variables.reserve(self.prototype.args.len());
-
-        for (i, arg) in function.get_params_iter().enumerate() {
-            let ty = arg.get_llvm_type_ref();
-            let arg_name = self.prototype.args[i].0.as_str();
-            let alloca = self.create_entry_block_alloca(arg_name, Type::new(ty));
-            self.builder.build_store(alloca, arg);
-            self.variables
-                .insert(self.prototype.args[i].0.clone(), alloca.into());
-        }
 
         // build return instruction according to return type
         if ret_ty.is_scalar() {
@@ -293,36 +275,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         }
     }
 
-    pub fn compile(
-        context: &'a mut Context,
-        builder: &'a mut Builder<'b>,
-        module: &'a mut Module<'b>,
-        expr: Expr,
-    ) -> BSResult<(FnValue<'b>, BSType)> {
-        match expr.body {
-            ExprBody::Function {
-                name,
-                args,
-                body,
-                is_anon,
-            } => {
-                let prototype = Prototype {
-                    name,
-                    args,
-                    body,
-                    is_anon,
-                    span: expr.span,
-                };
-
-                let mut compiler = Compiler::new(context, builder, module, prototype);
-
-                compiler.compile_fn()
-            }
-            _ => compile_error(
-                "Compiler: expected function".to_string(),
-                "".to_string(),
-                expr.span,
-            ),
-        }
+    pub fn compile(&mut self) -> BSResult<(FnValue<'b>, BSType)> {
+        self.compile_fn()
     }
 }

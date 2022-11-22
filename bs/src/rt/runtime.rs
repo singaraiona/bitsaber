@@ -64,7 +64,7 @@ impl<'a> Runtime<'a> {
 
     pub fn parse_eval(&mut self, input: &str) -> BSResult<BSValue> {
         unsafe {
-            let parsed_expr = Parser::new(input).parse()?;
+            let parsed_fn = Parser::new(input).parse()?;
 
             let mut module = self
                 .context
@@ -75,12 +75,13 @@ impl<'a> Runtime<'a> {
                 .create_mcjit_execution_engine()
                 .map_err(|e| BSError::RuntimeError(e.to_string()))?;
 
-            let (compiled_fn, ret_ty) = Compiler::compile(
-                &mut self.context,
-                &mut self.builder,
-                &mut module,
-                parsed_expr,
-            )?;
+            let (compiled_fn, ret_ty) = parsed_fn
+                .into_iter()
+                .map(|p| {
+                    Compiler::new(&mut self.context, &mut self.builder, &mut module, p).compile()
+                })
+                .last()
+                .unwrap()?;
 
             let addr = execution_engine
                 .get_function_address("anonymous")

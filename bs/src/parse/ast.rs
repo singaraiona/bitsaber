@@ -86,13 +86,6 @@ pub enum ExprBody {
         body: Box<Expr>,
     },
 
-    Function {
-        name: String,
-        args: Vec<(String, Type)>,
-        body: Vec<Expr>,
-        is_anon: bool,
-    },
-
     VecInt64(Vec<i64>),
 
     VecFloat64(Vec<f64>),
@@ -176,11 +169,15 @@ impl Expr {
                     self.expr_type = Some(ty.clone());
                     ok(ty.clone())
                 }
-                None => compile_error(
-                    format!("Unknown variable: {}", name),
-                    "".to_string(),
-                    self.span,
-                ),
+                None => {
+                    self.expr_type = Some(BSType::Int64);
+                    ok(BSType::Int64)
+                }
+                // None => compile_error(
+                //     format!("Unknown variable: {}", name),
+                //     "".to_string(),
+                //     self.span,
+                // ),
             },
             Binary {
                 op,
@@ -215,4 +212,11 @@ pub fn infer_types(exprs: &mut [Expr]) -> BSResult<BSType> {
         res_ty = e._infer_type(&mut variables)?;
     }
     ok(res_ty)
+}
+
+pub struct Function {
+    pub name: String,
+    pub args: Vec<(String, Type)>,
+    pub body: Vec<Expr>,
+    pub is_anon: bool,
 }

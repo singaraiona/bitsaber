@@ -10,6 +10,7 @@ use std::str::Chars;
 pub enum Token<'a> {
     Comment(&'a str), // #asdfasdf
     Ident(&'a str),   // asdfasdf
+    Bool(bool),       // true, false
     Int64(i64),       // 123
     Float64(f64),     // 123.123
     LeftParen,        // (
@@ -43,6 +44,7 @@ pub enum Token<'a> {
     BackTick,         // `
     Circ,             // ^
     Underscore,       // _
+    Def,              // def
     EOF,              // end of input
 }
 
@@ -51,6 +53,7 @@ impl<'a> fmt::Display for Token<'a> {
         match *self {
             Token::Comment(s) => write!(f, "#{}", s),
             Token::Ident(s) => write!(f, "{}", s),
+            Token::Bool(b) => write!(f, "{}", b),
             Token::Int64(i) => write!(f, "{}", i),
             Token::Float64(v) => write!(f, "{}", v),
             Token::LeftParen => write!(f, "("),
@@ -84,6 +87,7 @@ impl<'a> fmt::Display for Token<'a> {
             Token::BackTick => write!(f, "`"),
             Token::Circ => write!(f, "^"),
             Token::Underscore => write!(f, "_"),
+            Token::Def => write!(f, "def"),
             Token::EOF => write!(f, "EOF"),
         }
     }
@@ -313,9 +317,12 @@ impl<'a> Lexer<'a> {
                     self.span.label_end += 1;
                 }
 
-                ok(Token::Ident(
-                    &src[self.span.label_start..self.span.label_end],
-                ))
+                match &src[self.span.label_start..self.span.label_end] {
+                    "true" => ok(Token::Bool(true)),
+                    "false" => ok(Token::Bool(false)),
+                    "def" => ok(Token::Def),
+                    ident => ok(Token::Ident(ident)),
+                }
             }
 
             '.' => ok(Token::Period),
