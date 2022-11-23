@@ -108,11 +108,12 @@ impl<'a> Type<'a> {
                     Type::Int64(I64Type::new(llvm_type))
                 }
             }
-            llvm_sys::LLVMTypeKind::LLVMFloatTypeKind => Type::Float64(F64Type::new(llvm_type)),
+            llvm_sys::LLVMTypeKind::LLVMFloatTypeKind
+            | llvm_sys::LLVMTypeKind::LLVMDoubleTypeKind => Type::Float64(F64Type::new(llvm_type)),
             llvm_sys::LLVMTypeKind::LLVMFunctionTypeKind => Type::Fn(FnType::new(llvm_type)),
             llvm_sys::LLVMTypeKind::LLVMStructTypeKind => Type::Struct(StructType::new(llvm_type)),
             llvm_sys::LLVMTypeKind::LLVMPointerTypeKind => Type::Ptr(PtrType::new(llvm_type)),
-            _ => panic!("Unknown type"),
+            kind => panic!("Unknown type kind: {:?}", kind),
         }
     }
 }

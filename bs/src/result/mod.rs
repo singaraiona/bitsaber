@@ -1,5 +1,4 @@
 use crate::parse::span::Span;
-use core::fmt;
 use std::convert::Infallible;
 use std::io;
 use std::ops::{ControlFlow, FromResidual, Try};

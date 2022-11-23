@@ -87,7 +87,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Parses a literal number.
-    fn parse_nb_expr(&mut self) -> BSResult<Expr> {
+    fn parse_number_literal(&mut self) -> BSResult<Expr> {
         let r = match self.curr {
             Int64(v) => ok(Expr::new(ExprBody::Int64(v), Some(self.lexer.span()))),
             Float64(v) => ok(Expr::new(ExprBody::Float64(v), Some(self.lexer.span()))),
@@ -108,9 +108,9 @@ impl<'a> Parser<'a> {
     }
 
     /// Parses an expression that starts with an identifier (either a variable or a function call).
-    fn parse_id_expr(&mut self) -> BSResult<Expr> {
-        let id = match self.curr {
-            Ident(id) => id,
+    fn parse_ident_expr(&mut self) -> BSResult<Expr> {
+        let name = match self.curr {
+            Ident(name) => name,
             _ => {
                 return parse_error(
                     "Expected identifier",
@@ -122,11 +122,36 @@ impl<'a> Parser<'a> {
 
         let span = self.lexer.span();
 
-        match id {
-            _ => {
+        self.advance()?;
+
+        match self.curr {
+            LeftParen => {
                 self.advance()?;
-                ok(Expr::new(ExprBody::Variable(id.to_string()), Some(span)))
+                let mut args = vec![];
+
+                while self.curr != RightParen {
+                    let arg = self.parse_expr()?;
+                    args.push(arg);
+
+                    if self.curr == Comma {
+                        self.advance()?;
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
+
+                self.expect(RightParen)?;
+
+                ok(Expr::new(
+                    ExprBody::Call {
+                        name: name.to_string(),
+                        args,
+                    },
+                    Some(span),
+                ))
             }
+            _ => ok(Expr::new(ExprBody::Variable(name.to_string()), Some(span))),
         }
     }
 
@@ -196,10 +221,10 @@ impl<'a> Parser<'a> {
 
     fn parse_unary_expr(&mut self) -> BSResult<Expr> {
         match self.curr {
-            Int64(_) => self.parse_nb_expr(),
-            Float64(_) => self.parse_nb_expr(),
+            Int64(_) => self.parse_number_literal(),
+            Float64(_) => self.parse_number_literal(),
             LeftSquare => self.parse_vec_literal(),
-            Ident(_) => self.parse_id_expr(),
+            Ident(_) => self.parse_ident_expr(),
             _ => parse_error(
                 "Invalid expression",
                 "Expected int, float, vector or parenthesized expression here".to_string(),
@@ -369,7 +394,7 @@ impl<'a> Parser<'a> {
             name: name.into(),
             args,
             body,
-            is_anon: false,
+            topl: false,
         })
     }
 
@@ -401,10 +426,10 @@ impl<'a> Parser<'a> {
                 _ => {
                     let body = self.parse_exprs()?;
                     ok(Function {
-                        name: "anonymous".into(),
+                        name: "top-level".into(),
                         args: vec![],
                         body: body,
-                        is_anon: true,
+                        topl: true,
                     })
                 }
             }?;

@@ -63,7 +63,7 @@ pub enum ExprBody {
     },
 
     Call {
-        fn_name: String,
+        name: String,
         args: Vec<Expr>,
     },
 
@@ -169,6 +169,7 @@ impl Expr {
                     self.expr_type = Some(ty.clone());
                     ok(ty.clone())
                 }
+                // TODO: Add span
                 None => {
                     self.expr_type = Some(BSType::Int64);
                     ok(BSType::Int64)
@@ -190,6 +191,9 @@ impl Expr {
                 self.expr_type = Some(res_type);
                 ok(res_type)
             }
+
+            // TODO: infer type for call
+            Call { name, args } => ok(BSType::Int64),
 
             e => compile_error(
                 format!("Cannot infer type for {:?}", e),
@@ -218,5 +222,5 @@ pub struct Function {
     pub name: String,
     pub args: Vec<(String, Type)>,
     pub body: Vec<Expr>,
-    pub is_anon: bool,
+    pub topl: bool,
 }

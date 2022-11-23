@@ -166,6 +166,27 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 ok(body)
             }
 
+            ExprBody::Call { name, args } => {
+                let mut call_args = vec![];
+
+                for arg in args {
+                    let arg = self.compile_expr(arg)?;
+                    call_args.push(arg);
+                }
+
+                let function = self.module.get_function(name.as_str()).ok_or_else(|| {
+                    BSError::CompileError {
+                        msg: format!("Undefined function '{}'", name),
+                        desc: "Function not found".to_string(),
+                        span: expr.span,
+                    }
+                })?;
+
+                ok(self
+                    .builder
+                    .build_call(function.into(), &call_args, "calltmp"))
+            }
+
             e => compile_error(
                 format!("Compiler: unknown expression: {:?}", e),
                 "".to_string(),
@@ -174,7 +195,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
         }
     }
 
-    #[inline]
     fn fn_value(&self) -> FnValue<'b> {
         self.fn_value_opt.unwrap()
     }
@@ -198,9 +218,10 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
     fn compile_prototype(&self, ret_type: BSType) -> BSResult<FnValue<'b>> {
         let proto = &self.function;
-        let args_types = std::iter::repeat(BsValue::llvm_type(self.context))
-            .take(proto.args.len())
-            .map(|f| f.into())
+        let args_types = proto
+            .args
+            .iter()
+            .map(|(_, ty)| ty.into_llvm_type(&self.context))
             .collect::<Vec<Type<'_>>>();
 
         let args_types = args_types.as_slice();
@@ -232,9 +253,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
         self.builder.position_at_end(entry);
 
         self.fn_value_opt = Some(function);
-
-        // build variables map
-        self.variables.reserve(self.function.args.len());
 
         for (i, arg) in function.get_params_iter().enumerate() {
             let ty = arg.get_llvm_type_ref();

@@ -4,7 +4,7 @@ use crate::types::{prelude::*, Type, TypeIntrinsics};
 use crate::utils::to_c_str;
 use crate::values::instruction_value::InstructionValue;
 use crate::values::ptr_value::PtrValue;
-use crate::values::{Value, ValueIntrinsics};
+use crate::values::{prelude::*, Value, ValueIntrinsics};
 use llvm_sys::core::*;
 use llvm_sys::prelude::LLVMBuilderRef;
 use std::marker::PhantomData;
@@ -84,6 +84,32 @@ impl<'a> Builder<'a> {
                 self.llvm_builder,
                 LLVMGetElementType(ptr.get_llvm_type_ref()),
                 ptr.as_llvm_value_ref(),
+                c_string.as_ptr(),
+            )
+        };
+
+        Value::new(value)
+    }
+
+    pub fn build_call(&self, function: Value<'a>, args: &[Value<'a>], name: &str) -> Value<'a> {
+        let fn_value: FnValue<'_> = function.into();
+        let c_string = to_c_str(name);
+        let mut args: Vec<_> = args.iter().map(|val| val.as_llvm_value_ref()).collect();
+        let value = unsafe {
+            // LLVMBuildCall2(
+            //     self.llvm_builder,
+            //     fn_value.get_llvm_type_ref(),
+            //     fn_value.as_llvm_value_ref(),
+            //     args.as_mut_ptr(),
+            //     args.len() as u32,
+            //     c_string.as_ptr(),
+            // )
+
+            LLVMBuildCall(
+                self.llvm_builder,
+                fn_value.as_llvm_value_ref(),
+                args.as_mut_ptr(),
+                args.len() as u32,
                 c_string.as_ptr(),
             )
         };

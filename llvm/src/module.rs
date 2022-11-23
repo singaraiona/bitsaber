@@ -4,6 +4,7 @@ use crate::types::TypeIntrinsics;
 use crate::utils::to_c_str;
 use crate::values::fn_value::FnValue;
 use llvm_sys::core::LLVMAddFunction;
+use llvm_sys::core::LLVMGetNamedFunction;
 use llvm_sys::execution_engine::LLVMCreateExecutionEngineForModule;
 use llvm_sys::prelude::LLVMModuleRef;
 use std::marker::PhantomData;
@@ -61,5 +62,15 @@ impl<'a> Module<'a> {
         // }
 
         fn_value
+    }
+
+    pub fn get_function(&self, name: &str) -> Option<FnValue<'a>> {
+        let c_string = to_c_str(name);
+        let val = unsafe { LLVMGetNamedFunction(self.llvm_module, c_string.as_ptr()) };
+        if val.is_null() {
+            None
+        } else {
+            Some(FnValue::new(val))
+        }
     }
 }

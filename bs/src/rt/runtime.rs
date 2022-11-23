@@ -64,7 +64,7 @@ impl<'a> Runtime<'a> {
 
     pub fn parse_eval(&mut self, input: &str) -> BSResult<BSValue> {
         unsafe {
-            let parsed_fn = Parser::new(input).parse()?;
+            let parsed_fns = Parser::new(input).parse()?;
 
             let mut module = self
                 .context
@@ -75,41 +75,51 @@ impl<'a> Runtime<'a> {
                 .create_mcjit_execution_engine()
                 .map_err(|e| BSError::RuntimeError(e.to_string()))?;
 
-            let (compiled_fn, ret_ty) = parsed_fn
-                .into_iter()
-                .map(|p| {
-                    Compiler::new(&mut self.context, &mut self.builder, &mut module, p).compile()
-                })
-                .last()
-                .unwrap()?;
+            let mut top_level_fn = None;
 
-            let addr = execution_engine
-                .get_function_address("anonymous")
-                .map_err(|e| BSError::RuntimeError(e.to_string()))?;
+            for f in parsed_fns {
+                let is_top_level = f.topl;
+                let (compiled_fn, ret_ty) =
+                    Compiler::new(&mut self.context, &mut self.builder, &mut module, f)
+                        .compile()?;
 
-            match ret_ty {
-                BSType::Null => {
-                    let f: extern "C" fn() -> i64 = mem::transmute(addr);
-                    let _ = f();
-                    ok(BSValue::Null)
+                if is_top_level {
+                    top_level_fn = Some((compiled_fn, ret_ty));
                 }
-                BSType::Bool => {
-                    let f: extern "C" fn() -> bool = mem::transmute(addr);
-                    let result = f();
-                    ok(BSValue::Bool(result))
+            }
+            match top_level_fn {
+                Some((_, ty)) => {
+                    let addr = execution_engine
+                        .get_function_address("top-level")
+                        .map_err(|e| BSError::RuntimeError(e.to_string()))?;
+
+                    match ty {
+                        BSType::Null => {
+                            let f: extern "C" fn() -> i64 = mem::transmute(addr);
+                            let _ = f();
+                            ok(BSValue::Null)
+                        }
+                        BSType::Bool => {
+                            let f: extern "C" fn() -> bool = mem::transmute(addr);
+                            let result = f();
+                            ok(BSValue::Bool(result))
+                        }
+                        BSType::Int64 => {
+                            let f: extern "C" fn() -> i64 = mem::transmute(addr);
+                            ok(BSValue::Int64(f().into()))
+                        }
+                        BSType::Float64 => {
+                            let f: extern "C" fn() -> f64 = mem::transmute(addr);
+                            ok(BSValue::Float64(f().into()))
+                        }
+                        _ => {
+                            let f: extern "C" fn() -> BSValue = mem::transmute(addr);
+                            ok(f())
+                        }
+                    }
                 }
-                BSType::Int64 => {
-                    let f: extern "C" fn() -> i64 = mem::transmute(addr);
-                    ok(BSValue::Int64(f().into()))
-                }
-                BSType::Float64 => {
-                    let f: extern "C" fn() -> f64 = mem::transmute(addr);
-                    ok(BSValue::Float64(f().into()))
-                }
-                _ => {
-                    let f: extern "C" fn() -> BSValue = mem::transmute(addr);
-                    ok(f())
-                }
+
+                None => ok(BSValue::Null),
             }
         }
     }
