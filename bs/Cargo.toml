@@ -7,3 +7,4 @@ edition = "2021"
 llvm = { path = "../llvm" }
 rand = "*"
 colored = "2.0.0"
+lazy_static = "1.4.0"

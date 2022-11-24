@@ -2,48 +2,55 @@ use crate::base::Type as BSType;
 use crate::parse::ast::BinaryOp;
 use crate::parse::span::Span;
 use crate::result::*;
+use std::collections::HashMap;
 use BSType::*;
 use BinaryOp::*;
 
-// Basic type inference table for binary ops/functions
-pub static OPS_TABLE: [(BinaryOp, BSType, BSType, BSType); 28] = [
-    (Add, Int64, Int64, Int64),
-    (Add, Float64, Float64, Float64),
-    (Sub, Int64, Int64, Int64),
-    (Sub, Float64, Float64, Float64),
-    (Mul, Int64, Int64, Int64),
-    (Mul, Float64, Float64, Float64),
-    (Div, Int64, Int64, Int64),
-    (Div, Float64, Float64, Float64),
-    (Rem, Int64, Int64, Int64),
-    (Rem, Float64, Float64, Float64),
-    (Or, Int64, Int64, Int64),
-    (Or, Float64, Float64, Float64),
-    (And, Int64, Int64, Int64),
-    (And, Float64, Float64, Float64),
-    (Xor, Int64, Int64, Int64),
-    (Xor, Float64, Float64, Float64),
-    (Equal, Int64, Int64, Bool),
-    (Equal, Float64, Float64, Bool),
-    (Less, Int64, Int64, Bool),
-    (Less, Float64, Float64, Bool),
-    (Greater, Int64, Int64, Bool),
-    (Greater, Float64, Float64, Bool),
-    (LessOrEqual, Int64, Int64, Bool),
-    (LessOrEqual, Float64, Float64, Bool),
-    (GreaterOrEqual, Int64, Int64, Bool),
-    (GreaterOrEqual, Float64, Float64, Bool),
-    (NotEqual, Int64, Int64, Bool),
-    (NotEqual, Float64, Float64, Bool),
-];
+lazy_static! {
+    static ref OPS_TABLE: HashMap<(BinaryOp, BSType, BSType), BSType> = {
+        let mut m = HashMap::new();
+        m.insert((Equal, Bool, Bool), Bool);
+        m.insert((NotEqual, Bool, Bool), Bool);
+        m.insert((Or, Bool, Bool), Bool);
+        m.insert((And, Bool, Bool), Bool);
+        m.insert((Xor, Bool, Bool), Bool);
+
+        m.insert((Add, Int64, Int64), Int64);
+        m.insert((Sub, Int64, Int64), Int64);
+        m.insert((Mul, Int64, Int64), Int64);
+        m.insert((Div, Int64, Int64), Int64);
+        m.insert((Rem, Int64, Int64), Int64);
+        m.insert((Or, Int64, Int64), Int64);
+        m.insert((And, Int64, Int64), Int64);
+        m.insert((Xor, Int64, Int64), Int64);
+        m.insert((Equal, Int64, Int64), Bool);
+        m.insert((Less, Int64, Int64), Bool);
+        m.insert((Greater, Int64, Int64), Bool);
+        m.insert((LessOrEqual, Int64, Int64), Bool);
+        m.insert((GreaterOrEqual, Int64, Int64), Bool);
+        m.insert((NotEqual, Int64, Int64), Bool);
+
+        m.insert((Add, Float64, Float64), Float64);
+        m.insert((Sub, Float64, Float64), Float64);
+        m.insert((Mul, Float64, Float64), Float64);
+        m.insert((Div, Float64, Float64), Float64);
+        m.insert((Or, Float64, Float64), Float64);
+        m.insert((And, Float64, Float64), Float64);
+        m.insert((Xor, Float64, Float64), Float64);
+        m.insert((Equal, Float64, Float64), Bool);
+        m.insert((Less, Float64, Float64), Bool);
+        m.insert((Greater, Float64, Float64), Bool);
+        m.insert((LessOrEqual, Float64, Float64), Bool);
+        m.insert((GreaterOrEqual, Float64, Float64), Bool);
+        m.insert((NotEqual, Float64, Float64), Bool);
+
+        m
+    };
+}
 
 pub fn infer_type(op: BinaryOp, lhs: BSType, rhs: BSType, span: Option<Span>) -> BSResult<BSType> {
-    match OPS_TABLE
-        .iter()
-        .find(|(op_, lhs_, rhs_, _)| op == *op_ && lhs == *lhs_ && rhs == *rhs_)
-        .map(|(_, _, _, ret)| *ret)
-    {
-        Some(ty) => ok(ty),
+    match OPS_TABLE.get(&(op, lhs, rhs)) {
+        Some(&ty) => ok(ty),
         None => compile_error(
             "Type inference error".to_string(),
             format!("No such op: '{}' for types: {} {}", op, lhs, rhs),

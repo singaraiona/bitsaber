@@ -7,6 +7,8 @@ pub mod parse;
 pub mod result;
 pub mod rt;
 
+#[macro_use]
+extern crate lazy_static;
 extern crate colored;
 extern crate llvm;
 extern crate rand;

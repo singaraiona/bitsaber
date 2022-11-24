@@ -195,7 +195,7 @@ impl Expr {
 
             e => compile_error(
                 format!("Cannot infer type for {:?}", e),
-                "Unknown ambiguous type for expression".to_string(),
+                "Unknown or ambiguous type for expression".to_string(),
                 self.span,
             ),
         }
