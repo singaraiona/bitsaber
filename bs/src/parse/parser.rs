@@ -225,6 +225,12 @@ impl<'a> Parser<'a> {
             Float64(_) => self.parse_number_literal(),
             LeftSquare => self.parse_vec_literal(),
             Ident(_) => self.parse_ident_expr(),
+            LeftParen => {
+                self.advance()?;
+                let expr = self.parse_expr()?;
+                self.expect(RightParen)?;
+                ok(expr)
+            }
             _ => parse_error(
                 "Invalid expression",
                 "Expected int, float, vector or parenthesized expression here".to_string(),
