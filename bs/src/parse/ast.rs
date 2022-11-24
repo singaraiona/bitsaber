@@ -120,13 +120,13 @@ impl Expr {
             Some(t) => ok(t.clone()),
             None => compile_error(
                 "Unknown expression type".to_string(),
-                "".to_string(),
+                format!("{:?}", self),
                 self.span,
             ),
         }
     }
 
-    fn _infer_type(&mut self, variables: &mut HashMap<String, BSType>) -> BSResult<BSType> {
+    fn infer_type(&mut self, variables: &mut HashMap<String, BSType>) -> BSResult<BSType> {
         use ExprBody::*;
 
         if let Some(ty) = self.expr_type {
@@ -159,7 +159,7 @@ impl Expr {
                 ok(BSType::VecFloat64)
             }
             Assign { variable, body } => {
-                let body_ty = body._infer_type(variables)?;
+                let body_ty = body.infer_type(variables)?;
                 self.expr_type = Some(body_ty.clone());
                 variables.insert(variable.clone(), body_ty);
                 ok(body_ty)
@@ -169,31 +169,29 @@ impl Expr {
                     self.expr_type = Some(ty.clone());
                     ok(ty.clone())
                 }
-                // TODO: Add span
-                None => {
-                    self.expr_type = Some(BSType::Int64);
-                    ok(BSType::Int64)
-                }
-                // None => compile_error(
-                //     format!("Unknown variable: {}", name),
-                //     "".to_string(),
-                //     self.span,
-                // ),
+                None => compile_error(
+                    format!("Unknown variable: {}", name),
+                    "".to_string(),
+                    self.span,
+                ),
             },
             Binary {
                 op,
                 ref mut lhs,
                 ref mut rhs,
             } => {
-                let lhs_type = lhs._infer_type(variables)?;
-                let rhs_type = rhs._infer_type(variables)?;
+                let lhs_type = lhs.infer_type(variables)?;
+                let rhs_type = rhs.infer_type(variables)?;
                 let res_type = infer::infer_type(*op, lhs_type, rhs_type, self.span)?;
                 self.expr_type = Some(res_type);
                 ok(res_type)
             }
 
             // TODO: infer type for call
-            Call { name, args } => ok(BSType::Int64),
+            Call { name, args: _ } => {
+                self.expr_type = Some(BSType::Int64);
+                ok(BSType::Int64)
+            }
 
             e => compile_error(
                 format!("Cannot infer type for {:?}", e),
@@ -202,18 +200,12 @@ impl Expr {
             ),
         }
     }
-
-    pub fn infer_type(&mut self) -> BSResult<BSType> {
-        let mut variables = HashMap::new();
-        self._infer_type(&mut variables)
-    }
 }
 
-pub fn infer_types(exprs: &mut [Expr]) -> BSResult<BSType> {
-    let mut variables = HashMap::new();
+pub fn infer_types(exprs: &mut [Expr], variables: &mut HashMap<String, Type>) -> BSResult<BSType> {
     let mut res_ty = BSType::Null;
     for e in exprs {
-        res_ty = e._infer_type(&mut variables)?;
+        res_ty = e.infer_type(variables)?;
     }
     ok(res_ty)
 }

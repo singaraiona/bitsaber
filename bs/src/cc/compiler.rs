@@ -241,7 +241,11 @@ impl<'a, 'b> Compiler<'a, 'b> {
     }
 
     fn compile_fn(&mut self) -> BSResult<(FnValue<'b>, BSType)> {
-        let ret_ty = infer_types(&mut self.function.body)?;
+        let mut args_variables = HashMap::new();
+        for (a, t) in self.function.args.iter() {
+            args_variables.insert(a.clone(), *t);
+        }
+        let ret_ty = infer_types(&mut self.function.body, &mut args_variables)?;
         let function = self.compile_prototype(ret_ty)?;
 
         // got external function, returning only compiled prototype

@@ -268,7 +268,7 @@ impl<'a> Parser<'a> {
                     }
                 };
                 self.advance()?;
-                let rhs = self.parse_unary_expr()?;
+                let rhs = self.parse_expr()?;
                 ok(Expr::new(
                     ExprBody::Binary {
                         op,
