@@ -1,7 +1,9 @@
 use crate::base::Type as BSType;
 use crate::base::Value as BSValue;
 use crate::cc::compiler::Compiler;
+use crate::parse::ast::Expr;
 use crate::parse::ast::ExprBody;
+use crate::parse::ast::Function;
 use crate::parse::parser::*;
 use crate::result::*;
 use llvm::builder::Builder;
@@ -30,6 +32,7 @@ pub struct Runtime<'a> {
     module: Module<'a>,
     builder: Builder<'a>,
     functions: HashMap<String, FunctionProto<'a>>,
+    previous_functions: Vec<Function>,
 }
 
 // Public methods
@@ -48,6 +51,7 @@ impl<'a> Runtime<'a> {
             module,
             builder,
             functions: HashMap::new(),
+            previous_functions: Vec::new(),
         })
     }
 
@@ -64,12 +68,18 @@ impl<'a> Runtime<'a> {
 
     pub fn parse_eval(&mut self, input: &str) -> BSResult<BSValue> {
         unsafe {
-            let parsed_fns = Parser::new(input).parse()?;
-
             let mut module = self
                 .context
                 .create_module("repl")
                 .map_err(|e| BSError::RuntimeError(e.to_string()))?;
+
+            // recompile every previously parsed function into the new module
+            for f in &self.previous_functions {
+                Compiler::new(&mut self.context, &mut self.builder, &mut module, f.clone())
+                    .compile()?;
+            }
+
+            let parsed_fns = Parser::new(input).parse()?;
 
             let execution_engine = module
                 .create_mcjit_execution_engine()
@@ -80,13 +90,16 @@ impl<'a> Runtime<'a> {
             for f in parsed_fns {
                 let is_top_level = f.topl;
                 let (compiled_fn, ret_ty) =
-                    Compiler::new(&mut self.context, &mut self.builder, &mut module, f)
+                    Compiler::new(&mut self.context, &mut self.builder, &mut module, f.clone())
                         .compile()?;
 
                 if is_top_level {
                     top_level_fn = Some((compiled_fn, ret_ty));
+                } else {
+                    self.previous_functions.push(f);
                 }
             }
+
             match top_level_fn {
                 Some((_, ty)) => {
                     let addr = execution_engine

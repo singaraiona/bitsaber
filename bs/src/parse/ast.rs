@@ -210,6 +210,7 @@ pub fn infer_types(exprs: &mut [Expr], variables: &mut HashMap<String, Type>) ->
     ok(res_ty)
 }
 
+#[derive(Clone)]
 pub struct Function {
     pub name: String,
     pub args: Vec<(String, Type)>,
