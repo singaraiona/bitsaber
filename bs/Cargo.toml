@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 llvm = { path = "../llvm" }
+ffi = { path = "../ffi" }
 rand = "*"
 colored = "2.0.0"
 lazy_static = "1.4.0"

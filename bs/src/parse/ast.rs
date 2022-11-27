@@ -1,9 +1,8 @@
 use crate::analysis::infer;
-use crate::base::Type as BSType;
-use crate::base::Type;
-use crate::base::Value as BSValue;
 use crate::parse::span::Span;
 use crate::result::*;
+use ffi::Type as BSType;
+use ffi::Value as BSValue;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -215,7 +214,7 @@ impl Expr {
 pub fn infer_types(
     exprs: &mut [Expr],
     globals: &HashMap<String, (BSValue, BSType)>,
-    variables: &mut HashMap<String, Type>,
+    variables: &mut HashMap<String, BSType>,
 ) -> BSResult<BSType> {
     let mut res_ty = BSType::Null;
     for e in exprs {
@@ -227,7 +226,7 @@ pub fn infer_types(
 #[derive(Clone)]
 pub struct Function {
     pub name: String,
-    pub args: Vec<(String, Type)>,
+    pub args: Vec<(String, BSType)>,
     pub body: Vec<Expr>,
     pub topl: bool,
 }

@@ -2,6 +2,7 @@
 [workspace]
 
 members = [
+    "ffi",
     "llvm",
     "bs",
     "app"

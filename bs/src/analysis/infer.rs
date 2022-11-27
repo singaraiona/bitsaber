@@ -1,7 +1,7 @@
-use crate::base::Type as BSType;
 use crate::parse::ast::BinaryOp;
 use crate::parse::span::Span;
 use crate::result::*;
+use ffi::Type as BSType;
 use std::collections::HashMap;
 use BSType::*;
 use BinaryOp::*;

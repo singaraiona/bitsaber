@@ -1,6 +1,4 @@
-use crate::base::Type as BSType;
-use crate::base::Value as BSValue;
-use crate::base::NULL_VALUE;
+use super::transform::*;
 use crate::llvm::enums::*;
 use crate::llvm::values::ValueIntrinsics;
 use crate::parse::ast::BinaryOp;
@@ -9,6 +7,9 @@ use crate::parse::ast::{infer_types, Expr, Function};
 use crate::parse::span::Span;
 use crate::result::*;
 use crate::rt::runtime::RuntimeModule;
+use ffi::Type as BSType;
+use ffi::Value as BSValue;
+use ffi::NULL_VALUE;
 use llvm::builder::Builder;
 use llvm::context::Context;
 use llvm::module::Module;
@@ -131,14 +132,16 @@ impl<'a, 'b> Compiler<'a, 'b> {
             ExprBody::Int64(v) => ok(self.context.i64_type().const_value(*v).into()),
             ExprBody::Float64(v) => ok(self.context.f64_type().const_value(*v).into()),
             ExprBody::VecInt64(v) => unsafe {
-                ok(std::mem::transmute(
-                    BSValue::from(v.clone()).into_llvm_value(&self.context),
-                ))
+                ok(std::mem::transmute(llvm_value_from_bs_value(
+                    BSValue::from(v.clone()),
+                    &self.context,
+                )))
             },
             ExprBody::VecFloat64(v) => unsafe {
-                ok(std::mem::transmute(
-                    BSValue::from(v.clone()).into_llvm_value(&self.context),
-                ))
+                ok(std::mem::transmute(llvm_value_from_bs_value(
+                    BSValue::from(v.clone()),
+                    &self.context,
+                )))
             },
             ExprBody::Variable(ref name) => match self.variables.get(name.as_str()) {
                 Some(v) => ok(self.builder.build_load(*v, name.as_str())),
@@ -171,12 +174,12 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     self.modules.get_mut("repl").unwrap().add_global(
                         variable,
                         initializer_ty,
-                        BSValue::from(body),
+                        bs_value_from_llvm_value(body),
                     );
                 } else {
                     let alloca = self.create_entry_block_alloca(
                         variable,
-                        initializer_ty.into_llvm_type(&self.context),
+                        llvm_type_from_bs_type(initializer_ty, &self.context),
                     );
                     self.builder.build_store(alloca, body);
                     self.variables.insert(variable.clone(), alloca);
@@ -240,14 +243,16 @@ impl<'a, 'b> Compiler<'a, 'b> {
         let args_types = proto
             .args
             .iter()
-            .map(|(_, ty)| ty.into_llvm_type(&self.context))
+            .map(|(_, ty)| llvm_type_from_bs_type(*ty, &self.context))
             .collect::<Vec<Type<'_>>>();
 
         let args_types = args_types.as_slice();
 
-        let fn_type =
-            self.context
-                .fn_type(ret_type.into_llvm_type(&self.context), args_types, false);
+        let fn_type = self.context.fn_type(
+            llvm_type_from_bs_type(ret_type, &self.context),
+            args_types,
+            false,
+        );
         let fn_val = module.add_function(proto.name.as_str(), fn_type);
 
         // set arguments names

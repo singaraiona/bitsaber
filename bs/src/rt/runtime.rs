@@ -1,9 +1,9 @@
-use crate::base::Type as BSType;
-use crate::base::Value as BSValue;
 use crate::cc::compiler::Compiler;
 use crate::parse::ast::Function;
 use crate::parse::parser::*;
 use crate::result::*;
+use ffi::Type as BSType;
+use ffi::Value as BSValue;
 use llvm::builder::Builder;
 use llvm::context::Context;
 use llvm::execution_engine::ExecutionEngine;
