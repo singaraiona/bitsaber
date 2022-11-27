@@ -1,5 +1,5 @@
 use crate::base::Type as BSType;
-use crate::base::Value as BsValue;
+use crate::base::Value as BSValue;
 use crate::base::NULL_VALUE;
 use crate::llvm::enums::*;
 use crate::llvm::values::ValueIntrinsics;
@@ -8,6 +8,7 @@ use crate::parse::ast::ExprBody;
 use crate::parse::ast::{infer_types, Expr, Function};
 use crate::parse::span::Span;
 use crate::result::*;
+use crate::rt::runtime::RuntimeModule;
 use llvm::builder::Builder;
 use llvm::context::Context;
 use llvm::module::Module;
@@ -19,7 +20,7 @@ use std::collections::HashMap;
 pub struct Compiler<'a, 'b> {
     context: &'a mut Context,
     builder: &'a mut Builder<'b>,
-    module: &'a mut Module<'b>,
+    modules: &'a mut HashMap<String, RuntimeModule<'b>>,
     function: Function,
     variables: HashMap<String, Value<'b>>,
     fn_value_opt: Option<FnValue<'b>>,
@@ -29,17 +30,21 @@ impl<'a, 'b> Compiler<'a, 'b> {
     pub fn new(
         context: &'a mut Context,
         builder: &'a mut Builder<'b>,
-        module: &'a mut Module<'b>,
+        modules: &'a mut HashMap<String, RuntimeModule<'b>>,
         function: Function,
     ) -> Self {
         Compiler {
             context,
             builder,
-            module,
+            modules,
             function,
             variables: HashMap::new(),
             fn_value_opt: None,
         }
+    }
+
+    fn module(&mut self) -> &mut Module<'b> {
+        &mut self.modules.get_mut("repl").unwrap().module
     }
 
     pub fn compile_binary_op(
@@ -127,12 +132,12 @@ impl<'a, 'b> Compiler<'a, 'b> {
             ExprBody::Float64(v) => ok(self.context.f64_type().const_value(*v).into()),
             ExprBody::VecInt64(v) => unsafe {
                 ok(std::mem::transmute(
-                    BsValue::from(v.clone()).into_llvm_value(&self.context),
+                    BSValue::from(v.clone()).into_llvm_value(&self.context),
                 ))
             },
             ExprBody::VecFloat64(v) => unsafe {
                 ok(std::mem::transmute(
-                    BsValue::from(v.clone()).into_llvm_value(&self.context),
+                    BSValue::from(v.clone()).into_llvm_value(&self.context),
                 ))
             },
             ExprBody::Variable(ref name) => match self.variables.get(name.as_str()) {
@@ -154,15 +159,28 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 )
             }
 
-            ExprBody::Assign { variable, body } => {
+            ExprBody::Assign {
+                variable,
+                body,
+                global,
+            } => {
                 let initializer_ty = body.get_type()?;
                 let body = self.compile_expr(&body)?;
-                let alloca = self.create_entry_block_alloca(
-                    variable,
-                    initializer_ty.into_llvm_type(&self.context),
-                );
-                self.builder.build_store(alloca, body);
-                self.variables.insert(variable.clone(), alloca);
+
+                if *global {
+                    self.modules.get_mut("repl").unwrap().add_global(
+                        variable,
+                        initializer_ty,
+                        BSValue::from(body),
+                    );
+                } else {
+                    let alloca = self.create_entry_block_alloca(
+                        variable,
+                        initializer_ty.into_llvm_type(&self.context),
+                    );
+                    self.builder.build_store(alloca, body);
+                    self.variables.insert(variable.clone(), alloca);
+                }
                 ok(body)
             }
 
@@ -174,7 +192,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     call_args.push(arg);
                 }
 
-                let function = self.module.get_function(name.as_str()).ok_or_else(|| {
+                let function = self.module().get_function(name.as_str()).ok_or_else(|| {
                     BSError::CompileError {
                         msg: format!("Undefined function '{}'", name),
                         desc: "Function not found".to_string(),
@@ -217,6 +235,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
     }
 
     fn compile_prototype(&self, ret_type: BSType) -> BSResult<FnValue<'b>> {
+        let module = &self.modules.get("repl").unwrap().module;
         let proto = &self.function;
         let args_types = proto
             .args
@@ -229,7 +248,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         let fn_type =
             self.context
                 .fn_type(ret_type.into_llvm_type(&self.context), args_types, false);
-        let fn_val = self.module.add_function(proto.name.as_str(), fn_type);
+        let fn_val = module.add_function(proto.name.as_str(), fn_type);
 
         // set arguments names
         for (i, arg) in fn_val.get_params_iter().enumerate() {
@@ -245,7 +264,8 @@ impl<'a, 'b> Compiler<'a, 'b> {
         for (a, t) in self.function.args.iter() {
             args_variables.insert(a.clone(), *t);
         }
-        let ret_ty = infer_types(&mut self.function.body, &mut args_variables)?;
+        let globals = &self.modules.get("repl").unwrap().globals;
+        let ret_ty = infer_types(&mut self.function.body, globals, &mut args_variables)?;
         let function = self.compile_prototype(ret_ty)?;
 
         // got external function, returning only compiled prototype

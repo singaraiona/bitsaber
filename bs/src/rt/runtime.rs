@@ -17,10 +17,10 @@ pub extern "C" fn printd(x: f64) -> f64 {
     x
 }
 
-pub(crate) struct RuntimeModule<'a> {
-    module: Module<'a>,
-    engine: ExecutionEngine<'a>,
-    globals: HashMap<String, (BSValue, BSType)>,
+pub struct RuntimeModule<'a> {
+    pub(crate) module: Module<'a>,
+    pub(crate) engine: ExecutionEngine<'a>,
+    pub(crate) globals: HashMap<String, (BSValue, BSType)>,
 }
 
 impl<'a> RuntimeModule<'a> {
@@ -85,13 +85,15 @@ impl<'a> Runtime<'a> {
             let repl_module = RuntimeModule::new("repl".into(), &self.context)?;
             self.modules.insert("repl".into(), repl_module);
 
-            let runtime_module = &mut self.modules.get_mut("repl").unwrap();
-            let module = &mut runtime_module.module;
-            let engine = &mut runtime_module.engine;
-
             // recompile every previously parsed function into the new module
             for f in &self.previous_functions {
-                Compiler::new(&mut self.context, &mut self.builder, module, f.clone()).compile()?;
+                Compiler::new(
+                    &mut self.context,
+                    &mut self.builder,
+                    &mut self.modules,
+                    f.clone(),
+                )
+                .compile()?;
             }
 
             let parsed_fns = Parser::new(input).parse()?;
@@ -100,9 +102,13 @@ impl<'a> Runtime<'a> {
 
             for f in parsed_fns {
                 let is_top_level = f.topl;
-                let (compiled_fn, ret_ty) =
-                    Compiler::new(&mut self.context, &mut self.builder, module, f.clone())
-                        .compile()?;
+                let (compiled_fn, ret_ty) = Compiler::new(
+                    &mut self.context,
+                    &mut self.builder,
+                    &mut self.modules,
+                    f.clone(),
+                )
+                .compile()?;
 
                 if is_top_level {
                     top_level_fn = Some((compiled_fn, ret_ty));
@@ -110,6 +116,9 @@ impl<'a> Runtime<'a> {
                     self.previous_functions.push(f);
                 }
             }
+
+            let runtime_module = &mut self.modules.get_mut("repl").unwrap();
+            let engine = &mut runtime_module.engine;
 
             match top_level_fn {
                 Some((_, ty)) => {

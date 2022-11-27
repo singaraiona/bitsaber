@@ -1,6 +1,7 @@
 use llvm::context::Context;
 use llvm::types::struct_type::StructType as LLVMStructType;
 use llvm::types::Type as LLVMType;
+use llvm::values::prelude::StructValue;
 use llvm::values::Value as LLVMValue;
 use std::fmt;
 use std::mem::transmute;
@@ -191,6 +192,36 @@ impl From<Vec<f64>> for Value {
 impl From<Vec<Value>> for Value {
     fn from(value: Vec<Value>) -> Self {
         Value::List(Rc::new(value))
+    }
+}
+
+impl From<LLVMValue<'_>> for Value {
+    fn from(value: LLVMValue) -> Self {
+        // let struct_val: StructValue<'_> = value.into();
+        unsafe {
+            // let tag = value
+            //     .get_struct_element_value(0)
+            //     .unwrap()
+            //     .into_int_value()
+            //     .into();
+            // let val = value
+            //     .get_struct_element_value(1)
+            //     .unwrap()
+            //     .into_int_value()
+            //     .into();
+
+            let tag = 2;
+            let val = 12345;
+
+            match transmute::<u64, Type>(tag as u64) {
+                Type::Null => Value::Null,
+                Type::Bool => Value::Bool(val != 0),
+                Type::Int64 => Value::Int64(val.into()),
+                Type::Float64 => Value::Float64(transmute(val)),
+                Type::VecInt64 => Value::VecInt64(transmute::<_, Rc<Vec<i64>>>(val)),
+                _ => unreachable!(),
+            }
+        }
     }
 }
 

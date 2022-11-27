@@ -1,6 +1,7 @@
 use crate::analysis::infer;
 use crate::base::Type as BSType;
 use crate::base::Type;
+use crate::base::Value as BSValue;
 use crate::parse::span::Span;
 use crate::result::*;
 use std::collections::HashMap;
@@ -84,6 +85,7 @@ pub enum ExprBody {
     Assign {
         variable: String,
         body: Box<Expr>,
+        global: bool,
     },
 
     VecInt64(Vec<i64>),
@@ -126,7 +128,11 @@ impl Expr {
         }
     }
 
-    fn infer_type(&mut self, variables: &mut HashMap<String, BSType>) -> BSResult<BSType> {
+    fn infer_type(
+        &mut self,
+        globals: &HashMap<String, (BSValue, BSType)>,
+        variables: &mut HashMap<String, BSType>,
+    ) -> BSResult<BSType> {
         use ExprBody::*;
 
         if let Some(ty) = self.expr_type {
@@ -158,8 +164,12 @@ impl Expr {
                 self.expr_type = Some(BSType::VecFloat64);
                 ok(BSType::VecFloat64)
             }
-            Assign { variable, body } => {
-                let body_ty = body.infer_type(variables)?;
+            Assign {
+                variable,
+                body,
+                global,
+            } => {
+                let body_ty = body.infer_type(globals, variables)?;
                 self.expr_type = Some(body_ty.clone());
                 variables.insert(variable.clone(), body_ty);
                 ok(body_ty)
@@ -180,8 +190,8 @@ impl Expr {
                 ref mut lhs,
                 ref mut rhs,
             } => {
-                let lhs_type = lhs.infer_type(variables)?;
-                let rhs_type = rhs.infer_type(variables)?;
+                let lhs_type = lhs.infer_type(globals, variables)?;
+                let rhs_type = rhs.infer_type(globals, variables)?;
                 let res_type = infer::infer_type(*op, lhs_type, rhs_type, self.span)?;
                 self.expr_type = Some(res_type);
                 ok(res_type)
@@ -202,10 +212,14 @@ impl Expr {
     }
 }
 
-pub fn infer_types(exprs: &mut [Expr], variables: &mut HashMap<String, Type>) -> BSResult<BSType> {
+pub fn infer_types(
+    exprs: &mut [Expr],
+    globals: &HashMap<String, (BSValue, BSType)>,
+    variables: &mut HashMap<String, Type>,
+) -> BSResult<BSType> {
     let mut res_ty = BSType::Null;
     for e in exprs {
-        res_ty = e.infer_type(variables)?;
+        res_ty = e.infer_type(globals, variables)?;
     }
     ok(res_ty)
 }

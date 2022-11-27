@@ -8,6 +8,7 @@ use Token::*;
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
     curr: Token<'a>,
+    top_level: bool,
 }
 
 #[allow(unused_must_use)]
@@ -19,6 +20,7 @@ impl<'a> Parser<'a> {
         Parser {
             lexer,
             curr: Token::EOF,
+            top_level: true,
         }
     }
 
@@ -128,6 +130,7 @@ impl<'a> Parser<'a> {
             LeftParen => {
                 self.advance()?;
                 let mut args = vec![];
+                self.top_level = false;
 
                 while self.curr != RightParen {
                     let arg = self.parse_expr()?;
@@ -142,6 +145,7 @@ impl<'a> Parser<'a> {
                 }
 
                 self.expect(RightParen)?;
+                self.top_level = true;
 
                 ok(Expr::new(
                     ExprBody::Call {
@@ -296,6 +300,7 @@ impl<'a> Parser<'a> {
                             ExprBody::Assign {
                                 variable: name,
                                 body: Box::new(rhs),
+                                global: self.top_level,
                             },
                             span,
                         ))
