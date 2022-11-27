@@ -1,8 +1,6 @@
 use crate::base::Type as BSType;
 use crate::base::Value as BSValue;
 use crate::cc::compiler::Compiler;
-use crate::parse::ast::Expr;
-use crate::parse::ast::ExprBody;
 use crate::parse::ast::Function;
 use crate::parse::parser::*;
 use crate::result::*;
@@ -10,8 +8,6 @@ use llvm::builder::Builder;
 use llvm::context::Context;
 use llvm::execution_engine::ExecutionEngine;
 use llvm::module::Module;
-use llvm::types::Type;
-use llvm::values::Value;
 use std::collections::HashMap;
 use std::mem;
 
@@ -21,17 +17,49 @@ pub extern "C" fn printd(x: f64) -> f64 {
     x
 }
 
-struct FunctionProto<'a> {
-    name: String,
-    return_type: Type<'a>,
-    args: Vec<Type<'a>>,
+pub(crate) struct RuntimeModule<'a> {
+    module: Module<'a>,
+    engine: ExecutionEngine<'a>,
+    globals: HashMap<String, (BSValue, BSType)>,
+}
+
+impl<'a> RuntimeModule<'a> {
+    pub fn new(name: String, context: &Context) -> BSResult<Self> {
+        let module = context
+            .create_module(name.as_str())
+            .map_err(|e| BSError::RuntimeError(e.to_string()))?;
+        let engine = module
+            .create_mcjit_execution_engine()
+            .map_err(|e| BSError::RuntimeError(e.to_string()))?;
+
+        ok(Self {
+            module,
+            engine,
+            globals: HashMap::new(),
+        })
+    }
+
+    // pub fn add_function(&mut self, name: &str, ty: BSType, func: fn() -> f64) {
+    //     let context = self.module.get_context();
+    //     let func_ty = ty.to_llvm(&context);
+    //     let func = self.module.add_function(name, func_ty);
+    //     self.engine.add_global_mapping(func, func as *mut _);
+    //     self.globals.insert(name.to_string(), func);
+    // }
+
+    pub fn add_global(&mut self, name: &str, ty: BSType, value: BSValue) {
+        self.globals.insert(name.to_string(), (value, ty));
+    }
+
+    // pub fn get_function(&self, name: &str) -> Option<Value<'a>> {
+    //     self.globals.get(name).cloned()
+    // }
 }
 
 pub struct Runtime<'a> {
     context: Context,
-    module: Module<'a>,
+    modules: HashMap<String, RuntimeModule<'a>>,
     builder: Builder<'a>,
-    functions: HashMap<String, FunctionProto<'a>>,
     previous_functions: Vec<Function>,
 }
 
@@ -39,58 +67,41 @@ pub struct Runtime<'a> {
 impl<'a> Runtime<'a> {
     pub fn new() -> BSResult<Self> {
         let context = Context::new().map_err(|e| BSError::RuntimeError(e.to_string()))?;
-        let module = context
-            .create_module("main")
-            .map_err(|e| BSError::RuntimeError(e.to_string()))?;
+        let modules = HashMap::new();
         let builder = context
             .create_builder()
             .map_err(|e| BSError::RuntimeError(e.to_string()))?;
 
         ok(Self {
             context,
-            module,
+            modules,
             builder,
-            functions: HashMap::new(),
             previous_functions: Vec::new(),
         })
     }
 
-    pub fn call_function(
-        &self,
-        fn_name: &str,
-        ee: &ExecutionEngine,
-    ) -> Result<Value<'a>, &'static str> {
-        // let addr = self.get_function_address(fn_name)?;
-
-        // Ok(FunctionValue::new(function))
-        todo!()
-    }
-
     pub fn parse_eval(&mut self, input: &str) -> BSResult<BSValue> {
         unsafe {
-            let mut module = self
-                .context
-                .create_module("repl")
-                .map_err(|e| BSError::RuntimeError(e.to_string()))?;
+            let repl_module = RuntimeModule::new("repl".into(), &self.context)?;
+            self.modules.insert("repl".into(), repl_module);
+
+            let runtime_module = &mut self.modules.get_mut("repl").unwrap();
+            let module = &mut runtime_module.module;
+            let engine = &mut runtime_module.engine;
 
             // recompile every previously parsed function into the new module
             for f in &self.previous_functions {
-                Compiler::new(&mut self.context, &mut self.builder, &mut module, f.clone())
-                    .compile()?;
+                Compiler::new(&mut self.context, &mut self.builder, module, f.clone()).compile()?;
             }
 
             let parsed_fns = Parser::new(input).parse()?;
-
-            let execution_engine = module
-                .create_mcjit_execution_engine()
-                .map_err(|e| BSError::RuntimeError(e.to_string()))?;
 
             let mut top_level_fn = None;
 
             for f in parsed_fns {
                 let is_top_level = f.topl;
                 let (compiled_fn, ret_ty) =
-                    Compiler::new(&mut self.context, &mut self.builder, &mut module, f.clone())
+                    Compiler::new(&mut self.context, &mut self.builder, module, f.clone())
                         .compile()?;
 
                 if is_top_level {
@@ -102,7 +113,7 @@ impl<'a> Runtime<'a> {
 
             match top_level_fn {
                 Some((_, ty)) => {
-                    let addr = execution_engine
+                    let addr = engine
                         .get_function_address("top-level")
                         .map_err(|e| BSError::RuntimeError(e.to_string()))?;
 
