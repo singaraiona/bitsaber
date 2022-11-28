@@ -1,8 +1,12 @@
+#[macro_use]
+extern crate lazy_static;
+
 use std::fmt;
 use std::rc::Rc;
 
 pub const NULL_VALUE: i64 = std::i64::MAX;
 
+pub mod external;
 pub mod f64_value;
 pub mod i64_value;
 

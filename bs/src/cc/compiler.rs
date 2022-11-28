@@ -243,7 +243,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         builder.build_alloca(ini, name)
     }
 
-    fn compile_prototype(&self, ret_type: BSType) -> BSResult<FnValue<'b>> {
+    pub fn compile_prototype(&self, ret_type: BSType) -> BSResult<FnValue<'b>> {
         let module = &self.modules.get("repl").unwrap().module;
         let proto = &self.function;
         let args_types = proto
@@ -270,7 +270,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         ok(fn_val)
     }
 
-    fn compile_fn(&mut self) -> BSResult<(FnValue<'b>, BSType)> {
+    pub fn compile_fn(&mut self) -> BSResult<(FnValue<'b>, BSType)> {
         let mut args_variables = HashMap::new();
         for (a, t) in self.function.args.iter() {
             args_variables.insert(a.clone(), *t);

@@ -1,13 +1,17 @@
+use crate::builtins;
 use crate::cc::compiler::Compiler;
 use crate::parse::ast::Function;
 use crate::parse::parser::*;
 use crate::result::*;
+use ffi::external;
 use ffi::Type as BSType;
 use ffi::Value as BSValue;
 use llvm::builder::Builder;
 use llvm::context::Context;
 use llvm::execution_engine::ExecutionEngine;
+use llvm::llvm_sys::support::LLVMAddSymbol;
 use llvm::module::Module;
+use llvm::utils::to_c_str;
 use std::collections::HashMap;
 use std::mem;
 
@@ -67,7 +71,14 @@ impl<'a> Runtime<'a> {
             .map_err(|e| BSError::RuntimeError(e.to_string()))?;
 
         // Initialize builtins
-        super::builtins::init();
+        builtins::init();
+
+        // add external symbols
+        external::with(|map| {
+            for (name, ext) in map {
+                Self::add_symbol(name, ext.addr);
+            }
+        });
 
         ok(Self {
             context,
@@ -77,10 +88,33 @@ impl<'a> Runtime<'a> {
         })
     }
 
+    pub fn add_symbol(name: &str, addr: i64) {
+        unsafe {
+            LLVMAddSymbol(to_c_str(name).as_ptr(), addr as _);
+        }
+    }
+
     pub fn parse_eval(&mut self, input: &str) -> BSResult<BSValue> {
         unsafe {
             let repl_module = RuntimeModule::new("repl".into(), &self.context)?;
             self.modules.insert("repl".into(), repl_module);
+
+            external::with(|map| {
+                for (name, ext) in map {
+                    let args = ext.args.iter().map(|t| ("".into(), *t)).collect::<Vec<_>>();
+                    let f = Function {
+                        name: name.clone(),
+                        args: args,
+                        body: vec![],
+                        topl: false,
+                    };
+                    let cc =
+                        Compiler::new(&mut self.context, &mut self.builder, &mut self.modules, f);
+
+                    cc.compile_prototype(ext.ret)
+                        .expect("failed to compile external function");
+                }
+            });
 
             // recompile every previously parsed function into the new module
             for f in &self.previous_functions {
