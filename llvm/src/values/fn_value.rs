@@ -1,6 +1,6 @@
 use super::{Value, ValueRef};
 use crate::basic_block::BasicBlock;
-use crate::types::{Type, TypeIntrinsics};
+use crate::types::Type;
 use crate::values::ValueIntrinsics;
 use llvm_sys::analysis::{LLVMVerifierFailureAction, LLVMVerifyFunction};
 use llvm_sys::core::*;

@@ -173,19 +173,19 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 body,
                 global,
             } => {
-                let initializer_ty = body.get_type()?;
+                let ty = body.get_type()?;
                 let body = self.compile_expr(&body)?;
 
                 if *global {
                     self.modules.get_mut("repl").unwrap().add_global(
                         variable,
-                        initializer_ty,
-                        bs_value_from_llvm_value(body),
+                        ty,
+                        bs_value_from_llvm_value(body, ty),
                     );
                 } else {
                     let alloca = self.create_entry_block_alloca(
                         variable,
-                        llvm_type_from_bs_type(initializer_ty, &self.context),
+                        llvm_type_from_bs_type(ty, &self.context),
                     );
                     self.builder.build_store(alloca, body);
                     self.variables.insert(variable.clone(), alloca);

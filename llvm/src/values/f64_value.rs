@@ -1,5 +1,6 @@
 use super::ValueRef;
 use crate::values::ValueIntrinsics;
+use llvm_sys::core::LLVMConstRealGetDouble;
 use llvm_sys::prelude::LLVMTypeRef;
 use llvm_sys::prelude::LLVMValueRef;
 use std::ffi::CStr;
@@ -15,13 +16,19 @@ impl<'a> F64Value<'a> {
             val: ValueRef::new(llvm_value),
         }
     }
+
+    pub fn get_constant(self) -> f64 {
+        let mut lossy = 0;
+        let constant = unsafe { LLVMConstRealGetDouble(self.val.as_llvm_value_ref(), &mut lossy) };
+        constant
+    }
 }
 
-// impl Into<f64> for F64Value<'_> {
-//     fn into(self) -> f64 {
-//         unsafe { self.val.intrinsics().const_real_get_double() }
-//     }
-// }
+impl Into<f64> for F64Value<'_> {
+    fn into(self) -> f64 {
+        self.get_constant()
+    }
+}
 
 impl ValueIntrinsics for F64Value<'_> {
     fn as_llvm_value_ref(&self) -> LLVMValueRef {

@@ -17,8 +17,14 @@ impl<'a> I64Value<'a> {
         }
     }
 
-    pub fn get_sign_extended_constant(self) -> i64 {
+    pub fn get_constant(self) -> i64 {
         unsafe { LLVMConstIntGetSExtValue(self.as_llvm_value_ref()) }
+    }
+}
+
+impl Into<i64> for I64Value<'_> {
+    fn into(self) -> i64 {
+        self.get_constant()
     }
 }
 
@@ -36,11 +42,5 @@ impl ValueIntrinsics for I64Value<'_> {
 
     fn get_llvm_type_ref(&self) -> LLVMTypeRef {
         self.val.get_llvm_type_ref()
-    }
-}
-
-impl Into<i64> for I64Value<'_> {
-    fn into(self) -> i64 {
-        self.get_sign_extended_constant()
     }
 }

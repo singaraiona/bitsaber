@@ -3,9 +3,9 @@ use ffi::Value as BSValue;
 use llvm::context::Context;
 use llvm::types::prelude::StructType as LLVMStructType;
 use llvm::types::Type as LLVMType;
+use llvm::values::prelude::*;
 use llvm::values::Value as LLVMValue;
 use std::mem::transmute;
-use std::rc::Rc;
 
 fn into_llvm_struct<'a>(tag: i64, val: i64, context: &'a Context) -> LLVMValue<'a> {
     let ret_struct = llvm_struct_type(context).const_value(
@@ -42,30 +42,20 @@ pub fn llvm_value_from_bs_value<'a>(bs_value: BSValue, context: &'a Context) -> 
     }
 }
 
-pub fn bs_value_from_llvm_value(value: LLVMValue) -> BSValue {
-    // let struct_val: StructValue<'_> = value.into();
+pub fn bs_value_from_llvm_value(value: LLVMValue, ty: BSType) -> BSValue {
     unsafe {
-        // let tag = value
-        //     .get_struct_element_value(0)
-        //     .unwrap()
-        //     .into_int_value()
-        //     .into();
-        // let val = value
-        //     .get_struct_element_value(1)
-        //     .unwrap()
-        //     .into_int_value()
-        //     .into();
-
-        let tag = 2;
-        let val = 666;
-
-        match transmute::<u64, BSType>(tag as u64) {
+        match ty {
             BSType::Null => BSValue::Null,
-            BSType::Bool => BSValue::Bool(val != 0),
-            BSType::Int64 => BSValue::Int64(val.into()),
-            BSType::Float64 => BSValue::Float64(transmute(val)),
-            BSType::VecInt64 => BSValue::VecInt64(transmute::<_, Rc<Vec<i64>>>(val)),
-            _ => unreachable!(),
+            BSType::Bool => BSValue::Bool(false),
+            BSType::Int64 => {
+                let val: I64Value<'_> = value.into();
+                BSValue::Int64(val.get_constant().into())
+            }
+            BSType::Float64 => {
+                let val: F64Value<'_> = value.into();
+                BSValue::Float64(val.into())
+            }
+            _ => todo!(), // _ => transmute::<LLVMValue, BSValue>(value),
         }
     }
 }
