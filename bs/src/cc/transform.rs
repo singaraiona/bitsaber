@@ -32,7 +32,7 @@ pub fn llvm_value_from_bs_value<'a>(bs_value: BSValue, context: &'a Context) -> 
         match bs_value {
             BSValue::Null => into_llvm_struct(tag, 0, context),
             BSValue::Bool(b) => into_llvm_struct(tag, b as i64, context),
-            BSValue::Int64(v) => into_llvm_struct(tag, v.into(), context),
+            BSValue::Int64(v) => context.i64_type().const_value(v.into()).into(),
             BSValue::Float64(v) => into_llvm_struct(tag, transmute(v), context),
             BSValue::VecInt64(v) => into_llvm_struct(tag, transmute::<_, i64>(v), context),
             BSValue::VecFloat64(v) => into_llvm_struct(tag, transmute::<_, i64>(v), context),
@@ -57,7 +57,7 @@ pub fn bs_value_from_llvm_value(value: LLVMValue) -> BSValue {
         //     .into();
 
         let tag = 2;
-        let val = 12345;
+        let val = 666;
 
         match transmute::<u64, BSType>(tag as u64) {
             BSType::Null => BSValue::Null,

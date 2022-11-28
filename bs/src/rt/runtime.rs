@@ -11,12 +11,6 @@ use llvm::module::Module;
 use std::collections::HashMap;
 use std::mem;
 
-#[no_mangle]
-pub extern "C" fn printd(x: f64) -> f64 {
-    println!("{}", x);
-    x
-}
-
 pub struct RuntimeModule<'a> {
     pub(crate) module: Module<'a>,
     pub(crate) engine: ExecutionEngine<'a>,
@@ -71,6 +65,9 @@ impl<'a> Runtime<'a> {
         let builder = context
             .create_builder()
             .map_err(|e| BSError::RuntimeError(e.to_string()))?;
+
+        // Initialize builtins
+        super::builtins::init();
 
         ok(Self {
             context,

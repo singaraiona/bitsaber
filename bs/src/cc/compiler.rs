@@ -17,6 +17,7 @@ use llvm::types::Type;
 use llvm::values::fn_value::FnValue;
 use llvm::values::Value;
 use std::collections::HashMap;
+use std::mem::transmute;
 
 pub struct Compiler<'a, 'b> {
     context: &'a mut Context,
@@ -145,11 +146,16 @@ impl<'a, 'b> Compiler<'a, 'b> {
             },
             ExprBody::Variable(ref name) => match self.variables.get(name.as_str()) {
                 Some(v) => ok(self.builder.build_load(*v, name.as_str())),
-                None => compile_error(
-                    format!("Undefined symbol '{}'", name),
-                    "Symbol not found".to_string(),
-                    expr.span,
-                ),
+                None => match self.modules.get("repl").unwrap().globals.get(name) {
+                    Some((v, _)) => unsafe {
+                        ok(transmute(llvm_value_from_bs_value(v.clone(), self.context)))
+                    },
+                    None => compile_error(
+                        format!("Undefined variable: '{}'", name),
+                        "Define the variable before using it".to_string(),
+                        expr.span,
+                    ),
+                },
             },
             ExprBody::Binary { op, lhs, rhs } => {
                 let lhs_e = self.compile_expr(&lhs)?;

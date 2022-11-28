@@ -368,15 +368,19 @@ impl<'a> Parser<'a> {
         ok(exprs)
     }
 
-    fn parse_function(
-        &mut self,
-        name: &str,
-        open_paren: Token<'a>,
-        close_paren: Token<'a>,
-    ) -> BSResult<Function> {
-        self.expect(open_paren)?;
+    fn parse_function_proto(&mut self, oparen: Token<'a>, cparen: Token<'a>) -> BSResult<Function> {
+        self.advance()?;
+        let name = match self.curr {
+            Token::Ident(name) => {
+                self.advance()?; // eat ident
+                ok(name)
+            }
+            _ => parse_error("Invalid syntax", "Expected identifier".into(), self.span()),
+        }?;
+
+        self.expect(oparen)?;
         let mut args = vec![];
-        while self.curr != close_paren {
+        while self.curr != cparen {
             let arg_name = match self.curr {
                 Token::Ident(name) => name,
                 _ => {
@@ -396,32 +400,27 @@ impl<'a> Parser<'a> {
             }
         }
 
-        self.expect(close_paren)?;
+        self.expect(cparen)?;
+
+        ok(Function {
+            name: name.into(),
+            args,
+            body: vec![],
+            topl: false,
+        })
+    }
+
+    fn parse_function_body(&mut self, proto: Function) -> BSResult<Function> {
         self.expect(Token::LeftBrace)?;
         let body = self.parse_exprs()?;
         self.expect(Token::RightBrace)?;
 
         ok(Function {
-            name: name.into(),
-            args,
+            name: proto.name,
+            args: proto.args,
             body,
             topl: false,
         })
-    }
-
-    fn parse_def_expr(&mut self) -> BSResult<Function> {
-        self.advance()?; // eat 'def'
-        match self.curr {
-            Token::Ident(name) => {
-                self.advance()?; // eat ident
-                self.parse_function(name, Token::LeftParen, Token::RightParen)
-            }
-            _ => parse_error(
-                "Invalid syntax",
-                "Expected identifier after 'def'".into(),
-                self.span(),
-            ),
-        }
     }
 
     pub fn parse_module(&mut self) -> BSResult<Vec<Function>> {
@@ -433,7 +432,11 @@ impl<'a> Parser<'a> {
                     self.advance()?;
                     continue;
                 }
-                Def => self.parse_def_expr(),
+                Def => {
+                    let proto = self.parse_function_proto(LeftParen, RightParen)?;
+                    self.parse_function_body(proto)
+                }
+                Extern => self.parse_function_proto(LeftParen, RightParen),
                 _ => {
                     let body = self.parse_exprs()?;
                     ok(Function {

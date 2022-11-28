@@ -178,11 +178,13 @@ impl Expr {
                     self.expr_type = Some(ty.clone());
                     ok(ty.clone())
                 }
-                None => compile_error(
-                    format!("Unknown variable: {}", name),
-                    "".to_string(),
-                    self.span,
-                ),
+                None => match globals.get(name) {
+                    Some((_, ty)) => {
+                        self.expr_type = Some(ty.clone());
+                        ok(ty.clone())
+                    }
+                    None => compile_error("Unknown variable".to_string(), name.clone(), self.span),
+                },
             },
             Binary {
                 op,
