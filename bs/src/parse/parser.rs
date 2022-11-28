@@ -88,27 +88,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Parses a literal number.
-    fn parse_number_literal(&mut self) -> BSResult<Expr> {
-        let r = match self.curr {
-            Int64(v) => ok(Expr::new(ExprBody::Int64(v), Some(self.lexer.span()))),
-            Float64(v) => ok(Expr::new(ExprBody::Float64(v), Some(self.lexer.span()))),
-            _ => parse_error(
-                "Invalid literal",
-                "Expected number literal here".to_string(),
-                Some(self.lexer.span()),
-            ),
-        };
-
-        match r {
-            BSResult::Ok(_) => {
-                self.advance()?;
-                r
-            }
-            _ => r,
-        }
-    }
-
     /// Parses an expression that starts with an identifier (either a variable or a function call).
     fn parse_ident_expr(&mut self) -> BSResult<Expr> {
         let name = match self.curr {
@@ -225,8 +204,18 @@ impl<'a> Parser<'a> {
 
     fn parse_unary_expr(&mut self) -> BSResult<Expr> {
         match self.curr {
-            Int64(_) => self.parse_number_literal(),
-            Float64(_) => self.parse_number_literal(),
+            Bool(v) => {
+                self.advance()?;
+                ok(Expr::new(ExprBody::Bool(v), self.span()))
+            }
+            Int64(v) => {
+                self.advance()?;
+                ok(Expr::new(ExprBody::Int64(v), self.span()))
+            }
+            Float64(v) => {
+                self.advance()?;
+                ok(Expr::new(ExprBody::Float64(v), self.span()))
+            }
             LeftSquare => self.parse_vec_literal(),
             Ident(_) => self.parse_ident_expr(),
             LeftParen => {
@@ -298,7 +287,7 @@ impl<'a> Parser<'a> {
                         let rhs = self.parse_expr()?;
                         ok(Expr::new(
                             ExprBody::Assign {
-                                variable: name,
+                                name,
                                 body: Box::new(rhs),
                                 global: self.top_level,
                             },

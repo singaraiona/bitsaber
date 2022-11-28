@@ -37,6 +37,17 @@ impl<'a> RuntimeModule<'a> {
         })
     }
 
+    pub fn recreate_module(&mut self, name: String, context: &Context) -> BSResult<()> {
+        self.module = context
+            .create_module(name.as_str())
+            .map_err(|e| BSError::RuntimeError(e.to_string()))?;
+        self.engine = self
+            .module
+            .create_mcjit_execution_engine()
+            .map_err(|e| BSError::RuntimeError(e.to_string()))?;
+        ok(())
+    }
+
     // pub fn add_function(&mut self, name: &str, ty: BSType, func: fn() -> f64) {
     //     let context = self.module.get_context();
     //     let func_ty = ty.to_llvm(&context);
@@ -96,8 +107,12 @@ impl<'a> Runtime<'a> {
 
     pub fn parse_eval(&mut self, input: &str) -> BSResult<BSValue> {
         unsafe {
-            let repl_module = RuntimeModule::new("repl".into(), &self.context)?;
-            self.modules.insert("repl".into(), repl_module);
+            let repl_module = self
+                .modules
+                .entry("repl".into())
+                .or_insert(RuntimeModule::new("repl".into(), &self.context)?);
+
+            repl_module.recreate_module("repl".into(), &self.context)?;
 
             external::with(|map| {
                 for (name, ext) in map {

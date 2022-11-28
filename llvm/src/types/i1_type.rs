@@ -1,6 +1,6 @@
-use super::{Type, TypeRef};
+use super::TypeRef;
 use crate::types::TypeIntrinsics;
-use crate::values::bool_value::*;
+use crate::values::i1_value::*;
 use llvm_sys::core::LLVMConstInt;
 use llvm_sys::prelude::LLVMTypeRef;
 
@@ -16,8 +16,8 @@ impl<'a> I1Type<'a> {
         }
     }
 
-    pub fn const_value(self, value: bool) -> BoolValue<'a> {
-        unsafe { BoolValue::new(LLVMConstInt(self.ty.llvm_type, value as u64, 0)) }
+    pub fn const_value(self, value: bool) -> I1Value<'a> {
+        unsafe { I1Value::new(LLVMConstInt(self.ty.llvm_type, value as u64, 0)) }
     }
 }
 

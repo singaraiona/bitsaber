@@ -11,18 +11,18 @@ use std::ffi::CStr;
 use std::fmt;
 use std::marker::PhantomData;
 
-pub mod bool_value;
 pub mod f64_value;
 pub mod fn_value;
+pub mod i1_value;
 pub mod i64_value;
 pub mod instruction_value;
 pub mod ptr_value;
 pub mod struct_value;
 
 pub mod prelude {
-    pub use super::bool_value::BoolValue;
     pub use super::f64_value::F64Value;
     pub use super::fn_value::FnValue;
+    pub use super::i1_value::I1Value;
     pub use super::i64_value::I64Value;
     pub use super::instruction_value::InstructionValue;
     pub use super::ptr_value::PtrValue;
@@ -55,7 +55,7 @@ impl Into<LLVMValueRef> for ValueRef<'_> {
 #[derive(Copy, Clone, PartialEq)]
 pub enum Value<'a> {
     Null(I64Value<'a>),
-    Bool(BoolValue<'a>),
+    Bool(I1Value<'a>),
     Int64(I64Value<'a>),
     Float64(F64Value<'a>),
     Fn(FnValue<'a>),
@@ -64,8 +64,8 @@ pub enum Value<'a> {
     Ptr(PtrValue<'a>),
 }
 
-impl<'a> From<BoolValue<'a>> for Value<'a> {
-    fn from(val: BoolValue<'a>) -> Self {
+impl<'a> From<I1Value<'a>> for Value<'a> {
+    fn from(val: I1Value<'a>) -> Self {
         Value::Bool(val)
     }
 }
@@ -106,8 +106,8 @@ impl<'a> From<PtrValue<'a>> for Value<'a> {
     }
 }
 
-impl<'a> Into<BoolValue<'a>> for Value<'a> {
-    fn into(self) -> BoolValue<'a> {
+impl<'a> Into<I1Value<'a>> for Value<'a> {
+    fn into(self) -> I1Value<'a> {
         match self {
             Value::Bool(val) => val,
             _ => panic!("Expected I8Value"),
@@ -183,7 +183,7 @@ impl<'a> Value<'a> {
                     let width = LLVMGetIntTypeWidth(LLVMTypeOf(llvm_value));
 
                     match width {
-                        1 => Value::Bool(BoolValue::new(llvm_value)),
+                        1 => Value::Bool(I1Value::new(llvm_value)),
                         _ => Value::Int64(I64Value::new(llvm_value)),
                     }
                 }

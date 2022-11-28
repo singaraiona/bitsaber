@@ -1,10 +1,9 @@
 use super::transform::*;
-use crate::llvm::enums::*;
+
 use crate::llvm::values::ValueIntrinsics;
-use crate::parse::ast::BinaryOp;
+use crate::ops::binary;
 use crate::parse::ast::ExprBody;
 use crate::parse::ast::{infer_types, Expr, Function};
-use crate::parse::span::Span;
 use crate::result::*;
 use crate::rt::runtime::RuntimeModule;
 use ffi::Type as BSType;
@@ -49,83 +48,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
         &mut self.modules.get_mut("repl").unwrap().module
     }
 
-    pub fn compile_binary_op(
-        &self,
-        op: BinaryOp,
-        lhs: (Value<'a>, BSType),
-        rhs: (Value<'a>, BSType),
-        span: Option<Span>,
-    ) -> BSResult<Value<'a>> {
-        let (lhs, lhs_type) = lhs;
-        let (rhs, rhs_type) = rhs;
-
-        use BSType::*;
-        use BinaryOp::*;
-        use FloatPredicate as FP;
-        use IntPredicate as IP;
-
-        let result = match (op, lhs_type, rhs_type) {
-            (Add, Int64, Int64) => self.builder.build_int_add(lhs, rhs, "addtmp"),
-            (Add, Float64, Float64) => self.builder.build_float_add(lhs, rhs, "addtmp"),
-            (Div, Int64, Int64) => self.builder.build_int_div(lhs, rhs, "divtmp"),
-            (Div, Float64, Float64) => self.builder.build_float_div(lhs, rhs, "divtmp"),
-            (Sub, Int64, Int64) => self.builder.build_int_sub(lhs, rhs, "subtmp"),
-            (Sub, Float64, Float64) => self.builder.build_float_sub(lhs, rhs, "subtmp"),
-            (Mul, Int64, Int64) => self.builder.build_int_mul(lhs, rhs, "multmp"),
-            (Mul, Float64, Float64) => self.builder.build_float_mul(lhs, rhs, "multmp"),
-            (Rem, Int64, Int64) => self.builder.build_rem(lhs, rhs, "remtmp"),
-            (Rem, Float64, Float64) => self.builder.build_rem(lhs, rhs, "remtmp"),
-            (Or, Int64, Int64) => self.builder.build_or(lhs, rhs, "ortmp"),
-            (Or, Float64, Float64) => self.builder.build_or(lhs, rhs, "ortmp"),
-            (And, Int64, Int64) => self.builder.build_and(lhs, rhs, "andtmp"),
-            (And, Float64, Float64) => self.builder.build_and(lhs, rhs, "andtmp"),
-            (Xor, Int64, Int64) => self.builder.build_xor(lhs, rhs, "xortmp"),
-            (Xor, Float64, Float64) => self.builder.build_xor(lhs, rhs, "xortmp"),
-            // (Shl, Int64, Int64) => self.builder.build_shl(lhs, rhs, "shltmp"),
-            // (Shl, Float64, Float64) => self.builder.build_shl(lhs, rhs, "shltmp"),
-            // (Shr, Int64, Int64) => self.builder.build_shr(lhs, rhs, "shrtmp"),
-            // (Shr, Float64, Float64) => self.builder.build_shr(lhs, rhs, "shrtmp"),
-            (Equal, Int64, Int64) => self.builder.build_int_compare(IP::EQ, lhs, rhs, "eqtmp"),
-            (Equal, Float64, Float64) => {
-                self.builder.build_float_compare(FP::UEQ, lhs, rhs, "eqtmp")
-            }
-            (Less, Int64, Int64) => self.builder.build_int_compare(IP::SLT, lhs, rhs, "lttmp"),
-            (Less, Float64, Float64) => {
-                self.builder.build_float_compare(FP::ULT, lhs, rhs, "lttmp")
-            }
-            (LessOrEqual, Int64, Int64) => {
-                self.builder.build_int_compare(IP::SLE, lhs, rhs, "letmp")
-            }
-            (LessOrEqual, Float64, Float64) => {
-                self.builder.build_float_compare(FP::ULE, lhs, rhs, "letmp")
-            }
-            (Greater, Int64, Int64) => self.builder.build_int_compare(IP::SGT, lhs, rhs, "gttmp"),
-            (Greater, Float64, Float64) => {
-                self.builder.build_float_compare(FP::UGT, lhs, rhs, "gttmp")
-            }
-            (GreaterOrEqual, Int64, Int64) => {
-                self.builder.build_int_compare(IP::SGE, lhs, rhs, "getmp")
-            }
-            (GreaterOrEqual, Float64, Float64) => {
-                self.builder.build_float_compare(FP::UGE, lhs, rhs, "getmp")
-            }
-            (NotEqual, Int64, Int64) => self.builder.build_int_compare(IP::NE, lhs, rhs, "neqtmp"),
-            (NotEqual, Float64, Float64) => {
-                self.builder
-                    .build_float_compare(FP::UNE, lhs, rhs, "neqtmp")
-            }
-            (op, _, _) => {
-                return compile_error(
-                    format!("Unsupported binary op: '{}'", op),
-                    "Refer to a supported binary operations".to_string(),
-                    span,
-                )
-            }
-        };
-
-        ok(result)
-    }
-
     fn compile_expr(&mut self, expr: &Expr) -> BSResult<Value<'a>> {
         match &expr.body {
             ExprBody::Null => ok(self.context.i64_type().const_value(NULL_VALUE).into()),
@@ -160,7 +82,8 @@ impl<'a, 'b> Compiler<'a, 'b> {
             ExprBody::Binary { op, lhs, rhs } => {
                 let lhs_e = self.compile_expr(&lhs)?;
                 let rhs_e = self.compile_expr(&rhs)?;
-                self.compile_binary_op(
+                binary::compile(
+                    self.builder,
                     *op,
                     (lhs_e, lhs.get_type()?),
                     (rhs_e, rhs.get_type()?),
@@ -168,27 +91,21 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 )
             }
 
-            ExprBody::Assign {
-                variable,
-                body,
-                global,
-            } => {
+            ExprBody::Assign { name, body, global } => {
                 let ty = body.get_type()?;
                 let body = self.compile_expr(&body)?;
 
                 if *global {
                     self.modules.get_mut("repl").unwrap().add_global(
-                        variable,
+                        name,
                         ty,
                         bs_value_from_llvm_value(body, ty),
                     );
                 } else {
-                    let alloca = self.create_entry_block_alloca(
-                        variable,
-                        llvm_type_from_bs_type(ty, &self.context),
-                    );
+                    let alloca = self
+                        .create_entry_block_alloca(name, llvm_type_from_bs_type(ty, &self.context));
                     self.builder.build_store(alloca, body);
-                    self.variables.insert(variable.clone(), alloca);
+                    self.variables.insert(name.clone(), alloca);
                 }
                 ok(body)
             }

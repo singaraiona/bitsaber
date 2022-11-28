@@ -1,5 +1,6 @@
 use ffi::Type as BSType;
 use ffi::Value as BSValue;
+use ffi::NULL_VALUE;
 use llvm::context::Context;
 use llvm::types::prelude::StructType as LLVMStructType;
 use llvm::types::Type as LLVMType;
@@ -30,10 +31,10 @@ pub fn llvm_value_from_bs_value<'a>(bs_value: BSValue, context: &'a Context) -> 
     unsafe {
         let tag = bs_value.get_type() as u64 as i64;
         match bs_value {
-            BSValue::Null => into_llvm_struct(tag, 0, context),
-            BSValue::Bool(b) => into_llvm_struct(tag, b as i64, context),
+            BSValue::Null => context.i64_type().const_value(NULL_VALUE).into(),
+            BSValue::Bool(b) => context.i1_type().const_value(b).into(),
             BSValue::Int64(v) => context.i64_type().const_value(v.into()).into(),
-            BSValue::Float64(v) => into_llvm_struct(tag, transmute(v), context),
+            BSValue::Float64(v) => context.f64_type().const_value(v.into()).into(),
             BSValue::VecInt64(v) => into_llvm_struct(tag, transmute::<_, i64>(v), context),
             BSValue::VecFloat64(v) => into_llvm_struct(tag, transmute::<_, i64>(v), context),
 
@@ -43,20 +44,21 @@ pub fn llvm_value_from_bs_value<'a>(bs_value: BSValue, context: &'a Context) -> 
 }
 
 pub fn bs_value_from_llvm_value(value: LLVMValue, ty: BSType) -> BSValue {
-    unsafe {
-        match ty {
-            BSType::Null => BSValue::Null,
-            BSType::Bool => BSValue::Bool(false),
-            BSType::Int64 => {
-                let val: I64Value<'_> = value.into();
-                BSValue::Int64(val.get_constant().into())
-            }
-            BSType::Float64 => {
-                let val: F64Value<'_> = value.into();
-                BSValue::Float64(val.into())
-            }
-            _ => todo!(), // _ => transmute::<LLVMValue, BSValue>(value),
+    match ty {
+        BSType::Null => BSValue::Null,
+        BSType::Bool => {
+            let val: I1Value<'_> = value.into();
+            BSValue::Bool(val.get_constant().into())
         }
+        BSType::Int64 => {
+            let val: I64Value<'_> = value.into();
+            BSValue::Int64(val.get_constant().into())
+        }
+        BSType::Float64 => {
+            let val: F64Value<'_> = value.into();
+            BSValue::Float64(val.into())
+        }
+        _ => todo!(), // _ => transmute::<LLVMValue, BSValue>(value),
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::analysis::infer;
+use crate::ops::binary;
 use crate::parse::span::Span;
 use crate::result::*;
 use ffi::Type as BSType;
@@ -82,7 +82,7 @@ pub enum ExprBody {
     },
 
     Assign {
-        variable: String,
+        name: String,
         body: Box<Expr>,
         global: bool,
     },
@@ -163,14 +163,10 @@ impl Expr {
                 self.expr_type = Some(BSType::VecFloat64);
                 ok(BSType::VecFloat64)
             }
-            Assign {
-                variable,
-                body,
-                global,
-            } => {
+            Assign { name, body, global } => {
                 let body_ty = body.infer_type(globals, variables)?;
                 self.expr_type = Some(body_ty.clone());
-                variables.insert(variable.clone(), body_ty);
+                variables.insert(name.clone(), body_ty);
                 ok(body_ty)
             }
             Variable(name) => match variables.get(name) {
@@ -193,7 +189,7 @@ impl Expr {
             } => {
                 let lhs_type = lhs.infer_type(globals, variables)?;
                 let rhs_type = rhs.infer_type(globals, variables)?;
-                let res_type = infer::infer_type(*op, lhs_type, rhs_type, self.span)?;
+                let res_type = binary::infer_type(*op, lhs_type, rhs_type, self.span)?;
                 self.expr_type = Some(res_type);
                 ok(res_type)
             }
