@@ -16,6 +16,7 @@ pub mod fn_value;
 pub mod i1_value;
 pub mod i64_value;
 pub mod instruction_value;
+pub mod phi_value;
 pub mod ptr_value;
 pub mod struct_value;
 
@@ -25,6 +26,7 @@ pub mod prelude {
     pub use super::i1_value::I1Value;
     pub use super::i64_value::I64Value;
     pub use super::instruction_value::InstructionValue;
+    pub use super::phi_value::PhiValue;
     pub use super::ptr_value::PtrValue;
     pub use super::struct_value::StructValue;
 }
@@ -62,6 +64,7 @@ pub enum Value<'a> {
     Struct(StructValue<'a>),
     Instruction(InstructionValue<'a>),
     Ptr(PtrValue<'a>),
+    Phi(PhiValue<'a>),
 }
 
 impl<'a> From<I1Value<'a>> for Value<'a> {
@@ -103,6 +106,12 @@ impl<'a> From<InstructionValue<'a>> for Value<'a> {
 impl<'a> From<PtrValue<'a>> for Value<'a> {
     fn from(val: PtrValue<'a>) -> Self {
         Self::Ptr(val)
+    }
+}
+
+impl<'a> From<PhiValue<'a>> for Value<'a> {
+    fn from(val: PhiValue<'a>) -> Self {
+        Self::Phi(val)
     }
 }
 
@@ -165,6 +174,15 @@ impl<'a> Into<PtrValue<'a>> for Value<'a> {
         match self {
             Self::Ptr(val) => val,
             _ => panic!("Expected PtrValue"),
+        }
+    }
+}
+
+impl<'a> Into<PhiValue<'a>> for Value<'a> {
+    fn into(self) -> PhiValue<'a> {
+        match self {
+            Self::Phi(val) => val,
+            _ => panic!("Expected PhiValue"),
         }
     }
 }
@@ -235,6 +253,7 @@ impl ValueIntrinsics for Value<'_> {
             Value::Instruction(v) => v.as_llvm_value_ref(),
             Value::Struct(v) => v.as_llvm_value_ref(),
             Value::Ptr(v) => v.as_llvm_value_ref(),
+            Value::Phi(v) => v.as_llvm_value_ref(),
         }
     }
     fn set_name(self, name: &str) {
@@ -247,6 +266,7 @@ impl ValueIntrinsics for Value<'_> {
             Value::Struct(v) => v.set_name(name),
             Value::Ptr(v) => v.set_name(name),
             Value::Null(v) => v.set_name(name),
+            Value::Phi(v) => v.set_name(name),
         }
     }
 
@@ -260,6 +280,7 @@ impl ValueIntrinsics for Value<'_> {
             Value::Instruction(v) => v.get_name(),
             Value::Struct(v) => v.get_name(),
             Value::Ptr(v) => v.get_name(),
+            Value::Phi(v) => v.get_name(),
         }
     }
     fn get_llvm_type_ref(&self) -> LLVMTypeRef {
@@ -272,6 +293,7 @@ impl ValueIntrinsics for Value<'_> {
             Value::Instruction(v) => v.get_llvm_type_ref(),
             Value::Struct(v) => v.get_llvm_type_ref(),
             Value::Ptr(v) => v.get_llvm_type_ref(),
+            Value::Phi(v) => v.get_llvm_type_ref(),
         }
     }
 }
@@ -287,6 +309,7 @@ impl fmt::Display for Value<'_> {
             Value::Instruction(v) => write!(f, "{:?}", v),
             Value::Struct(v) => write!(f, "{:?}", v),
             Value::Ptr(v) => write!(f, "{:?}", v),
+            Value::Phi(v) => write!(f, "{:?}", v),
         }
     }
 }

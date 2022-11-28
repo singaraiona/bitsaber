@@ -42,12 +42,65 @@ impl<'a> Builder<'a> {
         }
     }
 
+    pub fn build_unconditional_branch(&self, destination_block: BasicBlock<'a>) -> Value<'a> {
+        let value = unsafe { LLVMBuildBr(self.llvm_builder, destination_block.basic_block) };
+        InstructionValue::new(value).into()
+    }
+
+    pub fn build_conditional_branch(
+        &self,
+        cmp: Value<'a>,
+        then_block: BasicBlock<'a>,
+        else_block: BasicBlock<'a>,
+    ) -> Value<'a> {
+        let value = unsafe {
+            LLVMBuildCondBr(
+                self.llvm_builder,
+                cmp.as_llvm_value_ref(),
+                then_block.basic_block,
+                else_block.basic_block,
+            )
+        };
+        InstructionValue::new(value).into()
+    }
+
+    // pub fn build_indirect_branch<BV: BasicValue<'ctx>>(
+    //     &self,
+    //     address: BV,
+    //     destinations: &[BasicBlock<'ctx>],
+    // ) -> InstructionValue<'ctx> {
+    //     let value = unsafe {
+    //         LLVMBuildIndirectBr(
+    //             self.builder,
+    //             address.as_value_ref(),
+    //             destinations.len() as u32,
+    //         )
+    //     };
+
+    //     for destination in destinations {
+    //         unsafe { LLVMAddDestination(value, destination.basic_block) }
+    //     }
+
+    //     unsafe { InstructionValue::new(value) }
+    // }
+
+    pub fn get_insert_block(&self) -> Option<BasicBlock<'a>> {
+        unsafe { BasicBlock::new(LLVMGetInsertBlock(self.llvm_builder)) }
+    }
+
     pub fn build_alloca(&self, ty: Type<'a>, name: &str) -> Value<'a> {
         let c_string = to_c_str(name);
         let value =
             unsafe { LLVMBuildAlloca(self.llvm_builder, ty.as_llvm_type_ref(), c_string.as_ptr()) };
 
         PtrValue::new(value).into()
+    }
+
+    pub fn build_phi(&self, ty: Type<'a>, name: &str) -> Value<'a> {
+        let c_string = to_c_str(name);
+        let value =
+            unsafe { LLVMBuildPhi(self.llvm_builder, ty.as_llvm_type_ref(), c_string.as_ptr()) };
+        PhiValue::new(value).into()
     }
 
     pub fn build_return(&self, value: Value<'a>) -> Value<'a> {

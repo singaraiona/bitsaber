@@ -67,10 +67,10 @@ pub enum ExprBody {
         args: Vec<Expr>,
     },
 
-    Conditional {
+    Cond {
         cond: Box<Expr>,
-        consequence: Box<Expr>,
-        alternative: Box<Expr>,
+        cons: Vec<Expr>,
+        altr: Vec<Expr>,
     },
 
     For {
@@ -127,7 +127,7 @@ impl Expr {
         }
     }
 
-    fn infer_type(
+    pub fn infer_type(
         &mut self,
         globals: &HashMap<String, (BSValue, BSType)>,
         variables: &mut HashMap<String, BSType>,
@@ -195,9 +195,38 @@ impl Expr {
             }
 
             // TODO: infer type for call
-            Call { name, args: _ } => {
+            Call { name, args } => {
+                infer_types(args, globals, variables)?;
                 self.expr_type = Some(BSType::Int64);
                 ok(BSType::Int64)
+            }
+
+            Cond { cond, cons, altr } => {
+                let cond_type = cond.infer_type(globals, variables)?;
+                if cond_type != BSType::Bool {
+                    return compile_error(
+                        "Condition must be a bool type".to_string(),
+                        format!("Found {:?} here", cond_type),
+                        self.span,
+                    );
+                }
+
+                let cons_type = infer_types(cons, globals, variables)?;
+                let altr_type = infer_types(altr, globals, variables)?;
+
+                if cons_type != altr_type {
+                    return compile_error(
+                        "Both branches of condition must have the same type".to_string(),
+                        format!(
+                            "Found {:?} in the true branch and {:?} in the false branch",
+                            cons_type, altr_type
+                        ),
+                        self.span,
+                    );
+                }
+
+                self.expr_type = Some(cons_type);
+                ok(cons_type)
             }
 
             e => compile_error(

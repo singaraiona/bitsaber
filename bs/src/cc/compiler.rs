@@ -14,6 +14,7 @@ use llvm::context::Context;
 use llvm::module::Module;
 use llvm::types::Type;
 use llvm::values::fn_value::FnValue;
+use llvm::values::prelude::PhiValue;
 use llvm::values::Value;
 use std::collections::HashMap;
 use std::mem::transmute;
@@ -129,6 +130,53 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 ok(self
                     .builder
                     .build_call(function.into(), &call_args, "calltmp"))
+            }
+
+            ExprBody::Cond { cond, cons, altr } => {
+                let parent = self.fn_value();
+
+                let cond = self.compile_expr(cond)?;
+
+                // build branches
+                let then_bb = self.context.append_basic_block(parent, "then");
+                let else_bb = self.context.append_basic_block(parent, "else");
+                let cont_bb = self.context.append_basic_block(parent, "ifcont");
+
+                self.builder
+                    .build_conditional_branch(cond, then_bb, else_bb);
+
+                // build then block
+                self.builder.position_at_end(then_bb);
+                let then_val = cons.iter().map(|e| self.compile_expr(&e)).last().unwrap()?;
+
+                self.builder.build_unconditional_branch(cont_bb);
+
+                let then_bb = self.builder.get_insert_block().unwrap();
+
+                // build else block
+                self.builder.position_at_end(else_bb);
+                let else_val = altr.iter().map(|e| self.compile_expr(&e)).last().unwrap()?;
+                self.builder.build_unconditional_branch(cont_bb);
+
+                let else_bb = self.builder.get_insert_block().unwrap();
+
+                // emit merge block
+                self.builder.position_at_end(cont_bb);
+
+                let ty = cons
+                    .last()
+                    .map(|l| l.get_type())
+                    .unwrap_or_else(|| ok(BSType::Null))?;
+
+                // TODO: get rid of unsafe here
+                let ty = unsafe { transmute(llvm_type_from_bs_type(ty, self.context)) };
+
+                let phi = self.builder.build_phi(ty, "iftmp");
+
+                let phi: PhiValue<'_> = phi.into();
+                phi.add_incoming(&[(then_val, then_bb), (else_val, else_bb)]);
+
+                ok(phi.into())
             }
 
             e => compile_error(

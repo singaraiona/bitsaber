@@ -32,6 +32,7 @@ lazy_static! {
         m.insert((LessOrEqual, Int64, Int64), Bool);
         m.insert((GreaterOrEqual, Int64, Int64), Bool);
         m.insert((NotEqual, Int64, Int64), Bool);
+
         m.insert((Add, Float64, Float64), Float64);
         m.insert((Sub, Float64, Float64), Float64);
         m.insert((Mul, Float64, Float64), Float64);

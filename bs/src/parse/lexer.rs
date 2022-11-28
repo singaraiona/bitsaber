@@ -46,6 +46,8 @@ pub enum Token<'a> {
     Underscore,       // _
     Def,              // def
     Extern,           // extern
+    If,               // if
+    Else,             // else
     EOF,              // end of input
 }
 
@@ -90,6 +92,8 @@ impl<'a> fmt::Display for Token<'a> {
             Token::Underscore => write!(f, "_"),
             Token::Def => write!(f, "def"),
             Token::Extern => write!(f, "extern"),
+            Token::If => write!(f, "if"),
+            Token::Else => write!(f, "else"),
             Token::EOF => write!(f, "EOF"),
         }
     }
@@ -324,6 +328,8 @@ impl<'a> Lexer<'a> {
                     "false" => ok(Token::Bool(false)),
                     "def" => ok(Token::Def),
                     "extern" => ok(Token::Extern),
+                    "if" => ok(Token::If),
+                    "else" => ok(Token::Else),
                     ident => ok(Token::Ident(ident)),
                 }
             }

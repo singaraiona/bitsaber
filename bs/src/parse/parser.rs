@@ -138,6 +138,43 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_cond_expr(&mut self) -> BSResult<Expr> {
+        self.advance()?;
+
+        let cond = self.parse_expr()?;
+        self.expect(LeftBrace)?;
+
+        let mut then = vec![];
+        while self.curr != RightBrace {
+            let expr = self.parse_expr()?;
+            then.push(expr);
+        }
+
+        self.expect(RightBrace)?;
+
+        let mut els = vec![];
+        if self.curr == Else {
+            self.advance()?;
+            self.expect(LeftBrace)?;
+
+            while self.curr != RightBrace {
+                let expr = self.parse_expr()?;
+                els.push(expr);
+            }
+
+            self.expect(RightBrace)?;
+        }
+
+        ok(Expr::new(
+            ExprBody::Cond {
+                cond: Box::new(cond),
+                cons: then,
+                altr: els,
+            },
+            Some(self.lexer.span()),
+        ))
+    }
+
     fn parse_vec_literal(&mut self) -> BSResult<Expr> {
         let mut vec_i64 = vec![];
         let mut vec_f64 = vec![];
@@ -218,6 +255,7 @@ impl<'a> Parser<'a> {
             }
             LeftSquare => self.parse_vec_literal(),
             Ident(_) => self.parse_ident_expr(),
+            If => self.parse_cond_expr(),
             LeftParen => {
                 self.advance()?;
                 let expr = self.parse_expr()?;
