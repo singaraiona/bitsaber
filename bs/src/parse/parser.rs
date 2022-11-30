@@ -17,16 +17,10 @@ impl<'a> Parser<'a> {
     pub fn new(input: &'a str) -> Self {
         let lexer = Lexer::new(input);
 
-        Parser {
-            lexer,
-            curr: Token::EOF,
-            top_level: true,
-        }
+        Parser { lexer, curr: Token::EOF, top_level: true }
     }
 
-    fn span(&mut self) -> Option<Span> {
-        Some(self.lexer.span())
-    }
+    fn span(&mut self) -> Option<Span> { Some(self.lexer.span()) }
 
     /// Advances the position, and returns an empty `Result` whose error
     /// indicates that the end of the file has been unexpectedly reached.
@@ -59,11 +53,7 @@ impl<'a> Parser<'a> {
             self.advance()?;
             ok(tok)
         } else {
-            parse_error(
-                "Invalid syntax",
-                format!("Expected '{}' here", expected),
-                Some(self.lexer.span()),
-            )
+            parse_error("Invalid syntax", format!("Expected '{}' here", expected), Some(self.lexer.span()))
         }
     }
 
@@ -74,17 +64,9 @@ impl<'a> Parser<'a> {
                     self.advance()?;
                     ok(ty)
                 }
-                Err(_) => parse_error(
-                    "Invalid type",
-                    format!("'{}' is not a valid type", name),
-                    self.span(),
-                ),
+                Err(_) => parse_error("Invalid type", format!("'{}' is not a valid type", name), self.span()),
             },
-            _ => parse_error(
-                "Invalid syntax",
-                "Expected type name here".into(),
-                self.span(),
-            ),
+            _ => parse_error("Invalid syntax", "Expected type name here".into(), self.span()),
         }
     }
 
@@ -92,13 +74,7 @@ impl<'a> Parser<'a> {
     fn parse_ident_expr(&mut self) -> BSResult<Expr> {
         let name = match self.curr {
             Ident(name) => name,
-            _ => {
-                return parse_error(
-                    "Expected identifier",
-                    "Expected identifier here".to_string(),
-                    Some(self.lexer.span()),
-                )
-            }
+            _ => return parse_error("Expected identifier", "Expected identifier here".to_string(), Some(self.lexer.span())),
         };
 
         let span = self.lexer.span();
@@ -126,13 +102,7 @@ impl<'a> Parser<'a> {
                 self.expect(RightParen)?;
                 self.top_level = true;
 
-                ok(Expr::new(
-                    ExprBody::Call {
-                        name: name.to_string(),
-                        args,
-                    },
-                    Some(span),
-                ))
+                ok(Expr::new(ExprBody::Call { name: name.to_string(), args }, Some(span)))
             }
             _ => ok(Expr::new(ExprBody::Variable(name.to_string()), Some(span))),
         }
@@ -165,14 +135,7 @@ impl<'a> Parser<'a> {
             self.expect(RightBrace)?;
         }
 
-        ok(Expr::new(
-            ExprBody::Cond {
-                cond: Box::new(cond),
-                cons: then,
-                altr: els,
-            },
-            Some(self.lexer.span()),
-        ))
+        ok(Expr::new(ExprBody::Cond { cond: Box::new(cond), cons: then, altr: els }, Some(self.lexer.span())))
     }
 
     fn parse_vec_literal(&mut self) -> BSResult<Expr> {
@@ -202,13 +165,7 @@ impl<'a> Parser<'a> {
                 }
                 Comma => {}
                 RightSquare => break,
-                _ => {
-                    return parse_error(
-                        "Invalid number literal",
-                        "Expected int or float in vector literal here".to_string(),
-                        self.span(),
-                    )
-                }
+                _ => return parse_error("Invalid number literal", "Expected int or float in vector literal here".to_string(), self.span()),
             }
         }
 
@@ -278,8 +235,7 @@ impl<'a> Parser<'a> {
         let span = Some(self.lexer.span());
 
         match self.curr {
-            Plus | Minus | Asterisk | Slash | Ampersand | Equal | Less | Greater | LessOrEqual
-            | GreaterOrEqual | NotEqual => {
+            Plus | Minus | Asterisk | Slash | Ampersand | Equal | Less | Greater | LessOrEqual | GreaterOrEqual | NotEqual => {
                 let op = match self.curr {
                     Plus => BinaryOp::Add,
                     Minus => BinaryOp::Sub,
@@ -296,24 +252,14 @@ impl<'a> Parser<'a> {
                     _ => {
                         return parse_error(
                             "Invalid binary operator",
-                            format!(
-                                "Expected one of: {}, {}, {}, {}' here",
-                                Plus, Minus, Asterisk, Slash
-                            ),
+                            format!("Expected one of: {}, {}, {}, {}' here", Plus, Minus, Asterisk, Slash),
                             self.span(),
                         )
                     }
                 };
                 self.advance()?;
                 let rhs = self.parse_expr()?;
-                ok(Expr::new(
-                    ExprBody::Binary {
-                        op,
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(rhs),
-                    },
-                    span,
-                ))
+                ok(Expr::new(ExprBody::Binary { op, lhs: Box::new(lhs), rhs: Box::new(rhs) }, span))
             }
 
             Assign => {
@@ -323,34 +269,17 @@ impl<'a> Parser<'a> {
                 match lhs.body {
                     ExprBody::Variable(name) => {
                         let rhs = self.parse_expr()?;
-                        ok(Expr::new(
-                            ExprBody::Assign {
-                                name,
-                                body: Box::new(rhs),
-                                global: self.top_level,
-                            },
-                            span,
-                        ))
+                        ok(Expr::new(ExprBody::Assign { name, body: Box::new(rhs), global: self.top_level }, span))
                     }
 
-                    _ => parse_error(
-                        "Invalid assignment",
-                        "Expected variable on the left hand side of the assignment".to_string(),
-                        span,
-                    ),
+                    _ => parse_error("Invalid assignment", "Expected variable on the left hand side of the assignment".to_string(), span),
                 }
             }
 
             Period => {
                 self.advance()?;
                 let rhs = self.parse_dot_expr()?;
-                ok(Expr::new(
-                    ExprBody::Dot {
-                        lhs: Box::new(lhs),
-                        rhs: Box::new(rhs),
-                    },
-                    Some(self.lexer.span()),
-                ))
+                ok(Expr::new(ExprBody::Dot { lhs: Box::new(lhs), rhs: Box::new(rhs) }, Some(self.lexer.span())))
             }
 
             _ => ok(lhs),
@@ -410,13 +339,7 @@ impl<'a> Parser<'a> {
         while self.curr != cparen {
             let arg_name = match self.curr {
                 Token::Ident(name) => name,
-                _ => {
-                    return parse_error(
-                        "Invalid syntax",
-                        "Expected identifier here".to_string(),
-                        self.span(),
-                    )
-                }
+                _ => return parse_error("Invalid syntax", "Expected identifier here".to_string(), self.span()),
             };
             self.advance()?;
             self.expect(Colon)?;
@@ -429,12 +352,7 @@ impl<'a> Parser<'a> {
 
         self.expect(cparen)?;
 
-        ok(Function {
-            name: name.into(),
-            args,
-            body: vec![],
-            topl: false,
-        })
+        ok(Function { name: name.into(), args, body: vec![], topl: false })
     }
 
     fn parse_function_body(&mut self, proto: Function) -> BSResult<Function> {
@@ -442,12 +360,7 @@ impl<'a> Parser<'a> {
         let body = self.parse_exprs()?;
         self.expect(Token::RightBrace)?;
 
-        ok(Function {
-            name: proto.name,
-            args: proto.args,
-            body,
-            topl: false,
-        })
+        ok(Function { name: proto.name, args: proto.args, body, topl: false })
     }
 
     pub fn parse_module(&mut self) -> BSResult<Vec<Function>> {
@@ -466,12 +379,7 @@ impl<'a> Parser<'a> {
                 Extern => self.parse_function_proto(LeftParen, RightParen),
                 _ => {
                     let body = self.parse_exprs()?;
-                    ok(Function {
-                        name: "top-level".into(),
-                        args: vec![],
-                        body: body,
-                        topl: true,
-                    })
+                    ok(Function { name: "top-level".into(), args: vec![], body: body, topl: true })
                 }
             }?;
 
@@ -487,11 +395,7 @@ impl<'a> Parser<'a> {
         match self.parse_module() {
             BSResult::Ok(expr) => {
                 if !self.at_end() {
-                    parse_error(
-                        "Unexpected token after parsed expression.",
-                        "".to_string(),
-                        Some(self.lexer.span()),
-                    )
+                    parse_error("Unexpected token after parsed expression.", "".to_string(), Some(self.lexer.span()))
                 } else {
                     ok(expr)
                 }

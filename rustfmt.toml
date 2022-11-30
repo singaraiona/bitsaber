@@ -1,0 +1,19 @@
+max_width = 120
+ideal_width = 100
+array_width = 100
+#chain_one_line_max = 80
+
+condense_wildcard_suffices = true
+fn_args_density = "Compressed"
+fn_call_width = 100
+format_strings = true
+fn_single_line = true
+single_line_if_else_max_width = 100
+struct_lit_width = 100
+struct_variant_width = 100
+array_layout = "Visual"
+closure_block_indent_threshold = -1
+reorder_imports = true
+report_fixme = "Always"
+report_todo = "Always"
+space_after_colon = true

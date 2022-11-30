@@ -105,23 +105,24 @@ pub struct Lexer<'a> {
     input: &'a str,
     chars: Box<Peekable<Chars<'a>>>,
     span: Span,
+    last: Option<Token<'a>>,
 }
 
 impl<'a> Lexer<'a> {
     /// Creates a new `Lexer`, given its source `input`.
     pub fn new(input: &'a str) -> Lexer<'a> {
-        Lexer {
-            input,
-            chars: Box::new(input.chars().peekable()),
-            span: Default::default(),
-        }
+        Lexer { input, chars: Box::new(input.chars().peekable()), span: Default::default(), last: None }
     }
 
     /// Lexes and returns the next `Token` from the source code.
     pub fn next(&mut self) -> BSResult<Token<'a>> {
+        let tok = self._next()?;
+        self.last = Some(tok.clone());
+        ok(tok)
+    }
+    pub fn _next(&mut self) -> BSResult<Token<'a>> {
         let chars = self.chars.deref_mut();
         let src = self.input;
-        let mut seen_whitespaces = false;
 
         // Skip whitespaces
         loop {
@@ -142,8 +143,6 @@ impl<'a> Lexer<'a> {
                     }
                     break;
                 }
-
-                seen_whitespaces = true;
             }
 
             chars.next();
@@ -197,26 +196,17 @@ impl<'a> Lexer<'a> {
                     self.span.label_end += 1;
                 }
 
-                ok(Token::Comment(
-                    &src[self.span.label_start..self.span.label_end],
-                ))
+                ok(Token::Comment(&src[self.span.label_start..self.span.label_end]))
             }
 
-            '-' if !seen_whitespaces
-                && self.span.label_start + 1 != self.span.label_end
-                && chars
-                    .peek()
-                    .map(|c| !c.is_whitespace())
-                    .unwrap_or_else(|| false) =>
-            {
-                ok(Token::Minus)
-            }
-
-            '-' if seen_whitespaces
-                && chars
-                    .peek()
-                    .map(|c| c.is_whitespace())
-                    .unwrap_or_else(|| false) =>
+            '-' if self
+                .last
+                .as_ref()
+                .map(|t| match t {
+                    Token::Int64(_) | Token::Float64(_) | Token::Ident(_) => true,
+                    _ => false,
+                })
+                .unwrap_or_else(|| false) =>
             {
                 ok(Token::Minus)
             }
@@ -224,12 +214,7 @@ impl<'a> Lexer<'a> {
             '-' | '0'..='9' => {
                 // Parse number literal
                 let mut is_float = false;
-                loop {
-                    let ch = match chars.peek() {
-                        Some(ch) => *ch,
-                        None => return ok(Token::EOF),
-                    };
-
+                while let Some(&ch) = chars.peek() {
                     if ch == '.' {
                         if is_float {
                             break;
@@ -308,12 +293,7 @@ impl<'a> Lexer<'a> {
 
             'a'..='z' | 'A'..='Z' | '_' => {
                 // Parse identifier
-                loop {
-                    let ch = match chars.peek() {
-                        Some(ch) => *ch,
-                        None => return ok(Token::EOF),
-                    };
-
+                while let Some(&ch) = chars.peek() {
                     // A word-like identifier only contains underscores and alphanumeric characters.
                     if ch != '_' && !ch.is_alphanumeric() {
                         break;

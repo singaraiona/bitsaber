@@ -51,41 +51,17 @@ impl fmt::Display for BinaryOp {
 pub enum ExprBody {
     Null,
 
-    Binary {
-        op: BinaryOp,
-        lhs: Box<Expr>,
-        rhs: Box<Expr>,
-    },
+    Binary { op: BinaryOp, lhs: Box<Expr>, rhs: Box<Expr> },
 
-    Dot {
-        lhs: Box<Expr>,
-        rhs: Box<Expr>,
-    },
+    Dot { lhs: Box<Expr>, rhs: Box<Expr> },
 
-    Call {
-        name: String,
-        args: Vec<Expr>,
-    },
+    Call { name: String, args: Vec<Expr> },
 
-    Cond {
-        cond: Box<Expr>,
-        cons: Vec<Expr>,
-        altr: Vec<Expr>,
-    },
+    Cond { cond: Box<Expr>, cons: Vec<Expr>, altr: Vec<Expr> },
 
-    For {
-        var_name: String,
-        start: Box<Expr>,
-        end: Box<Expr>,
-        step: Option<Box<Expr>>,
-        body: Box<Expr>,
-    },
+    For { var_name: String, start: Box<Expr>, end: Box<Expr>, step: Option<Box<Expr>>, body: Box<Expr> },
 
-    Assign {
-        name: String,
-        body: Box<Expr>,
-        global: bool,
-    },
+    Assign { name: String, body: Box<Expr>, global: bool },
 
     VecInt64(Vec<i64>),
 
@@ -108,30 +84,16 @@ pub struct Expr {
 }
 
 impl Expr {
-    pub fn new(body: ExprBody, span: Option<Span>) -> Expr {
-        Expr {
-            body,
-            expr_type: None,
-            span,
-        }
-    }
+    pub fn new(body: ExprBody, span: Option<Span>) -> Expr { Expr { body, expr_type: None, span } }
 
     pub fn get_type(&self) -> BSResult<BSType> {
         match &self.expr_type {
             Some(t) => ok(t.clone()),
-            None => compile_error(
-                "Unknown expression type".to_string(),
-                format!("{:?}", self),
-                self.span,
-            ),
+            None => compile_error("Unknown expression type".to_string(), format!("{:?}", self), self.span),
         }
     }
 
-    pub fn infer_type(
-        &mut self,
-        globals: &HashMap<String, (BSValue, BSType)>,
-        variables: &mut HashMap<String, BSType>,
-    ) -> BSResult<BSType> {
+    pub fn infer_type(&mut self, globals: &HashMap<String, (BSValue, BSType)>, variables: &mut HashMap<String, BSType>) -> BSResult<BSType> {
         use ExprBody::*;
 
         if let Some(ty) = self.expr_type {
@@ -182,11 +144,7 @@ impl Expr {
                     None => compile_error("Unknown variable".to_string(), name.clone(), self.span),
                 },
             },
-            Binary {
-                op,
-                ref mut lhs,
-                ref mut rhs,
-            } => {
+            Binary { op, ref mut lhs, ref mut rhs } => {
                 let lhs_type = lhs.infer_type(globals, variables)?;
                 let rhs_type = rhs.infer_type(globals, variables)?;
                 let res_type = binary::infer_type(*op, lhs_type, rhs_type, self.span)?;
@@ -204,11 +162,7 @@ impl Expr {
             Cond { cond, cons, altr } => {
                 let cond_type = cond.infer_type(globals, variables)?;
                 if cond_type != BSType::Bool {
-                    return compile_error(
-                        "Condition must be a bool type".to_string(),
-                        format!("Found {:?} here", cond_type),
-                        self.span,
-                    );
+                    return compile_error("Condition must be a bool type".to_string(), format!("Found {:?} here", cond_type), self.span);
                 }
 
                 let cons_type = infer_types(cons, globals, variables)?;
@@ -217,10 +171,7 @@ impl Expr {
                 if cons_type != altr_type {
                     return compile_error(
                         "Both branches of condition must have the same type".to_string(),
-                        format!(
-                            "Found {:?} in the true branch and {:?} in the false branch",
-                            cons_type, altr_type
-                        ),
+                        format!("Found {:?} in the true branch and {:?} in the false branch", cons_type, altr_type),
                         self.span,
                     );
                 }
@@ -238,11 +189,7 @@ impl Expr {
     }
 }
 
-pub fn infer_types(
-    exprs: &mut [Expr],
-    globals: &HashMap<String, (BSValue, BSType)>,
-    variables: &mut HashMap<String, BSType>,
-) -> BSResult<BSType> {
+pub fn infer_types(exprs: &mut [Expr], globals: &HashMap<String, (BSValue, BSType)>, variables: &mut HashMap<String, BSType>) -> BSResult<BSType> {
     let mut res_ty = BSType::Null;
     for e in exprs {
         res_ty = e.infer_type(globals, variables)?;
@@ -250,7 +197,7 @@ pub fn infer_types(
     ok(res_ty)
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Function {
     pub name: String,
     pub args: Vec<(String, BSType)>,
