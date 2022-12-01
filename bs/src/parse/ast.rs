@@ -63,6 +63,8 @@ pub enum ExprBody {
 
     Assign { name: String, body: Box<Expr>, global: bool },
 
+    Iterator { res_type: BSType, count: usize },
+
     VecInt64(Vec<i64>),
 
     VecFloat64(Vec<f64>),
@@ -93,7 +95,11 @@ impl Expr {
         }
     }
 
-    pub fn infer_type(&mut self, globals: &HashMap<String, (BSValue, BSType)>, variables: &mut HashMap<String, BSType>) -> BSResult<BSType> {
+    pub fn infer_type(
+        &mut self,
+        globals: &HashMap<String, (BSValue, BSType)>,
+        variables: &mut HashMap<String, BSType>,
+    ) -> BSResult<BSType> {
         use ExprBody::*;
 
         if let Some(ty) = self.expr_type {
@@ -162,7 +168,11 @@ impl Expr {
             Cond { cond, cons, altr } => {
                 let cond_type = cond.infer_type(globals, variables)?;
                 if cond_type != BSType::Bool {
-                    return compile_error("Condition must be a bool type".to_string(), format!("Found {:?} here", cond_type), self.span);
+                    return compile_error(
+                        "Condition must be a bool type".to_string(),
+                        format!("Found {:?} here", cond_type),
+                        self.span,
+                    );
                 }
 
                 let cons_type = infer_types(cons, globals, variables)?;
@@ -180,6 +190,11 @@ impl Expr {
                 ok(cons_type)
             }
 
+            Iterator { res_type, count } => {
+                self.expr_type = Some(res_type.clone());
+                ok(res_type.clone())
+            }
+
             e => compile_error(
                 format!("Cannot infer type for {:?}", e),
                 "Unknown or ambiguous type for expression".to_string(),
@@ -189,7 +204,11 @@ impl Expr {
     }
 }
 
-pub fn infer_types(exprs: &mut [Expr], globals: &HashMap<String, (BSValue, BSType)>, variables: &mut HashMap<String, BSType>) -> BSResult<BSType> {
+pub fn infer_types(
+    exprs: &mut [Expr],
+    globals: &HashMap<String, (BSValue, BSType)>,
+    variables: &mut HashMap<String, BSType>,
+) -> BSResult<BSType> {
     let mut res_ty = BSType::Null;
     for e in exprs {
         res_ty = e.infer_type(globals, variables)?;

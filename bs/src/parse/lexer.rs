@@ -36,6 +36,8 @@ pub enum Token<'a> {
     LessOrEqual,      // <=
     GreaterOrEqual,   // >=
     NotEqual,         // !=
+    Or,               // ||
+    And,              // &&
     Minus,            // -
     Plus,             // +
     Asterisk,         // *
@@ -43,6 +45,7 @@ pub enum Token<'a> {
     BackSlash,        // \
     BackTick,         // `
     Circ,             // ^
+    Bar,              // |
     Underscore,       // _
     Def,              // def
     Extern,           // extern
@@ -82,6 +85,8 @@ impl<'a> fmt::Display for Token<'a> {
             Token::LessOrEqual => write!(f, "<="),
             Token::GreaterOrEqual => write!(f, ">="),
             Token::NotEqual => write!(f, "!="),
+            Token::Or => write!(f, "||"),
+            Token::And => write!(f, "&&"),
             Token::Minus => write!(f, "-"),
             Token::Plus => write!(f, "+"),
             Token::Asterisk => write!(f, "*"),
@@ -89,6 +94,7 @@ impl<'a> fmt::Display for Token<'a> {
             Token::BackSlash => write!(f, "\\"),
             Token::BackTick => write!(f, "`"),
             Token::Circ => write!(f, "^"),
+            Token::Bar => write!(f, "|"),
             Token::Underscore => write!(f, "_"),
             Token::Def => write!(f, "def"),
             Token::Extern => write!(f, "extern"),
@@ -180,7 +186,6 @@ impl<'a> Lexer<'a> {
             '^' => ok(Token::Circ),
             ':' => ok(Token::Colon),
             '$' => ok(Token::Dollar),
-            '&' => ok(Token::Ampersand),
             '%' => ok(Token::Percent),
             '\'' => ok(Token::SingleQuote),
             '"' => ok(Token::DoubleQuote),
@@ -288,6 +293,26 @@ impl<'a> Lexer<'a> {
                     ok(Token::NotEqual)
                 } else {
                     ok(Token::Excl)
+                }
+            }
+
+            '|' => {
+                if chars.peek().map(|c| *c == '|').unwrap_or_else(|| false) {
+                    chars.next();
+                    self.span.label_end += 1;
+                    ok(Token::Or)
+                } else {
+                    ok(Token::Bar)
+                }
+            }
+
+            '&' => {
+                if chars.peek().map(|c| *c == '&').unwrap_or_else(|| false) {
+                    chars.next();
+                    self.span.label_end += 1;
+                    ok(Token::And)
+                } else {
+                    ok(Token::Ampersand)
                 }
             }
 

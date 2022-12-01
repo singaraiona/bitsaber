@@ -74,7 +74,13 @@ impl<'a> Parser<'a> {
     fn parse_ident_expr(&mut self) -> BSResult<Expr> {
         let name = match self.curr {
             Ident(name) => name,
-            _ => return parse_error("Expected identifier", "Expected identifier here".to_string(), Some(self.lexer.span())),
+            _ => {
+                return parse_error(
+                    "Expected identifier",
+                    "Expected identifier here".to_string(),
+                    Some(self.lexer.span()),
+                )
+            }
         };
 
         let span = self.lexer.span();
@@ -165,7 +171,13 @@ impl<'a> Parser<'a> {
                 }
                 Comma => {}
                 RightSquare => break,
-                _ => return parse_error("Invalid number literal", "Expected int or float in vector literal here".to_string(), self.span()),
+                _ => {
+                    return parse_error(
+                        "Invalid number literal",
+                        "Expected int or float in vector literal here".to_string(),
+                        self.span(),
+                    )
+                }
             }
         }
 
@@ -235,7 +247,8 @@ impl<'a> Parser<'a> {
         let span = Some(self.lexer.span());
 
         match self.curr {
-            Plus | Minus | Asterisk | Slash | Ampersand | Equal | Less | Greater | LessOrEqual | GreaterOrEqual | NotEqual => {
+            Plus | Minus | Asterisk | Slash | Ampersand | Equal | Less | Greater | LessOrEqual | GreaterOrEqual
+            | NotEqual => {
                 let op = match self.curr {
                     Plus => BinaryOp::Add,
                     Minus => BinaryOp::Sub,
@@ -272,7 +285,11 @@ impl<'a> Parser<'a> {
                         ok(Expr::new(ExprBody::Assign { name, body: Box::new(rhs), global: self.top_level }, span))
                     }
 
-                    _ => parse_error("Invalid assignment", "Expected variable on the left hand side of the assignment".to_string(), span),
+                    _ => parse_error(
+                        "Invalid assignment",
+                        "Expected variable on the left hand side of the assignment".to_string(),
+                        span,
+                    ),
                 }
             }
 
@@ -324,7 +341,7 @@ impl<'a> Parser<'a> {
         ok(exprs)
     }
 
-    fn parse_function_proto(&mut self, oparen: Token<'a>, cparen: Token<'a>) -> BSResult<Function> {
+    fn parse_function_proto(&mut self) -> BSResult<Function> {
         self.advance()?;
         let name = match self.curr {
             Token::Ident(name) => {
@@ -334,9 +351,9 @@ impl<'a> Parser<'a> {
             _ => parse_error("Invalid syntax", "Expected identifier".into(), self.span()),
         }?;
 
-        self.expect(oparen)?;
+        self.expect(Bar)?;
         let mut args = vec![];
-        while self.curr != cparen {
+        while self.curr != Bar {
             let arg_name = match self.curr {
                 Token::Ident(name) => name,
                 _ => return parse_error("Invalid syntax", "Expected identifier here".to_string(), self.span()),
@@ -350,7 +367,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        self.expect(cparen)?;
+        self.expect(Bar)?;
 
         ok(Function { name: name.into(), args, body: vec![], topl: false })
     }
@@ -373,10 +390,10 @@ impl<'a> Parser<'a> {
                     continue;
                 }
                 Def => {
-                    let proto = self.parse_function_proto(LeftParen, RightParen)?;
+                    let proto = self.parse_function_proto()?;
                     self.parse_function_body(proto)
                 }
-                Extern => self.parse_function_proto(LeftParen, RightParen),
+                Extern => self.parse_function_proto(),
                 _ => {
                     let body = self.parse_exprs()?;
                     ok(Function { name: "top-level".into(), args: vec![], body: body, topl: true })
