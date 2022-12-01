@@ -35,19 +35,10 @@ impl<'a, 'b> Compiler<'a, 'b> {
         modules: &'a mut HashMap<String, RuntimeModule<'b>>,
         function: Function,
     ) -> Self {
-        Compiler {
-            context,
-            builder,
-            modules,
-            function,
-            variables: HashMap::new(),
-            fn_value_opt: None,
-        }
+        Compiler { context, builder, modules, function, variables: HashMap::new(), fn_value_opt: None }
     }
 
-    fn module(&mut self) -> &mut Module<'b> {
-        &mut self.modules.get_mut("repl").unwrap().module
-    }
+    fn module(&mut self) -> &mut Module<'b> { &mut self.modules.get_mut("repl").unwrap().module }
 
     fn compile_expr(&mut self, expr: &Expr) -> BSResult<Value<'a>> {
         match &expr.body {
@@ -56,23 +47,15 @@ impl<'a, 'b> Compiler<'a, 'b> {
             ExprBody::Int64(v) => ok(self.context.i64_type().const_value(*v).into()),
             ExprBody::Float64(v) => ok(self.context.f64_type().const_value(*v).into()),
             ExprBody::VecInt64(v) => unsafe {
-                ok(std::mem::transmute(llvm_value_from_bs_value(
-                    BSValue::from(v.clone()),
-                    &self.context,
-                )))
+                ok(std::mem::transmute(llvm_value_from_bs_value(BSValue::from(v.clone()), &self.context)))
             },
             ExprBody::VecFloat64(v) => unsafe {
-                ok(std::mem::transmute(llvm_value_from_bs_value(
-                    BSValue::from(v.clone()),
-                    &self.context,
-                )))
+                ok(std::mem::transmute(llvm_value_from_bs_value(BSValue::from(v.clone()), &self.context)))
             },
             ExprBody::Variable(ref name) => match self.variables.get(name.as_str()) {
                 Some(v) => ok(self.builder.build_load(*v, name.as_str())),
                 None => match self.modules.get("repl").unwrap().globals.get(name) {
-                    Some((v, _)) => unsafe {
-                        ok(transmute(llvm_value_from_bs_value(v.clone(), self.context)))
-                    },
+                    Some((v, _)) => unsafe { ok(transmute(llvm_value_from_bs_value(v.clone(), self.context))) },
                     None => compile_error(
                         format!("Undefined variable: '{}'", name),
                         "Define the variable before using it".to_string(),
@@ -83,13 +66,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             ExprBody::Binary { op, lhs, rhs } => {
                 let lhs_e = self.compile_expr(&lhs)?;
                 let rhs_e = self.compile_expr(&rhs)?;
-                binary::compile(
-                    self.builder,
-                    *op,
-                    (lhs_e, lhs.get_type()?),
-                    (rhs_e, rhs.get_type()?),
-                    expr.span,
-                )
+                binary::compile(self.builder, *op, (lhs_e, lhs.get_type()?), (rhs_e, rhs.get_type()?), expr.span)
             }
 
             ExprBody::Assign { name, body, global } => {
@@ -97,14 +74,12 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 let body = self.compile_expr(&body)?;
 
                 if *global {
-                    self.modules.get_mut("repl").unwrap().add_global(
-                        name,
-                        ty,
-                        bs_value_from_llvm_value(body, ty),
-                    );
+                    self.modules
+                        .get_mut("repl")
+                        .unwrap()
+                        .add_global(name, ty, bs_value_from_llvm_value(body, ty));
                 } else {
-                    let alloca = self
-                        .create_entry_block_alloca(name, llvm_type_from_bs_type(ty, &self.context));
+                    let alloca = self.create_entry_block_alloca(name, llvm_type_from_bs_type(ty, &self.context));
                     self.builder.build_store(alloca, body);
                     self.variables.insert(name.clone(), alloca);
                 }
@@ -119,22 +94,20 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     call_args.push(arg);
                 }
 
-                let function = self.module().get_function(name.as_str()).ok_or_else(|| {
-                    BSError::CompileError {
+                let function = self
+                    .module()
+                    .get_function(name.as_str())
+                    .ok_or_else(|| BSError::CompileError {
                         msg: format!("Undefined function '{}'", name),
                         desc: "Function not found".to_string(),
                         span: expr.span,
-                    }
-                })?;
+                    })?;
 
-                ok(self
-                    .builder
-                    .build_call(function.into(), &call_args, "calltmp"))
+                ok(self.builder.build_call(function.into(), &call_args, "calltmp"))
             }
 
             ExprBody::Cond { cond, cons, altr } => {
                 let parent = self.fn_value();
-
                 let cond = self.compile_expr(cond)?;
 
                 // build branches
@@ -142,8 +115,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 let else_bb = self.context.append_basic_block(parent, "else");
                 let cont_bb = self.context.append_basic_block(parent, "ifcont");
 
-                self.builder
-                    .build_conditional_branch(cond, then_bb, else_bb);
+                self.builder.build_conditional_branch(cond, then_bb, else_bb);
 
                 // build then block
                 self.builder.position_at_end(then_bb);
@@ -155,7 +127,11 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
                 // build else block
                 self.builder.position_at_end(else_bb);
-                let else_val = altr.iter().map(|e| self.compile_expr(&e)).last().unwrap()?;
+                let else_val = altr
+                    .iter()
+                    .map(|e| self.compile_expr(&e))
+                    .last()
+                    .unwrap_or_else(|| ok(self.context.i64_type().const_value(NULL_VALUE).into()))?;
                 self.builder.build_unconditional_branch(cont_bb);
 
                 let else_bb = self.builder.get_insert_block().unwrap();
@@ -163,10 +139,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 // emit merge block
                 self.builder.position_at_end(cont_bb);
 
-                let ty = cons
-                    .last()
-                    .map(|l| l.get_type())
-                    .unwrap_or_else(|| ok(BSType::Null))?;
+                let ty = cons.last().map(|l| l.get_type()).unwrap_or_else(|| ok(BSType::Null))?;
 
                 // TODO: get rid of unsafe here
                 let ty = unsafe { transmute(llvm_type_from_bs_type(ty, self.context)) };
@@ -179,24 +152,15 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 ok(phi.into())
             }
 
-            e => compile_error(
-                format!("Compiler: unknown expression: {:?}", e),
-                "".to_string(),
-                expr.span,
-            ),
+            e => compile_error(format!("Compiler: unknown expression: {:?}", e), "".to_string(), expr.span),
         }
     }
 
-    fn fn_value(&self) -> FnValue<'b> {
-        self.fn_value_opt.unwrap()
-    }
+    fn fn_value(&self) -> FnValue<'b> { self.fn_value_opt.unwrap() }
 
     /// Creates a new stack allocation instruction in the entry block of the function.
     fn create_entry_block_alloca(&self, name: &str, ty: Type<'_>) -> Value<'b> {
-        let builder = self
-            .context
-            .create_builder()
-            .expect("unable to create builder");
+        let builder = self.context.create_builder().expect("unable to create builder");
 
         let entry = self.fn_value().get_first_basic_block().unwrap();
 
@@ -219,11 +183,9 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
         let args_types = args_types.as_slice();
 
-        let fn_type = self.context.fn_type(
-            llvm_type_from_bs_type(ret_type, &self.context),
-            args_types,
-            false,
-        );
+        let fn_type = self
+            .context
+            .fn_type(llvm_type_from_bs_type(ret_type, &self.context), args_types, false);
         let fn_val = module.add_function(proto.name.as_str(), fn_type);
 
         // set arguments names
@@ -259,18 +221,14 @@ impl<'a, 'b> Compiler<'a, 'b> {
             let arg_name = self.function.args[i].0.as_str();
             let alloca = self.create_entry_block_alloca(arg_name, Type::new(ty));
             self.builder.build_store(alloca, arg);
-            self.variables
-                .insert(self.function.args[i].0.clone(), alloca.into());
+            self.variables.insert(self.function.args[i].0.clone(), alloca.into());
         }
 
         // compile body
         let body = {
             // TODO: Fix this hack
             let body: &mut Vec<_> = unsafe { std::mem::transmute(&mut self.function.body) };
-            body.into_iter()
-                .map(|e| self.compile_expr(&e))
-                .last()
-                .unwrap()?
+            body.into_iter().map(|e| self.compile_expr(&e)).last().unwrap()?
         };
 
         // build return instruction according to return type
@@ -293,7 +251,5 @@ impl<'a, 'b> Compiler<'a, 'b> {
         }
     }
 
-    pub fn compile(&mut self) -> BSResult<(FnValue<'b>, BSType)> {
-        self.compile_fn()
-    }
+    pub fn compile(&mut self) -> BSResult<(FnValue<'b>, BSType)> { self.compile_fn() }
 }

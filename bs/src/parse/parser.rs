@@ -120,24 +120,14 @@ impl<'a> Parser<'a> {
         let cond = self.parse_expr()?;
         self.expect(LeftBrace)?;
 
-        let mut then = vec![];
-        while self.curr != RightBrace {
-            let expr = self.parse_expr()?;
-            then.push(expr);
-        }
-
+        let then = self.parse_exprs()?;
         self.expect(RightBrace)?;
 
         let mut els = vec![];
         if self.curr == Else {
             self.advance()?;
             self.expect(LeftBrace)?;
-
-            while self.curr != RightBrace {
-                let expr = self.parse_expr()?;
-                els.push(expr);
-            }
-
+            els = self.parse_exprs()?;
             self.expect(RightBrace)?;
         }
 
