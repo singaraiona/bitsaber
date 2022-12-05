@@ -203,6 +203,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         for (a, t) in self.function.args.iter() {
             args_variables.insert(a.clone(), *t);
         }
+
         let globals = &self.modules.get("repl").unwrap().globals;
         let ret_ty = infer_types(&mut self.function.body, globals, &mut args_variables)?;
         let function = self.compile_prototype(ret_ty)?;
@@ -243,6 +244,11 @@ impl<'a, 'b> Compiler<'a, 'b> {
         match function.verify() {
             Ok(_) => {
                 // self.fpm.run_on(&function);
+                self.modules
+                    .get_mut("repl")
+                    .unwrap()
+                    .globals
+                    .insert(self.function.name.clone(), (BSValue::Null, ret_ty));
                 ok((function, ret_ty))
             }
             Err(e) => {

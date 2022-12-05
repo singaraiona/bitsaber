@@ -158,11 +158,15 @@ impl Expr {
                 ok(res_type)
             }
 
-            // TODO: infer type for call
             Call { name, args } => {
                 infer_types(args, globals, variables)?;
-                self.expr_type = Some(BSType::Int64);
-                ok(BSType::Int64)
+                match globals.get(name) {
+                    Some((_, ty)) => {
+                        self.expr_type = Some(ty.clone());
+                        ok(ty.clone())
+                    }
+                    None => compile_error("Unknown variable".to_string(), name.clone(), self.span),
+                }
             }
 
             Cond { cond, cons, altr } => {

@@ -50,14 +50,16 @@ pub fn bs_value_from_llvm_value(value: LLVMValue, ty: BSType, context: &Context)
             let val: F64Value<'_> = value.into();
             BSValue::Float64(val.into())
         }
-        _ => unsafe {
+        _ => {
             let struct_val: StructValue<'_> = value.into();
             let (tag, val) = struct_val.get_constant(context);
-            let v: BSValue = transmute((tag, val));
+            let v: BSValue = unsafe { transmute((tag, val)) };
+            // we need here an extra clone because llvm's struct drops the values
+            // on destruction
             let cloned = v.clone();
             forget(v);
             cloned
-        },
+        }
     }
 }
 
