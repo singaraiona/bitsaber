@@ -74,10 +74,11 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 let body = self.compile_expr(&body)?;
 
                 if *global {
-                    self.modules
-                        .get_mut("repl")
-                        .unwrap()
-                        .add_global(name, ty, bs_value_from_llvm_value(body, ty));
+                    self.modules.get_mut("repl").unwrap().add_global(
+                        name,
+                        ty,
+                        bs_value_from_llvm_value(body, ty, self.context),
+                    );
                 } else {
                     let alloca = self.create_entry_block_alloca(name, llvm_type_from_bs_type(ty, &self.context));
                     self.builder.build_store(alloca, body);

@@ -41,17 +41,12 @@ impl<'a> ValueRef<'a> {
     pub(crate) fn new(llvm_value: LLVMValueRef) -> Self {
         debug_assert!(!llvm_value.is_null());
 
-        Self {
-            llvm_value,
-            _phantom: PhantomData,
-        }
+        Self { llvm_value, _phantom: PhantomData }
     }
 }
 
 impl Into<LLVMValueRef> for ValueRef<'_> {
-    fn into(self) -> LLVMValueRef {
-        self.llvm_value
-    }
+    fn into(self) -> LLVMValueRef { self.llvm_value }
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -68,51 +63,35 @@ pub enum Value<'a> {
 }
 
 impl<'a> From<I1Value<'a>> for Value<'a> {
-    fn from(val: I1Value<'a>) -> Self {
-        Value::Bool(val)
-    }
+    fn from(val: I1Value<'a>) -> Self { Value::Bool(val) }
 }
 
 impl<'a> From<I64Value<'a>> for Value<'a> {
-    fn from(val: I64Value<'a>) -> Self {
-        Self::Int64(val)
-    }
+    fn from(val: I64Value<'a>) -> Self { Self::Int64(val) }
 }
 
 impl<'a> From<F64Value<'a>> for Value<'a> {
-    fn from(val: F64Value<'a>) -> Self {
-        Self::Float64(val)
-    }
+    fn from(val: F64Value<'a>) -> Self { Self::Float64(val) }
 }
 
 impl<'a> From<FnValue<'a>> for Value<'a> {
-    fn from(val: FnValue<'a>) -> Self {
-        Self::Fn(val)
-    }
+    fn from(val: FnValue<'a>) -> Self { Self::Fn(val) }
 }
 
 impl<'a> From<StructValue<'a>> for Value<'a> {
-    fn from(val: StructValue<'a>) -> Self {
-        Self::Struct(val)
-    }
+    fn from(val: StructValue<'a>) -> Self { Self::Struct(val) }
 }
 
 impl<'a> From<InstructionValue<'a>> for Value<'a> {
-    fn from(val: InstructionValue<'a>) -> Self {
-        Self::Instruction(val)
-    }
+    fn from(val: InstructionValue<'a>) -> Self { Self::Instruction(val) }
 }
 
 impl<'a> From<PtrValue<'a>> for Value<'a> {
-    fn from(val: PtrValue<'a>) -> Self {
-        Self::Ptr(val)
-    }
+    fn from(val: PtrValue<'a>) -> Self { Self::Ptr(val) }
 }
 
 impl<'a> From<PhiValue<'a>> for Value<'a> {
-    fn from(val: PhiValue<'a>) -> Self {
-        Self::Phi(val)
-    }
+    fn from(val: PhiValue<'a>) -> Self { Self::Phi(val) }
 }
 
 impl<'a> Into<I1Value<'a>> for Value<'a> {
@@ -194,9 +173,9 @@ impl<'a> Value<'a> {
             let kind = LLVMGetTypeKind(llvm_type);
             // println!("KIND: {:?}", kind);
             match kind {
-                LLVMTypeKind::LLVMFloatTypeKind
-                | LLVMTypeKind::LLVMDoubleTypeKind
-                | LLVMTypeKind::LLVMHalfTypeKind => Value::Float64(F64Value::new(llvm_value)),
+                LLVMTypeKind::LLVMFloatTypeKind | LLVMTypeKind::LLVMDoubleTypeKind | LLVMTypeKind::LLVMHalfTypeKind => {
+                    Value::Float64(F64Value::new(llvm_value))
+                }
                 LLVMTypeKind::LLVMIntegerTypeKind => {
                     let width = LLVMGetIntTypeWidth(LLVMTypeOf(llvm_value));
 
@@ -222,9 +201,7 @@ pub trait ValueIntrinsics {
 }
 
 impl ValueIntrinsics for ValueRef<'_> {
-    fn as_llvm_value_ref(&self) -> LLVMValueRef {
-        self.llvm_value
-    }
+    fn as_llvm_value_ref(&self) -> LLVMValueRef { self.llvm_value }
     fn set_name(self, name: &str) {
         unsafe { LLVMSetValueName2(self.llvm_value, name.as_ptr() as *const c_char, name.len()) }
     }
@@ -237,9 +214,7 @@ impl ValueIntrinsics for ValueRef<'_> {
         unsafe { CStr::from_ptr(ptr) }
     }
 
-    fn get_llvm_type_ref(&self) -> LLVMTypeRef {
-        unsafe { LLVMTypeOf(self.llvm_value) }
-    }
+    fn get_llvm_type_ref(&self) -> LLVMTypeRef { unsafe { LLVMTypeOf(self.llvm_value) } }
 }
 
 impl ValueIntrinsics for Value<'_> {

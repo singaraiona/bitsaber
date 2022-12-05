@@ -15,21 +15,10 @@ pub struct Builder<'a> {
 }
 
 impl<'a> Builder<'a> {
-    pub(crate) fn new(llvm_builder: LLVMBuilderRef) -> Builder<'a> {
-        Builder {
-            llvm_builder,
-            _phantom: PhantomData,
-        }
-    }
+    pub(crate) fn new(llvm_builder: LLVMBuilderRef) -> Builder<'a> { Builder { llvm_builder, _phantom: PhantomData } }
 
     pub fn position_at(&self, basic_block: BasicBlock<'a>, instruction: &InstructionValue<'a>) {
-        unsafe {
-            LLVMPositionBuilder(
-                self.llvm_builder,
-                basic_block.basic_block,
-                instruction.as_llvm_value_ref(),
-            )
-        }
+        unsafe { LLVMPositionBuilder(self.llvm_builder, basic_block.basic_block, instruction.as_llvm_value_ref()) }
     }
 
     pub fn position_before(&self, instruction: &InstructionValue<'a>) {
@@ -54,12 +43,7 @@ impl<'a> Builder<'a> {
         else_block: BasicBlock<'a>,
     ) -> Value<'a> {
         let value = unsafe {
-            LLVMBuildCondBr(
-                self.llvm_builder,
-                cmp.as_llvm_value_ref(),
-                then_block.basic_block,
-                else_block.basic_block,
-            )
+            LLVMBuildCondBr(self.llvm_builder, cmp.as_llvm_value_ref(), then_block.basic_block, else_block.basic_block)
         };
         InstructionValue::new(value).into()
     }
@@ -90,16 +74,14 @@ impl<'a> Builder<'a> {
 
     pub fn build_alloca(&self, ty: Type<'a>, name: &str) -> Value<'a> {
         let c_string = to_c_str(name);
-        let value =
-            unsafe { LLVMBuildAlloca(self.llvm_builder, ty.as_llvm_type_ref(), c_string.as_ptr()) };
+        let value = unsafe { LLVMBuildAlloca(self.llvm_builder, ty.as_llvm_type_ref(), c_string.as_ptr()) };
 
         PtrValue::new(value).into()
     }
 
     pub fn build_phi(&self, ty: Type<'a>, name: &str) -> Value<'a> {
         let c_string = to_c_str(name);
-        let value =
-            unsafe { LLVMBuildPhi(self.llvm_builder, ty.as_llvm_type_ref(), c_string.as_ptr()) };
+        let value = unsafe { LLVMBuildPhi(self.llvm_builder, ty.as_llvm_type_ref(), c_string.as_ptr()) };
         PhiValue::new(value).into()
     }
 
@@ -111,21 +93,15 @@ impl<'a> Builder<'a> {
     pub fn build_aggregate_return(&self, values: &[Value<'a>]) -> Value<'a> {
         unsafe {
             let mut args: Vec<_> = values.iter().map(|val| val.as_llvm_value_ref()).collect();
-            let value =
-                LLVMBuildAggregateRet(self.llvm_builder, args.as_mut_ptr(), args.len() as u32);
+            let value = LLVMBuildAggregateRet(self.llvm_builder, args.as_mut_ptr(), args.len() as u32);
             InstructionValue::new(value).into()
         }
     }
 
     pub fn build_store(&self, ptr: Value<'a>, value: Value<'a>) -> Value<'a> {
         let ptr_value: PtrValue = ptr.into();
-        let value = unsafe {
-            LLVMBuildStore(
-                self.llvm_builder,
-                value.as_llvm_value_ref(),
-                ptr_value.as_llvm_value_ref(),
-            )
-        };
+        let value =
+            unsafe { LLVMBuildStore(self.llvm_builder, value.as_llvm_value_ref(), ptr_value.as_llvm_value_ref()) };
 
         InstructionValue::new(value).into()
     }
@@ -168,6 +144,22 @@ impl<'a> Builder<'a> {
         };
 
         // unsafe { println!("build_call: {:?}", LLVMGetTypeKind(LLVMTypeOf(value))) };
+
+        Value::new(value)
+    }
+
+    pub unsafe fn build_gep(&self, ptr: Value<'a>, indexes: &[Value<'a>], name: &str) -> Value<'a> {
+        let c_string = to_c_str(name);
+
+        let mut index_values: Vec<_> = indexes.iter().map(|val| val.as_llvm_value_ref()).collect();
+
+        let value = LLVMBuildGEP(
+            self.llvm_builder,
+            ptr.as_llvm_value_ref(),
+            index_values.as_mut_ptr(),
+            index_values.len() as u32,
+            c_string.as_ptr(),
+        );
 
         Value::new(value)
     }
@@ -357,32 +349,18 @@ impl<'a> Builder<'a> {
     pub fn build_neg(&self, val: Value<'a>, name: &str) -> Value<'a> {
         unsafe {
             let c_string = to_c_str(name);
-            Value::new(LLVMBuildNeg(
-                self.llvm_builder,
-                val.as_llvm_value_ref(),
-                c_string.as_ptr(),
-            ))
+            Value::new(LLVMBuildNeg(self.llvm_builder, val.as_llvm_value_ref(), c_string.as_ptr()))
         }
     }
 
     pub fn build_not(&self, val: Value<'a>, name: &str) -> Value<'a> {
         unsafe {
             let c_string = to_c_str(name);
-            Value::new(LLVMBuildNot(
-                self.llvm_builder,
-                val.as_llvm_value_ref(),
-                c_string.as_ptr(),
-            ))
+            Value::new(LLVMBuildNot(self.llvm_builder, val.as_llvm_value_ref(), c_string.as_ptr()))
         }
     }
 
-    pub fn build_int_compare(
-        &self,
-        predicate: IntPredicate,
-        lhs: Value<'a>,
-        rhs: Value<'a>,
-        name: &str,
-    ) -> Value<'a> {
+    pub fn build_int_compare(&self, predicate: IntPredicate, lhs: Value<'a>, rhs: Value<'a>, name: &str) -> Value<'a> {
         unsafe {
             let c_string = to_c_str(name);
             Value::new(LLVMBuildICmp(

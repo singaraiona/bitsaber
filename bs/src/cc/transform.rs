@@ -6,25 +6,17 @@ use llvm::types::prelude::StructType as LLVMStructType;
 use llvm::types::Type as LLVMType;
 use llvm::values::prelude::*;
 use llvm::values::Value as LLVMValue;
-use std::mem::transmute;
+use std::mem::{forget, transmute};
 
 fn into_llvm_struct<'a>(tag: i64, val: i64, context: &'a Context) -> LLVMValue<'a> {
-    let ret_struct = llvm_struct_type(context).const_value(
-        &[
-            context.i64_type().const_value(tag).into(),
-            context.i64_type().const_value(val).into(),
-        ],
-        true,
-    );
+    let ret_struct = llvm_struct_type(context)
+        .const_value(&[context.i64_type().const_value(tag).into(), context.i64_type().const_value(val).into()], true);
 
     ret_struct.into()
 }
 
 fn llvm_struct_type<'a>(context: &'a Context) -> LLVMStructType<'a> {
-    context.struct_type(
-        &[context.i64_type().into(), context.i64_type().into()],
-        true,
-    )
+    context.struct_type(&[context.i64_type().into(), context.i64_type().into()], true)
 }
 
 pub fn llvm_value_from_bs_value<'a>(bs_value: BSValue, context: &'a Context) -> LLVMValue<'a> {
@@ -43,7 +35,7 @@ pub fn llvm_value_from_bs_value<'a>(bs_value: BSValue, context: &'a Context) -> 
     }
 }
 
-pub fn bs_value_from_llvm_value(value: LLVMValue, ty: BSType) -> BSValue {
+pub fn bs_value_from_llvm_value(value: LLVMValue, ty: BSType, context: &Context) -> BSValue {
     match ty {
         BSType::Null => BSValue::Null,
         BSType::Bool => {
@@ -58,7 +50,14 @@ pub fn bs_value_from_llvm_value(value: LLVMValue, ty: BSType) -> BSValue {
             let val: F64Value<'_> = value.into();
             BSValue::Float64(val.into())
         }
-        _ => todo!(), // _ => transmute::<LLVMValue, BSValue>(value),
+        _ => unsafe {
+            let struct_val: StructValue<'_> = value.into();
+            let (tag, val) = struct_val.get_constant(context);
+            let v: BSValue = transmute((tag, val));
+            let cloned = v.clone();
+            forget(v);
+            cloned
+        },
     }
 }
 
@@ -69,16 +68,10 @@ pub fn llvm_type_from_bs_type<'a>(bs_type: BSType, context: &'a Context) -> LLVM
         BSType::Int64 => context.i64_type().into(),
         BSType::Float64 => context.f64_type().into(),
         BSType::VecInt64 => context
-            .struct_type(
-                &[context.i64_type().into(), context.i64_type().into()],
-                true,
-            )
+            .struct_type(&[context.i64_type().into(), context.i64_type().into()], true)
             .into(),
         BSType::VecFloat64 => context
-            .struct_type(
-                &[context.i64_type().into(), context.i64_type().into()],
-                true,
-            )
+            .struct_type(&[context.i64_type().into(), context.i64_type().into()], true)
             .into(),
         _ => unimplemented!(),
     }
