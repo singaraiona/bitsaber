@@ -8,6 +8,7 @@ use crate::values::Value;
 use crate::values::ValueIntrinsics;
 use llvm_sys::core::LLVMAddFunction;
 use llvm_sys::core::LLVMAddGlobal;
+use llvm_sys::core::LLVMAddGlobalInAddressSpace;
 use llvm_sys::core::LLVMDumpModule;
 use llvm_sys::core::LLVMGetNamedFunction;
 use llvm_sys::core::LLVMGetNamedGlobal;
@@ -70,7 +71,7 @@ impl<'a> Module<'a> {
     pub fn add_global(&self, name: &str, ty: Type<'a>) -> Value {
         unsafe {
             let c_string = to_c_str(name);
-            let global = LLVMAddGlobal(self.llvm_module, ty.as_llvm_type_ref(), c_string.as_ptr());
+            let global = LLVMAddGlobalInAddressSpace(self.llvm_module, ty.as_llvm_type_ref(), c_string.as_ptr(), 0);
             Value::new(global)
         }
     }

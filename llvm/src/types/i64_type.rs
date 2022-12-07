@@ -1,4 +1,4 @@
-use super::{Type, TypeRef};
+use super::TypeRef;
 use crate::types::TypeIntrinsics;
 use crate::values::i64_value::*;
 use llvm_sys::core::LLVMConstInt;
@@ -10,20 +10,10 @@ pub struct I64Type<'a> {
 }
 
 impl<'a> I64Type<'a> {
-    pub(crate) fn new(llvm_type: LLVMTypeRef) -> Self {
-        Self {
-            ty: TypeRef::new(llvm_type),
-        }
-    }
+    pub(crate) fn new(llvm_type: LLVMTypeRef) -> Self { Self { ty: TypeRef::new(llvm_type) } }
 
     pub fn const_value(self, value: i64) -> I64Value<'a> {
-        unsafe {
-            I64Value::new(LLVMConstInt(
-                self.ty.llvm_type,
-                value as u64,
-                value.is_negative() as i32,
-            ))
-        }
+        unsafe { I64Value::new(LLVMConstInt(self.ty.llvm_type, value as u64, value.is_negative() as i32)) }
     }
 
     // pub fn const_array(self, values: &[I64Value<'a>]) -> ArrayValue<'a> {
@@ -39,7 +29,5 @@ impl<'a> I64Type<'a> {
 }
 
 impl<'a> TypeIntrinsics for I64Type<'a> {
-    fn as_llvm_type_ref(&self) -> LLVMTypeRef {
-        self.ty.as_llvm_type_ref()
-    }
+    fn as_llvm_type_ref(&self) -> LLVMTypeRef { self.ty.as_llvm_type_ref() }
 }

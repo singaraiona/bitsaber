@@ -4,7 +4,6 @@ use crate::module::Module;
 use crate::types::{prelude::*, Type, TypeIntrinsics};
 use crate::utils::to_c_str;
 use crate::values::fn_value::FnValue;
-use crate::values::Value;
 use crate::values::ValueIntrinsics;
 use llvm_sys::core::*;
 use llvm_sys::execution_engine::*;
@@ -106,9 +105,9 @@ impl Context {
         }
     }
 
-    // pub fn ptr_type<'a>(&self) -> I64Type<'a> {
-    //     unsafe { PtrType::new(LLVMPointerTypeInContext(self.ty.llvm_type, value as u64)) }
-    // }
+    pub fn ptr_type<'a>(&self, ty: Type<'a>) -> PtrType<'a> {
+        unsafe { PtrType::new(LLVMPointerType(ty.as_llvm_type_ref(), 0)) }
+    }
 
     pub fn append_basic_block<'a>(&self, function: FnValue<'a>, name: &str) -> BasicBlock<'a> {
         let c_string = to_c_str(name);

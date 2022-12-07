@@ -51,6 +51,7 @@ pub enum Token<'a> {
     Extern,           // extern
     If,               // if
     Else,             // else
+    Null,             // null
     EOF,              // end of input
 }
 
@@ -100,6 +101,7 @@ impl<'a> fmt::Display for Token<'a> {
             Token::Extern => write!(f, "extern"),
             Token::If => write!(f, "if"),
             Token::Else => write!(f, "else"),
+            Token::Null => write!(f, "null"),
             Token::EOF => write!(f, "EOF"),
         }
     }
@@ -329,13 +331,13 @@ impl<'a> Lexer<'a> {
                 }
 
                 match &src[self.span.label_start..self.span.label_end] {
+                    "null" => ok(Token::Null),
                     "true" => ok(Token::Bool(true)),
                     "false" => ok(Token::Bool(false)),
                     "def" => ok(Token::Def),
                     "extern" => ok(Token::Extern),
                     "if" => ok(Token::If),
                     "else" => ok(Token::Else),
-                    // "dumpmod" => ok(Token::DumpMod),
                     ident => ok(Token::Ident(ident)),
                 }
             }

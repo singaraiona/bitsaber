@@ -78,6 +78,15 @@ impl<'a> From<VoidType<'a>> for Type<'a> {
     fn from(ty: VoidType<'a>) -> Self { Self::Null(ty) }
 }
 
+impl<'a> Into<PtrType<'a>> for Type<'a> {
+    fn into(self) -> PtrType<'a> {
+        match self {
+            Type::Ptr(t) => t,
+            _ => panic!("Cannot convert {:?} to PtrType", self),
+        }
+    }
+}
+
 impl<'a> Type<'a> {
     pub fn new(llvm_type: LLVMTypeRef) -> Type<'a> {
         match unsafe { llvm_sys::core::LLVMGetTypeKind(llvm_type) } {

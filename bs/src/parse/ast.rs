@@ -97,7 +97,7 @@ impl Expr {
 
     pub fn infer_type(
         &mut self,
-        globals: &HashMap<String, BSType>,
+        globals: &HashMap<String, (BSType, BSValue)>,
         variables: &mut HashMap<String, BSType>,
     ) -> BSResult<BSType> {
         use ExprBody::*;
@@ -143,7 +143,7 @@ impl Expr {
                     ok(ty.clone())
                 }
                 None => match globals.get(name) {
-                    Some(ty) => {
+                    Some((ty, _)) => {
                         self.expr_type = Some(ty.clone());
                         ok(ty.clone())
                     }
@@ -161,11 +161,11 @@ impl Expr {
             Call { name, args } => {
                 infer_types(args, globals, variables)?;
                 match globals.get(name) {
-                    Some(ty) => {
+                    Some((ty, _)) => {
                         self.expr_type = Some(ty.clone());
                         ok(ty.clone())
                     }
-                    None => compile_error("Unknown variable".to_string(), name.clone(), self.span),
+                    None => compile_error("Unknown function".to_string(), name.clone(), self.span),
                 }
             }
 
@@ -210,7 +210,7 @@ impl Expr {
 
 pub fn infer_types(
     exprs: &mut [Expr],
-    globals: &HashMap<String, BSType>,
+    globals: &HashMap<String, (BSType, BSValue)>,
     variables: &mut HashMap<String, BSType>,
 ) -> BSResult<BSType> {
     let mut res_ty = BSType::Null;

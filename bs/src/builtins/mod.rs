@@ -1,7 +1,7 @@
 use crate::ffi::external::*;
 use crate::ffi::Type as BSType;
+use crate::rt::runtime::get_runtime;
 use ffi::NULL_VALUE;
-use llvm::module::Module;
 
 #[no_mangle]
 pub extern "C" fn load_global() -> i64 {
@@ -10,8 +10,9 @@ pub extern "C" fn load_global() -> i64 {
 }
 
 #[no_mangle]
-pub extern "C" fn dump_module(module: &Module) -> i64 {
-    module.dump();
+pub extern "C" fn dump_module() -> i64 {
+    let module = get_runtime().unwrap().get_module("repl").unwrap();
+    module.module.dump();
     NULL_VALUE
 }
 

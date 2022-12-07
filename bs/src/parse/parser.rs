@@ -200,6 +200,10 @@ impl<'a> Parser<'a> {
 
     fn parse_unary_expr(&mut self) -> BSResult<Expr> {
         match self.curr {
+            Null => {
+                self.advance()?;
+                ok(Expr::new(ExprBody::Null, self.span()))
+            }
             Bool(v) => {
                 self.advance()?;
                 ok(Expr::new(ExprBody::Bool(v), self.span()))

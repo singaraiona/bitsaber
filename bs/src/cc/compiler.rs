@@ -57,11 +57,11 @@ impl<'a, 'b> Compiler<'a, 'b> {
             ExprBody::Variable(ref name) => match self.variables.get(name.as_str()) {
                 Some(&ptr) => ok(self.builder.build_load(ptr, name.as_str())),
                 None => match self.modules.get(self.module).unwrap().get_global(name.as_str()) {
-                    Some(ptr) => unsafe {
-                        println!("PTR: {}", ptr);
-
-                        ok(transmute(self.builder.build_load(ptr, name.as_str())))
-                    }, // TODO: Fix this unsafe lifetime coercion
+                    Some((ty, ptr)) => {
+                        let ptr_ty = self.context.ptr_type(llvm_type_from_bs_type(ty, self.context).into());
+                        let ptr = self.context.i64_type().const_value(ptr as _).to_ptr(ptr_ty);
+                        ok(self.builder.build_load(ptr.into(), name.as_str()))
+                    }
                     None => compile_error(
                         format!("Undefined variable: '{}'", name),
                         "Define the variable before using it".to_string(),
@@ -79,17 +79,17 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 let ty = body.get_type()?;
                 let body = self.compile_expr(&body)?;
 
-                let ptr = if *global {
-                    self.modules
-                        .get_mut(self.module)
-                        .unwrap()
-                        .add_global(name, ty, self.context)
+                if *global {
+                    self.modules.get_mut(self.module).unwrap().add_global(
+                        name,
+                        ty,
+                        bs_value_from_llvm_value(body.clone(), ty, self.context),
+                    );
                 } else {
                     let ptr = self.create_entry_block_alloca(name, llvm_type_from_bs_type(ty, &self.context));
+                    self.builder.build_store(ptr, body);
                     self.variables.insert(name.clone(), ptr.clone());
-                    ptr
-                };
-                self.builder.build_store(ptr, body);
+                }
                 ok(body)
             }
 
@@ -250,10 +250,11 @@ impl<'a, 'b> Compiler<'a, 'b> {
         match function.verify() {
             Ok(_) => {
                 // self.fpm.run_on(&function);
-                self.modules
-                    .get_mut(self.module)
-                    .unwrap()
-                    .add_global_fn(self.function.name.as_str(), ret_ty);
+                self.modules.get_mut(self.module).unwrap().add_global(
+                    self.function.name.as_str(),
+                    ret_ty,
+                    BSValue::Null,
+                );
                 ok((function, ret_ty))
             }
             Err(e) => {

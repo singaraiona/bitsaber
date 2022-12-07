@@ -1,6 +1,5 @@
 use crate::builtins;
 use crate::cc::compiler::Compiler;
-use crate::cc::transform::llvm_type_from_bs_type;
 use crate::parse::ast::Function;
 use crate::parse::parser::*;
 use crate::result::*;
@@ -13,14 +12,20 @@ use llvm::execution_engine::ExecutionEngine;
 use llvm::llvm_sys::support::LLVMAddSymbol;
 use llvm::module::Module;
 use llvm::utils::to_c_str;
-use llvm::values::Value as LLVMValue;
 use std::collections::HashMap;
 use std::mem;
+use std::mem::transmute;
+
+static mut RUNTIME: Option<*mut Runtime> = None;
+
+pub fn set_runtime(runtime: *mut Runtime<'static>) { unsafe { RUNTIME = Some(runtime) } }
+
+pub fn get_runtime<'a>() -> Option<&'a mut Runtime<'static>> { unsafe { RUNTIME.as_mut().map(|r| &mut **r) } }
 
 pub struct RuntimeModule<'a> {
     pub(crate) module: Module<'a>,
     pub(crate) engine: ExecutionEngine<'a>,
-    pub(crate) globals: HashMap<String, BSType>,
+    pub(crate) globals: HashMap<String, (BSType, BSValue)>,
 }
 
 impl<'a> RuntimeModule<'a> {
@@ -46,15 +51,16 @@ impl<'a> RuntimeModule<'a> {
         ok(())
     }
 
-    pub fn add_global(&mut self, name: &str, ty: BSType, context: &Context) -> LLVMValue {
-        self.globals.insert(name.to_string(), ty);
-        unsafe { std::mem::transmute(self.module.add_global(name, llvm_type_from_bs_type(ty, context))) }
-        // TODO: fix this lifetime hack
+    pub fn add_global(&mut self, name: &str, ty: BSType, value: BSValue) {
+        self.globals.insert(name.to_string(), (ty, value));
     }
 
-    pub fn add_global_fn(&mut self, name: &str, ty: BSType) { self.globals.insert(name.to_string(), ty); }
-
-    pub fn get_global(&self, name: &str) -> Option<LLVMValue> { self.module.get_global(name) }
+    pub fn get_global(&self, name: &str) -> Option<(BSType, *const u8)> {
+        match self.globals.get(name) {
+            Some((ty, value)) => Some((*ty, value as *const BSValue as *const u8)),
+            None => None,
+        }
+    }
 }
 
 pub struct Runtime<'a> {
@@ -66,7 +72,7 @@ pub struct Runtime<'a> {
 
 // Public methods
 impl<'a> Runtime<'a> {
-    pub fn new() -> BSResult<Self> {
+    pub fn new() -> BSResult<Box<Self>> {
         let context = Context::new().map_err(|e| BSError::RuntimeError(e.to_string()))?;
         let modules = HashMap::new();
         let builder = context
@@ -83,7 +89,12 @@ impl<'a> Runtime<'a> {
             }
         });
 
-        ok(Self { context, modules, builder, previous_functions: Vec::new() })
+        unsafe {
+            let rt = Box::new(transmute(Self { context, modules, builder, previous_functions: Vec::new() }));
+            let ptr = Box::into_raw(rt);
+            set_runtime(ptr);
+            ok(Box::from_raw(ptr))
+        }
     }
 
     pub fn add_symbol(name: &str, addr: i64) {
@@ -101,6 +112,7 @@ impl<'a> Runtime<'a> {
 
             repl_module.recreate_module("repl".into(), &self.context)?;
 
+            // add external symbols
             external::with(|map| {
                 for (name, ext) in map {
                     let args = ext.args.iter().map(|t| ("".into(), *t)).collect::<Vec<_>>();
@@ -109,6 +121,11 @@ impl<'a> Runtime<'a> {
 
                     cc.compile_prototype(ext.ret)
                         .expect("failed to compile external function");
+
+                    self.modules
+                        .get_mut("repl".into())
+                        .unwrap()
+                        .add_global(name, ext.ret, BSValue::Null);
                 }
             });
 
@@ -136,8 +153,6 @@ impl<'a> Runtime<'a> {
 
             let runtime_module = &mut self.modules.get_mut("repl").unwrap();
             let engine = &mut runtime_module.engine;
-
-            runtime_module.module.dump();
 
             match top_level_fn {
                 Some((_, ty)) => {
@@ -175,4 +190,6 @@ impl<'a> Runtime<'a> {
             }
         }
     }
+
+    pub fn get_module(&self, name: &str) -> Option<&RuntimeModule> { self.modules.get(name) }
 }
