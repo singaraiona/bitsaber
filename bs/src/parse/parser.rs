@@ -380,8 +380,11 @@ impl<'a> Parser<'a> {
                     continue;
                 }
                 Def => {
+                    self.top_level = false;
                     let proto = self.parse_function_proto()?;
-                    self.parse_function_body(proto)
+                    let func = self.parse_function_body(proto)?;
+                    self.top_level = true;
+                    ok(func)
                 }
                 Extern => self.parse_function_proto(),
                 _ => {

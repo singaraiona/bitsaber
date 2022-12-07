@@ -4,6 +4,7 @@ use crate::module::Module;
 use crate::types::{prelude::*, Type, TypeIntrinsics};
 use crate::utils::to_c_str;
 use crate::values::fn_value::FnValue;
+use crate::values::Value;
 use crate::values::ValueIntrinsics;
 use llvm_sys::core::*;
 use llvm_sys::execution_engine::*;
@@ -58,8 +59,7 @@ impl Context {
         let c_string = to_c_str(name);
 
         unsafe {
-            let llvm_module =
-                LLVMModuleCreateWithNameInContext(c_string.as_ptr(), self.llvm_context);
+            let llvm_module = LLVMModuleCreateWithNameInContext(c_string.as_ptr(), self.llvm_context);
 
             if llvm_module.is_null() {
                 return Err("Context: could not create LLVM module");
@@ -75,21 +75,14 @@ impl Context {
         }
     }
 
-    pub fn i1_type<'a>(&self) -> I1Type<'a> {
-        unsafe { I1Type::new(LLVMInt1TypeInContext(self.llvm_context)) }
-    }
+    pub fn i1_type<'a>(&self) -> I1Type<'a> { unsafe { I1Type::new(LLVMInt1TypeInContext(self.llvm_context)) } }
 
-    pub fn i64_type<'a>(&self) -> I64Type<'a> {
-        unsafe { I64Type::new(LLVMInt64TypeInContext(self.llvm_context)) }
-    }
+    pub fn i64_type<'a>(&self) -> I64Type<'a> { unsafe { I64Type::new(LLVMInt64TypeInContext(self.llvm_context)) } }
 
-    pub fn f64_type<'a>(&self) -> F64Type<'a> {
-        unsafe { F64Type::new(LLVMDoubleTypeInContext(self.llvm_context)) }
-    }
+    pub fn f64_type<'a>(&self) -> F64Type<'a> { unsafe { F64Type::new(LLVMDoubleTypeInContext(self.llvm_context)) } }
 
     pub fn struct_type<'a>(&self, field_ty: &[Type<'a>], packed: bool) -> StructType<'a> {
-        let mut field_types: Vec<LLVMTypeRef> =
-            field_ty.iter().map(|ty| ty.as_llvm_type_ref()).collect();
+        let mut field_types: Vec<LLVMTypeRef> = field_ty.iter().map(|ty| ty.as_llvm_type_ref()).collect();
         unsafe {
             StructType::new(LLVMStructTypeInContext(
                 self.llvm_context,
@@ -101,8 +94,7 @@ impl Context {
     }
 
     pub fn fn_type<'a>(&self, ret_ty: Type<'a>, arg_ty: &[Type<'a>], is_vargs: bool) -> FnType<'a> {
-        let mut arg_types: Vec<LLVMTypeRef> =
-            arg_ty.iter().map(|ty| ty.as_llvm_type_ref()).collect();
+        let mut arg_types: Vec<LLVMTypeRef> = arg_ty.iter().map(|ty| ty.as_llvm_type_ref()).collect();
 
         unsafe {
             FnType::new(LLVMFunctionType(
@@ -131,11 +123,7 @@ impl Context {
         }
     }
 
-    pub fn insert_basic_block_after<'ctx>(
-        &self,
-        basic_block: BasicBlock<'ctx>,
-        name: &str,
-    ) -> BasicBlock<'ctx> {
+    pub fn insert_basic_block_after<'a>(&self, basic_block: BasicBlock<'a>, name: &str) -> BasicBlock<'a> {
         match basic_block.get_next_basic_block() {
             Some(next_basic_block) => self.prepend_basic_block(next_basic_block, name),
             None => {
@@ -146,11 +134,7 @@ impl Context {
         }
     }
 
-    pub fn prepend_basic_block<'ctx>(
-        &self,
-        basic_block: BasicBlock<'ctx>,
-        name: &str,
-    ) -> BasicBlock<'ctx> {
+    pub fn prepend_basic_block<'a>(&self, basic_block: BasicBlock<'a>, name: &str) -> BasicBlock<'a> {
         let c_string = to_c_str(name);
 
         unsafe {

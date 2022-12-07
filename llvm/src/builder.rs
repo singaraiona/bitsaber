@@ -75,7 +75,6 @@ impl<'a> Builder<'a> {
     pub fn build_alloca(&self, ty: Type<'a>, name: &str) -> Value<'a> {
         let c_string = to_c_str(name);
         let value = unsafe { LLVMBuildAlloca(self.llvm_builder, ty.as_llvm_type_ref(), c_string.as_ptr()) };
-
         PtrValue::new(value).into()
     }
 

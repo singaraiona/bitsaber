@@ -335,6 +335,7 @@ impl<'a> Lexer<'a> {
                     "extern" => ok(Token::Extern),
                     "if" => ok(Token::If),
                     "else" => ok(Token::Else),
+                    // "dumpmod" => ok(Token::DumpMod),
                     ident => ok(Token::Ident(ident)),
                 }
             }

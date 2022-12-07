@@ -20,6 +20,7 @@ use std::collections::HashMap;
 use std::mem::transmute;
 
 pub struct Compiler<'a, 'b> {
+    module: &'a str,
     context: &'a mut Context,
     builder: &'a mut Builder<'b>,
     modules: &'a mut HashMap<String, RuntimeModule<'b>>,
@@ -30,15 +31,16 @@ pub struct Compiler<'a, 'b> {
 
 impl<'a, 'b> Compiler<'a, 'b> {
     pub fn new(
+        module: &'a str,
         context: &'a mut Context,
         builder: &'a mut Builder<'b>,
         modules: &'a mut HashMap<String, RuntimeModule<'b>>,
         function: Function,
     ) -> Self {
-        Compiler { context, builder, modules, function, variables: HashMap::new(), fn_value_opt: None }
+        Compiler { module, context, builder, modules, function, variables: HashMap::new(), fn_value_opt: None }
     }
 
-    fn module(&mut self) -> &mut Module<'b> { &mut self.modules.get_mut("repl").unwrap().module }
+    fn module(&mut self) -> &mut Module<'b> { &mut self.modules.get_mut(self.module).unwrap().module }
 
     fn compile_expr(&mut self, expr: &Expr) -> BSResult<Value<'a>> {
         match &expr.body {
@@ -47,15 +49,19 @@ impl<'a, 'b> Compiler<'a, 'b> {
             ExprBody::Int64(v) => ok(self.context.i64_type().const_value(*v).into()),
             ExprBody::Float64(v) => ok(self.context.f64_type().const_value(*v).into()),
             ExprBody::VecInt64(v) => unsafe {
-                ok(std::mem::transmute(llvm_value_from_bs_value(BSValue::from(v.clone()), &self.context)))
+                ok(transmute(llvm_value_from_bs_value(BSValue::from(v.clone()), self.context)))
             },
             ExprBody::VecFloat64(v) => unsafe {
-                ok(std::mem::transmute(llvm_value_from_bs_value(BSValue::from(v.clone()), &self.context)))
+                ok(transmute(llvm_value_from_bs_value(BSValue::from(v.clone()), self.context)))
             },
             ExprBody::Variable(ref name) => match self.variables.get(name.as_str()) {
-                Some(v) => ok(self.builder.build_load(*v, name.as_str())),
-                None => match self.modules.get("repl").unwrap().globals.get(name) {
-                    Some((v, _)) => unsafe { ok(transmute(llvm_value_from_bs_value(v.clone(), self.context))) },
+                Some(&ptr) => ok(self.builder.build_load(ptr, name.as_str())),
+                None => match self.modules.get(self.module).unwrap().get_global(name.as_str()) {
+                    Some(ptr) => unsafe {
+                        println!("PTR: {}", ptr);
+
+                        ok(transmute(self.builder.build_load(ptr, name.as_str())))
+                    }, // TODO: Fix this unsafe lifetime coercion
                     None => compile_error(
                         format!("Undefined variable: '{}'", name),
                         "Define the variable before using it".to_string(),
@@ -73,17 +79,17 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 let ty = body.get_type()?;
                 let body = self.compile_expr(&body)?;
 
-                if *global {
-                    self.modules.get_mut("repl").unwrap().add_global(
-                        name,
-                        ty,
-                        bs_value_from_llvm_value(body, ty, self.context),
-                    );
+                let ptr = if *global {
+                    self.modules
+                        .get_mut(self.module)
+                        .unwrap()
+                        .add_global(name, ty, self.context)
                 } else {
-                    let alloca = self.create_entry_block_alloca(name, llvm_type_from_bs_type(ty, &self.context));
-                    self.builder.build_store(alloca, body);
-                    self.variables.insert(name.clone(), alloca);
-                }
+                    let ptr = self.create_entry_block_alloca(name, llvm_type_from_bs_type(ty, &self.context));
+                    self.variables.insert(name.clone(), ptr.clone());
+                    ptr
+                };
+                // self.builder.build_store(ptr, body);
                 ok(body)
             }
 
@@ -174,7 +180,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
     }
 
     pub fn compile_prototype(&self, ret_type: BSType) -> BSResult<FnValue<'b>> {
-        let module = &self.modules.get("repl").unwrap().module;
+        let module = &self.modules.get(self.module).unwrap().module;
         let proto = &self.function;
         let args_types = proto
             .args
@@ -204,7 +210,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             args_variables.insert(a.clone(), *t);
         }
 
-        let globals = &self.modules.get("repl").unwrap().globals;
+        let globals = &self.modules.get(self.module).unwrap().globals;
         let ret_ty = infer_types(&mut self.function.body, globals, &mut args_variables)?;
         let function = self.compile_prototype(ret_ty)?;
 
@@ -245,10 +251,9 @@ impl<'a, 'b> Compiler<'a, 'b> {
             Ok(_) => {
                 // self.fpm.run_on(&function);
                 self.modules
-                    .get_mut("repl")
+                    .get_mut(self.module)
                     .unwrap()
-                    .globals
-                    .insert(self.function.name.clone(), (BSValue::Null, ret_ty));
+                    .add_global_fn(self.function.name.as_str(), ret_ty);
                 ok((function, ret_ty))
             }
             Err(e) => {

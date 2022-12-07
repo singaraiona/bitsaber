@@ -31,17 +31,12 @@ impl<'a> TypeRef<'a> {
     pub(crate) fn new(llvm_type: LLVMTypeRef) -> TypeRef<'a> {
         debug_assert!(!llvm_type.is_null());
 
-        TypeRef {
-            llvm_type,
-            _phantom: PhantomData,
-        }
+        TypeRef { llvm_type, _phantom: PhantomData }
     }
 }
 
 impl Into<LLVMTypeRef> for TypeRef<'_> {
-    fn into(self) -> LLVMTypeRef {
-        self.llvm_type
-    }
+    fn into(self) -> LLVMTypeRef { self.llvm_type }
 }
 
 #[derive(Clone, Debug)]
@@ -56,45 +51,31 @@ pub enum Type<'a> {
 }
 
 impl<'a> From<I64Type<'a>> for Type<'a> {
-    fn from(ty: I64Type<'a>) -> Self {
-        Self::Int64(ty)
-    }
+    fn from(ty: I64Type<'a>) -> Self { Self::Int64(ty) }
 }
 
 impl<'a> From<I1Type<'a>> for Type<'a> {
-    fn from(ty: I1Type<'a>) -> Self {
-        Self::Bool(ty)
-    }
+    fn from(ty: I1Type<'a>) -> Self { Self::Bool(ty) }
 }
 
 impl<'a> From<F64Type<'a>> for Type<'a> {
-    fn from(ty: F64Type<'a>) -> Self {
-        Self::Float64(ty)
-    }
+    fn from(ty: F64Type<'a>) -> Self { Self::Float64(ty) }
 }
 
 impl<'a> From<FnType<'a>> for Type<'a> {
-    fn from(ty: FnType<'a>) -> Self {
-        Self::Fn(ty)
-    }
+    fn from(ty: FnType<'a>) -> Self { Self::Fn(ty) }
 }
 
 impl<'a> From<StructType<'a>> for Type<'a> {
-    fn from(ty: StructType<'a>) -> Self {
-        Self::Struct(ty)
-    }
+    fn from(ty: StructType<'a>) -> Self { Self::Struct(ty) }
 }
 
 impl<'a> From<PtrType<'a>> for Type<'a> {
-    fn from(ty: PtrType<'a>) -> Self {
-        Self::Ptr(ty)
-    }
+    fn from(ty: PtrType<'a>) -> Self { Self::Ptr(ty) }
 }
 
 impl<'a> From<VoidType<'a>> for Type<'a> {
-    fn from(ty: VoidType<'a>) -> Self {
-        Self::Null(ty)
-    }
+    fn from(ty: VoidType<'a>) -> Self { Self::Null(ty) }
 }
 
 impl<'a> Type<'a> {
@@ -108,8 +89,9 @@ impl<'a> Type<'a> {
                     Type::Int64(I64Type::new(llvm_type))
                 }
             }
-            llvm_sys::LLVMTypeKind::LLVMFloatTypeKind
-            | llvm_sys::LLVMTypeKind::LLVMDoubleTypeKind => Type::Float64(F64Type::new(llvm_type)),
+            llvm_sys::LLVMTypeKind::LLVMFloatTypeKind | llvm_sys::LLVMTypeKind::LLVMDoubleTypeKind => {
+                Type::Float64(F64Type::new(llvm_type))
+            }
             llvm_sys::LLVMTypeKind::LLVMFunctionTypeKind => Type::Fn(FnType::new(llvm_type)),
             llvm_sys::LLVMTypeKind::LLVMStructTypeKind => Type::Struct(StructType::new(llvm_type)),
             llvm_sys::LLVMTypeKind::LLVMPointerTypeKind => Type::Ptr(PtrType::new(llvm_type)),
@@ -123,9 +105,7 @@ pub trait TypeIntrinsics {
 }
 
 impl<'a> TypeIntrinsics for TypeRef<'a> {
-    fn as_llvm_type_ref(&self) -> LLVMTypeRef {
-        self.llvm_type
-    }
+    fn as_llvm_type_ref(&self) -> LLVMTypeRef { self.llvm_type }
 }
 
 impl<'a> TypeIntrinsics for Type<'a> {

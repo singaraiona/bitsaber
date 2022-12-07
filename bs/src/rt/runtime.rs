@@ -1,5 +1,7 @@
 use crate::builtins;
 use crate::cc::compiler::Compiler;
+use crate::cc::transform::llvm_type_from_bs_type;
+use crate::cc::transform::llvm_value_from_bs_value;
 use crate::parse::ast::Function;
 use crate::parse::parser::*;
 use crate::result::*;
@@ -12,13 +14,14 @@ use llvm::execution_engine::ExecutionEngine;
 use llvm::llvm_sys::support::LLVMAddSymbol;
 use llvm::module::Module;
 use llvm::utils::to_c_str;
+use llvm::values::Value as LLVMValue;
 use std::collections::HashMap;
 use std::mem;
 
 pub struct RuntimeModule<'a> {
     pub(crate) module: Module<'a>,
     pub(crate) engine: ExecutionEngine<'a>,
-    pub(crate) globals: HashMap<String, (BSValue, BSType)>,
+    pub(crate) globals: HashMap<String, BSType>,
 }
 
 impl<'a> RuntimeModule<'a> {
@@ -52,9 +55,18 @@ impl<'a> RuntimeModule<'a> {
     //     self.globals.insert(name.to_string(), func);
     // }
 
-    pub fn add_global(&mut self, name: &str, ty: BSType, value: BSValue) {
-        self.globals.insert(name.to_string(), (value, ty));
+    pub fn add_global(&mut self, name: &str, ty: BSType, context: &Context) -> LLVMValue {
+        self.globals.insert(name.to_string(), ty);
+        unsafe { std::mem::transmute(self.module.add_global(name, llvm_type_from_bs_type(ty, context))) }
+        // TODO: fix this lifetime hack
     }
+
+    pub fn add_global_fn(&mut self, name: &str, ty: BSType) {
+        //
+        self.globals.insert(name.to_string(), ty);
+    }
+
+    pub fn get_global(&self, name: &str) -> Option<LLVMValue> { self.module.get_global(name) }
 
     // pub fn get_function(&self, name: &str) -> Option<Value<'a>> {
     //     self.globals.get(name).cloned()
@@ -109,7 +121,7 @@ impl<'a> Runtime<'a> {
                 for (name, ext) in map {
                     let args = ext.args.iter().map(|t| ("".into(), *t)).collect::<Vec<_>>();
                     let f = Function { name: name.clone(), args: args, body: vec![], topl: false };
-                    let cc = Compiler::new(&mut self.context, &mut self.builder, &mut self.modules, f);
+                    let cc = Compiler::new("repl", &mut self.context, &mut self.builder, &mut self.modules, f);
 
                     cc.compile_prototype(ext.ret)
                         .expect("failed to compile external function");
@@ -118,7 +130,7 @@ impl<'a> Runtime<'a> {
 
             // recompile every previously parsed function into the new module
             for f in &self.previous_functions {
-                Compiler::new(&mut self.context, &mut self.builder, &mut self.modules, f.clone()).compile()?;
+                Compiler::new("repl", &mut self.context, &mut self.builder, &mut self.modules, f.clone()).compile()?;
             }
 
             let parsed_fns = Parser::new(input).parse()?;
@@ -128,7 +140,8 @@ impl<'a> Runtime<'a> {
             for f in parsed_fns {
                 let is_top_level = f.topl;
                 let (compiled_fn, ret_ty) =
-                    Compiler::new(&mut self.context, &mut self.builder, &mut self.modules, f.clone()).compile()?;
+                    Compiler::new("repl", &mut self.context, &mut self.builder, &mut self.modules, f.clone())
+                        .compile()?;
 
                 if is_top_level {
                     top_level_fn = Some((compiled_fn, ret_ty));
@@ -139,6 +152,8 @@ impl<'a> Runtime<'a> {
 
             let runtime_module = &mut self.modules.get_mut("repl").unwrap();
             let engine = &mut runtime_module.engine;
+
+            runtime_module.module.dump();
 
             match top_level_fn {
                 Some((_, ty)) => {
