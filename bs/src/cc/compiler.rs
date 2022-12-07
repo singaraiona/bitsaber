@@ -89,7 +89,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     self.variables.insert(name.clone(), ptr.clone());
                     ptr
                 };
-                // self.builder.build_store(ptr, body);
+                self.builder.build_store(ptr, body);
                 ok(body)
             }
 

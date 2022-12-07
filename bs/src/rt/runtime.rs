@@ -1,7 +1,6 @@
 use crate::builtins;
 use crate::cc::compiler::Compiler;
 use crate::cc::transform::llvm_type_from_bs_type;
-use crate::cc::transform::llvm_value_from_bs_value;
 use crate::parse::ast::Function;
 use crate::parse::parser::*;
 use crate::result::*;
@@ -47,30 +46,15 @@ impl<'a> RuntimeModule<'a> {
         ok(())
     }
 
-    // pub fn add_function(&mut self, name: &str, ty: BSType, func: fn() -> f64) {
-    //     let context = self.module.get_context();
-    //     let func_ty = ty.to_llvm(&context);
-    //     let func = self.module.add_function(name, func_ty);
-    //     self.engine.add_global_mapping(func, func as *mut _);
-    //     self.globals.insert(name.to_string(), func);
-    // }
-
     pub fn add_global(&mut self, name: &str, ty: BSType, context: &Context) -> LLVMValue {
         self.globals.insert(name.to_string(), ty);
         unsafe { std::mem::transmute(self.module.add_global(name, llvm_type_from_bs_type(ty, context))) }
         // TODO: fix this lifetime hack
     }
 
-    pub fn add_global_fn(&mut self, name: &str, ty: BSType) {
-        //
-        self.globals.insert(name.to_string(), ty);
-    }
+    pub fn add_global_fn(&mut self, name: &str, ty: BSType) { self.globals.insert(name.to_string(), ty); }
 
     pub fn get_global(&self, name: &str) -> Option<LLVMValue> { self.module.get_global(name) }
-
-    // pub fn get_function(&self, name: &str) -> Option<Value<'a>> {
-    //     self.globals.get(name).cloned()
-    // }
 }
 
 pub struct Runtime<'a> {
