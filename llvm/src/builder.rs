@@ -124,22 +124,22 @@ impl<'a> Builder<'a> {
         let c_string = to_c_str(name);
         let mut args: Vec<_> = args.iter().map(|val| val.as_llvm_value_ref()).collect();
         let value = unsafe {
-            // LLVMBuildCall2(
-            //     self.llvm_builder,
-            //     fn_value.get_llvm_type_ref(),
-            //     fn_value.as_llvm_value_ref(),
-            //     args.as_mut_ptr(),
-            //     args.len() as u32,
-            //     c_string.as_ptr(),
-            // )
-
-            LLVMBuildCall(
+            LLVMBuildCall2(
                 self.llvm_builder,
+                fn_value.get_llvm_type_ref(),
                 fn_value.as_llvm_value_ref(),
                 args.as_mut_ptr(),
                 args.len() as u32,
                 c_string.as_ptr(),
             )
+
+            // LLVMBuildCall(
+            //     self.llvm_builder,
+            //     fn_value.as_llvm_value_ref(),
+            //     args.as_mut_ptr(),
+            //     args.len() as u32,
+            //     c_string.as_ptr(),
+            // )
         };
 
         // unsafe { println!("build_call: {:?}", LLVMGetTypeKind(LLVMTypeOf(value))) };
@@ -388,6 +388,23 @@ impl<'a> Builder<'a> {
                 rhs.as_llvm_value_ref(),
                 c_string.as_ptr(),
             ))
+        }
+    }
+
+    pub fn build_extract_value(&self, value: Value<'a>, index: u32, name: &str) -> Option<Value<'a>> {
+        unsafe {
+            // let size = value.get_type().count_fields();
+
+            // if index >= size {
+            //     return None;
+            // }
+
+            // TODO: check if index is valid
+
+            let c_string = to_c_str(name);
+            let value = LLVMBuildExtractValue(self.llvm_builder, value.as_llvm_value_ref(), index, c_string.as_ptr());
+
+            Some(Value::new(value))
         }
     }
 }

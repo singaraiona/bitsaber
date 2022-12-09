@@ -11,7 +11,6 @@ use ffi::Value as BSValue;
 use ffi::NULL_VALUE;
 use llvm::builder::Builder;
 use llvm::context::Context;
-use llvm::module::Module;
 use llvm::types::Type;
 use llvm::values::fn_value::FnValue;
 use llvm::values::prelude::PhiValue;
@@ -40,7 +39,60 @@ impl<'a, 'b> Compiler<'a, 'b> {
         Compiler { module, context, builder, modules, function, variables: HashMap::new(), fn_value_opt: None }
     }
 
-    fn module(&mut self) -> &mut Module<'b> { &mut self.modules.get_mut(self.module).unwrap().module }
+    fn module(&mut self) -> &mut RuntimeModule<'b> { self.modules.get_mut(self.module).unwrap() }
+
+    fn compile_load_local(&mut self, name: &str) -> Option<Value<'a>> {
+        self.variables.get(name).map(|ptr| self.builder.build_load(*ptr, name))
+    }
+
+    fn compile_load_global(&mut self, name: &str) -> Option<Value<'a>> {
+        match self.module().get_global(name) {
+            Some((ty, ptr)) => unsafe {
+                // BSValue layout: [tag, value]
+                let tag_ptr = ptr as *const i64;
+                let val_ptr = tag_ptr.add(1);
+
+                if ty.is_scalar() {
+                    let ptr_ty = self.context.ptr_type(llvm_type_from_bs_type(ty, self.context).into());
+                    let val_ptr = self.context.i64_type().const_value(val_ptr as _).to_ptr(ptr_ty);
+                    let ptr = self.builder.build_load(val_ptr.into(), name);
+                    Some(self.builder.build_extract_value(ptr, 0, "tmpext").unwrap())
+                } else {
+                    let tag_ptr_ty = self.context.ptr_type(llvm_type_from_bs_type(ty, self.context).into());
+                    // let tag_ptr_ty = self.context.ptr_type(self.context.i64_type().into());
+                    let tag_ptr = self.context.i64_type().const_value(tag_ptr as _).to_ptr(tag_ptr_ty);
+
+                    let bs_struct = self.builder.build_load(tag_ptr.into(), name);
+                    println!("bs_struct: {}", bs_struct);
+                    Some(bs_struct)
+                    // let tag = self.builder.build_load(tag_ptr.into(), "loadtag");
+                    // let val_ptr_ty = self.context.ptr_type(self.context.i64_type().into());
+                    // let val_ptr = self.context.i64_type().const_value(val_ptr as _).to_ptr(val_ptr_ty);
+                    // let val = self.builder.build_load(val_ptr.into(), "loadval");
+
+                    // let tag = self.builder.build_gep(
+                    //     bs_struct.into(),
+                    //     &[self.context.i64_type().const_value(0).into(), self.context.i64_type().const_value(0).into()],
+                    //     "tagptr",
+                    // );
+
+                    // let val = self.builder.build_gep(
+                    //     bs_struct.into(),
+                    //     &[self.context.i64_type().const_value(0).into(), self.context.i64_type().const_value(1).into()],
+                    //     "valptr",
+                    // );
+
+                    // Some(
+                    //     self.context
+                    //         .struct_type(&[self.context.i64_type().into(), self.context.i64_type().into()], true)
+                    //         .const_value(&[tag.into(), val.into()], true)
+                    //         .into(),
+                    // )
+                }
+            },
+            None => None,
+        }
+    }
 
     fn compile_expr(&mut self, expr: &Expr) -> BSResult<Value<'a>> {
         match &expr.body {
@@ -54,21 +106,18 @@ impl<'a, 'b> Compiler<'a, 'b> {
             ExprBody::VecFloat64(v) => unsafe {
                 ok(transmute(llvm_value_from_bs_value(BSValue::from(v.clone()), self.context)))
             },
-            ExprBody::Variable(ref name) => match self.variables.get(name.as_str()) {
-                Some(&ptr) => ok(self.builder.build_load(ptr, name.as_str())),
-                None => match self.modules.get(self.module).unwrap().get_global(name.as_str()) {
-                    Some((ty, ptr)) => {
-                        let ptr_ty = self.context.ptr_type(llvm_type_from_bs_type(ty, self.context).into());
-                        let ptr = self.context.i64_type().const_value(ptr as _).to_ptr(ptr_ty);
-                        ok(self.builder.build_load(ptr.into(), name.as_str()))
-                    }
-                    None => compile_error(
-                        format!("Undefined variable: '{}'", name),
-                        "Define the variable before using it".to_string(),
-                        expr.span,
-                    ),
-                },
+            ExprBody::Variable(ref name) => match self
+                .compile_load_local(name.as_str())
+                .or_else(|| self.compile_load_global(name.as_str()))
+            {
+                Some(v) => ok(v),
+                None => compile_error(
+                    format!("Undefined variable: '{}'", name),
+                    "Define the variable before using it".into(),
+                    expr.span,
+                ),
             },
+
             ExprBody::Binary { op, lhs, rhs } => {
                 let lhs_e = self.compile_expr(&lhs)?;
                 let rhs_e = self.compile_expr(&rhs)?;
@@ -101,16 +150,18 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     call_args.push(arg);
                 }
 
-                let function = self
-                    .module()
-                    .get_function(name.as_str())
-                    .ok_or_else(|| BSError::CompileError {
-                        msg: format!("Undefined function '{}'", name),
-                        desc: "Function not found".to_string(),
-                        span: expr.span,
-                    })?;
+                let function =
+                    self.module()
+                        .module
+                        .get_function(name.as_str())
+                        .ok_or_else(|| BSError::CompileError {
+                            msg: format!("Undefined function '{}'", name),
+                            desc: "Function not found".to_string(),
+                            span: expr.span,
+                        })?;
 
-                ok(self.builder.build_call(function.into(), &call_args, "calltmp"))
+                let call = self.builder.build_call(function.into(), &call_args, "calltmp");
+                ok(self.builder.build_extract_value(call, 0, "tmpext").unwrap())
             }
 
             ExprBody::Cond { cond, cons, altr } => {

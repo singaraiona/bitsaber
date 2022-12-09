@@ -25,7 +25,7 @@ pub fn get_runtime<'a>() -> Option<&'a mut Runtime<'static>> { unsafe { RUNTIME.
 pub struct RuntimeModule<'a> {
     pub(crate) module: Module<'a>,
     pub(crate) engine: ExecutionEngine<'a>,
-    pub(crate) globals: HashMap<String, (BSType, BSValue)>,
+    pub(crate) globals: HashMap<String, (BSType, Box<BSValue>)>,
 }
 
 impl<'a> RuntimeModule<'a> {
@@ -52,12 +52,12 @@ impl<'a> RuntimeModule<'a> {
     }
 
     pub fn add_global(&mut self, name: &str, ty: BSType, value: BSValue) {
-        self.globals.insert(name.to_string(), (ty, value));
+        self.globals.insert(name.to_string(), (ty, Box::new(value)));
     }
 
-    pub fn get_global(&self, name: &str) -> Option<(BSType, *const u8)> {
+    pub fn get_global(&self, name: &str) -> Option<(BSType, *const BSValue)> {
         match self.globals.get(name) {
-            Some((ty, value)) => Some((*ty, value as *const BSValue as *const u8)),
+            Some((ty, value)) => Some((*ty, value.as_ref())),
             None => None,
         }
     }

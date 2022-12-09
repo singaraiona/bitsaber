@@ -95,39 +95,27 @@ impl Value {
 }
 
 impl From<bool> for Value {
-    fn from(value: bool) -> Self {
-        Value::Bool(value)
-    }
+    fn from(value: bool) -> Self { Value::Bool(value) }
 }
 
 impl From<i64> for Value {
-    fn from(value: i64) -> Self {
-        Value::Int64(value.into())
-    }
+    fn from(value: i64) -> Self { Value::Int64(value.into()) }
 }
 
 impl From<f64> for Value {
-    fn from(value: f64) -> Self {
-        Value::Float64(value)
-    }
+    fn from(value: f64) -> Self { Value::Float64(value) }
 }
 
 impl From<Vec<i64>> for Value {
-    fn from(value: Vec<i64>) -> Self {
-        Value::VecInt64(Rc::new(value))
-    }
+    fn from(value: Vec<i64>) -> Self { Value::VecInt64(Rc::new(value)) }
 }
 
 impl From<Vec<f64>> for Value {
-    fn from(value: Vec<f64>) -> Self {
-        Value::VecFloat64(Rc::new(value))
-    }
+    fn from(value: Vec<f64>) -> Self { Value::VecFloat64(Rc::new(value)) }
 }
 
 impl From<Vec<Value>> for Value {
-    fn from(value: Vec<Value>) -> Self {
-        Value::List(Rc::new(value))
-    }
+    fn from(value: Vec<Value>) -> Self { Value::List(Rc::new(value)) }
 }
 
 impl fmt::Display for Value {

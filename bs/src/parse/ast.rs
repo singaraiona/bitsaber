@@ -97,7 +97,7 @@ impl Expr {
 
     pub fn infer_type(
         &mut self,
-        globals: &HashMap<String, (BSType, BSValue)>,
+        globals: &HashMap<String, (BSType, Box<BSValue>)>,
         variables: &mut HashMap<String, BSType>,
     ) -> BSResult<BSType> {
         use ExprBody::*;
@@ -210,7 +210,7 @@ impl Expr {
 
 pub fn infer_types(
     exprs: &mut [Expr],
-    globals: &HashMap<String, (BSType, BSValue)>,
+    globals: &HashMap<String, (BSType, Box<BSValue>)>,
     variables: &mut HashMap<String, BSType>,
 ) -> BSResult<BSType> {
     let mut res_ty = BSType::Null;

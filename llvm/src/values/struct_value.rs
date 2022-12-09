@@ -6,7 +6,6 @@ use llvm_sys::core::LLVMConstExtractElement;
 use llvm_sys::prelude::LLVMTypeRef;
 use llvm_sys::prelude::LLVMValueRef;
 use std::ffi::CStr;
-use std::mem::transmute;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct StructValue<'a> {
