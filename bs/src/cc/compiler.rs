@@ -55,8 +55,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 if ty.is_scalar() {
                     let ptr_ty = self.context.ptr_type(llvm_type_from_bs_type(ty, self.context).into());
                     let val_ptr = self.context.i64_type().const_value(val_ptr as _).to_ptr(ptr_ty);
-                    let ptr = self.builder.build_load(val_ptr.into(), name);
-                    Some(self.builder.build_extract_value(ptr, 0, "tmpext").unwrap())
+                    Some(self.builder.build_load(val_ptr.into(), name))
                 } else {
                     let tag_ptr_ty = self.context.ptr_type(llvm_type_from_bs_type(ty, self.context).into());
                     // let tag_ptr_ty = self.context.ptr_type(self.context.i64_type().into());
