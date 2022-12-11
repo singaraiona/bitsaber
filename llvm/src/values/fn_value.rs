@@ -6,6 +6,7 @@ use llvm_sys::analysis::{LLVMVerifierFailureAction, LLVMVerifyFunction};
 use llvm_sys::core::*;
 use llvm_sys::prelude::LLVMTypeRef;
 use llvm_sys::prelude::LLVMValueRef;
+use llvm_sys::LLVMTypeKind;
 use std::ffi::CStr;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -15,14 +16,12 @@ pub struct FnValue<'a> {
 
 impl<'a> FnValue<'a> {
     pub(crate) fn new(llvm_value: LLVMValueRef) -> Self {
-        Self {
-            val: ValueRef::new(llvm_value),
-        }
+        unsafe { assert!(!LLVMIsAFunction(llvm_value).is_null()) }
+
+        Self { val: ValueRef::new(llvm_value) }
     }
 
-    pub fn get_param_count(&self) -> usize {
-        unsafe { LLVMCountParams(self.val.as_llvm_value_ref()) as usize }
-    }
+    pub fn get_param_count(&self) -> usize { unsafe { LLVMCountParams(self.val.as_llvm_value_ref()) as usize } }
 
     pub fn get_param(&self, index: usize) -> Option<Value<'a>> {
         let param = unsafe { LLVMGetParam(self.val.as_llvm_value_ref(), index as u32) };
@@ -42,9 +41,7 @@ impl<'a> FnValue<'a> {
     }
 
     pub fn get_params_iter(&'a self) -> impl Iterator<Item = Value<'a>> + 'a {
-        (0..self.get_param_count())
-            .map(move |i| self.get_param(i))
-            .flatten()
+        (0..self.get_param_count()).map(move |i| self.get_param(i)).flatten()
     }
 
     pub fn get_first_basic_block(self) -> Option<BasicBlock<'a>> {
@@ -56,34 +53,21 @@ impl<'a> FnValue<'a> {
     }
 
     pub fn verify(self) -> Result<(), String> {
-        let code = unsafe {
-            LLVMVerifyFunction(
-                self.as_llvm_value_ref(),
-                LLVMVerifierFailureAction::LLVMPrintMessageAction,
-            )
-        };
+        let code =
+            unsafe { LLVMVerifyFunction(self.as_llvm_value_ref(), LLVMVerifierFailureAction::LLVMPrintMessageAction) };
 
         if code != 0 {
             println!();
-            return Err(format!(
-                "Function verification failed with code: {:?}",
-                code
-            ));
+            return Err(format!("Function verification failed with code: {:?}", code));
         }
 
         Ok(())
     }
 
-    pub fn delete(self) {
-        unsafe { LLVMDeleteFunction(self.as_llvm_value_ref()) }
-    }
+    pub fn delete(self) { unsafe { LLVMDeleteFunction(self.as_llvm_value_ref()) } }
 
     pub fn get_return_type(&self) -> Type<'a> {
-        unsafe {
-            Type::new(LLVMGetReturnType(LLVMGetElementType(
-                self.val.get_llvm_type_ref(),
-            )))
-        }
+        unsafe { Type::new(LLVMGetReturnType(LLVMGetElementType(self.val.get_llvm_type_ref()))) }
     }
 
     // pub fn set_linkage(self, linkage: Linkage) {
@@ -92,18 +76,20 @@ impl<'a> FnValue<'a> {
 }
 
 impl ValueIntrinsics for FnValue<'_> {
-    fn as_llvm_value_ref(&self) -> LLVMValueRef {
-        self.val.as_llvm_value_ref()
-    }
-    fn set_name(self, name: &str) {
-        self.val.set_name(name)
-    }
+    fn as_llvm_value_ref(&self) -> LLVMValueRef { self.val.as_llvm_value_ref() }
 
-    fn get_name(&self) -> &CStr {
-        self.val.get_name()
-    }
+    fn set_name(self, name: &str) { self.val.set_name(name) }
+
+    fn get_name(&self) -> &CStr { self.val.get_name() }
 
     fn get_llvm_type_ref(&self) -> LLVMTypeRef {
-        self.val.get_llvm_type_ref()
+        unsafe {
+            let llvm_ty_ref = self.val.get_llvm_type_ref();
+            match LLVMGetTypeKind(llvm_ty_ref) {
+                LLVMTypeKind::LLVMFunctionTypeKind => llvm_ty_ref,
+                LLVMTypeKind::LLVMPointerTypeKind => LLVMGetElementType(llvm_ty_ref),
+                _ => unreachable!(),
+            }
+        }
     }
 }

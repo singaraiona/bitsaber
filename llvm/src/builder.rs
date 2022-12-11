@@ -120,31 +120,22 @@ impl<'a> Builder<'a> {
     }
 
     pub fn build_call(&self, function: Value<'a>, args: &[Value<'a>], name: &str) -> Value<'a> {
-        let fn_value: FnValue<'_> = function.into();
-        let c_string = to_c_str(name);
-        let mut args: Vec<_> = args.iter().map(|val| val.as_llvm_value_ref()).collect();
-        let value = unsafe {
-            LLVMBuildCall2(
+        unsafe {
+            let fn_value: FnValue<'_> = function.into();
+            let c_string = to_c_str(name);
+            let mut args: Vec<_> = args.iter().map(|val| val.as_llvm_value_ref()).collect();
+
+            let value = LLVMBuildCall2(
                 self.llvm_builder,
                 fn_value.get_llvm_type_ref(),
                 fn_value.as_llvm_value_ref(),
                 args.as_mut_ptr(),
                 args.len() as u32,
                 c_string.as_ptr(),
-            )
+            );
 
-            // LLVMBuildCall(
-            //     self.llvm_builder,
-            //     fn_value.as_llvm_value_ref(),
-            //     args.as_mut_ptr(),
-            //     args.len() as u32,
-            //     c_string.as_ptr(),
-            // )
-        };
-
-        // unsafe { println!("build_call: {:?}", LLVMGetTypeKind(LLVMTypeOf(value))) };
-
-        Value::new(value)
+            Value::new(value)
+        }
     }
 
     pub unsafe fn build_gep(&self, ptr: Value<'a>, indexes: &[Value<'a>], name: &str) -> Value<'a> {

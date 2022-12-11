@@ -160,8 +160,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                             span: expr.span,
                         })?;
 
-                let call = self.builder.build_call(function.into(), &call_args, "calltmp");
-                ok(self.builder.build_extract_value(call, 0, "tmpext").unwrap())
+                ok(self.builder.build_call(function.into(), &call_args, "calltmp"))
             }
 
             ExprBody::Cond { cond, cons, altr } => {
@@ -310,7 +309,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             }
             Err(e) => {
                 function.delete();
-                compile_error("Compile function failed".to_string(), e.to_string(), None)
+                compile_error(format!("Compile function: '{}' failed", self.function.name), e.to_string(), None)
             }
         }
     }

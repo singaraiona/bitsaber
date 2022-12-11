@@ -171,11 +171,14 @@ impl<'a> Value<'a> {
         unsafe {
             let llvm_type = LLVMTypeOf(llvm_value);
             let kind = LLVMGetTypeKind(llvm_type);
-            // println!("KIND: {:?}", kind);
+            // println!("<<<<<<<<<<<<<   KIND: {:?}", kind);
             match kind {
-                LLVMTypeKind::LLVMFloatTypeKind | LLVMTypeKind::LLVMDoubleTypeKind | LLVMTypeKind::LLVMHalfTypeKind => {
-                    Value::Float64(F64Value::new(llvm_value))
-                }
+                LLVMTypeKind::LLVMFloatTypeKind
+                | LLVMTypeKind::LLVMFP128TypeKind
+                | LLVMTypeKind::LLVMDoubleTypeKind
+                | LLVMTypeKind::LLVMHalfTypeKind
+                | LLVMTypeKind::LLVMX86_FP80TypeKind
+                | LLVMTypeKind::LLVMPPC_FP128TypeKind => Value::Float64(F64Value::new(llvm_value)),
                 LLVMTypeKind::LLVMIntegerTypeKind => {
                     let width = LLVMGetIntTypeWidth(LLVMTypeOf(llvm_value));
 
