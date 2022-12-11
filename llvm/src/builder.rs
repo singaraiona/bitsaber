@@ -105,12 +105,13 @@ impl<'a> Builder<'a> {
         InstructionValue::new(value).into()
     }
 
-    pub fn build_load(&self, ptr: Value<'a>, name: &str) -> Value<'a> {
+    pub fn build_load(&self, ptr: PtrValue<'a>, name: &str) -> Value<'a> {
         let c_string = to_c_str(name);
+        let ptr_ty: PtrType = ptr.get_type().into();
         let value = unsafe {
             LLVMBuildLoad2(
                 self.llvm_builder,
-                LLVMGetElementType(ptr.get_llvm_type_ref()),
+                ptr_ty.get_element_type().as_llvm_type_ref(),
                 ptr.as_llvm_value_ref(),
                 c_string.as_ptr(),
             )
@@ -143,8 +144,9 @@ impl<'a> Builder<'a> {
 
         let mut index_values: Vec<_> = indexes.iter().map(|val| val.as_llvm_value_ref()).collect();
 
-        let value = LLVMBuildGEP(
+        let value = LLVMBuildGEP2(
             self.llvm_builder,
+            ptr.get_llvm_type_ref(),
             ptr.as_llvm_value_ref(),
             index_values.as_mut_ptr(),
             index_values.len() as u32,

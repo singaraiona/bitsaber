@@ -42,51 +42,27 @@ impl<'a, 'b> Compiler<'a, 'b> {
     fn module(&mut self) -> &mut RuntimeModule<'b> { self.modules.get_mut(self.module).unwrap() }
 
     fn compile_load_local(&mut self, name: &str) -> Option<Value<'a>> {
-        self.variables.get(name).map(|ptr| self.builder.build_load(*ptr, name))
+        self.variables
+            .get(name)
+            .map(|ptr| self.builder.build_load((*ptr).into(), name))
     }
 
     fn compile_load_global(&mut self, name: &str) -> Option<Value<'a>> {
         match self.module().get_global(name) {
             Some((ty, ptr)) => unsafe {
                 // BSValue layout: [tag, value]
-                let tag_ptr = ptr as *const i64;
-                let val_ptr = tag_ptr.add(1);
+                let ptr = ptr as *const i64;
 
                 if ty.is_scalar() {
+                    let ptr = ptr.add(1);
                     let ptr_ty = self.context.ptr_type(llvm_type_from_bs_type(ty, self.context).into());
-                    let val_ptr = self.context.i64_type().const_value(val_ptr as _).to_ptr(ptr_ty);
+                    let val_ptr = self.context.i64_type().const_value(ptr as _).to_ptr(ptr_ty);
                     Some(self.builder.build_load(val_ptr.into(), name))
                 } else {
-                    let tag_ptr_ty = self.context.ptr_type(llvm_type_from_bs_type(ty, self.context).into());
-                    // let tag_ptr_ty = self.context.ptr_type(self.context.i64_type().into());
-                    let tag_ptr = self.context.i64_type().const_value(tag_ptr as _).to_ptr(tag_ptr_ty);
-
+                    let ptr_ty = self.context.ptr_type(llvm_type_from_bs_type(ty, self.context).into());
+                    let tag_ptr = self.context.i64_type().const_value(ptr as _).to_ptr(ptr_ty);
                     let bs_struct = self.builder.build_load(tag_ptr.into(), name);
-                    println!("bs_struct: {}", bs_struct);
                     Some(bs_struct)
-                    // let tag = self.builder.build_load(tag_ptr.into(), "loadtag");
-                    // let val_ptr_ty = self.context.ptr_type(self.context.i64_type().into());
-                    // let val_ptr = self.context.i64_type().const_value(val_ptr as _).to_ptr(val_ptr_ty);
-                    // let val = self.builder.build_load(val_ptr.into(), "loadval");
-
-                    // let tag = self.builder.build_gep(
-                    //     bs_struct.into(),
-                    //     &[self.context.i64_type().const_value(0).into(), self.context.i64_type().const_value(0).into()],
-                    //     "tagptr",
-                    // );
-
-                    // let val = self.builder.build_gep(
-                    //     bs_struct.into(),
-                    //     &[self.context.i64_type().const_value(0).into(), self.context.i64_type().const_value(1).into()],
-                    //     "valptr",
-                    // );
-
-                    // Some(
-                    //     self.context
-                    //         .struct_type(&[self.context.i64_type().into(), self.context.i64_type().into()], true)
-                    //         .const_value(&[tag.into(), val.into()], true)
-                    //         .into(),
-                    // )
                 }
             },
             None => None,
@@ -287,6 +263,8 @@ impl<'a, 'b> Compiler<'a, 'b> {
             let body: &mut Vec<_> = unsafe { std::mem::transmute(&mut self.function.body) };
             body.into_iter().map(|e| self.compile_expr(&e)).last().unwrap()?
         };
+
+        println!("body: {}", body);
 
         // build return instruction according to return type
         if ret_ty.is_scalar() {

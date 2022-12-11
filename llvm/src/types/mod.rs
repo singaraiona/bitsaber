@@ -1,4 +1,5 @@
 use llvm_sys::prelude::LLVMTypeRef;
+use llvm_sys::LLVMTypeKind;
 use std::marker::PhantomData;
 
 pub mod f64_type;
@@ -111,6 +112,7 @@ impl<'a> Type<'a> {
 
 pub trait TypeIntrinsics {
     fn as_llvm_type_ref(&self) -> LLVMTypeRef;
+    fn get_llvm_type_kind(&self) -> LLVMTypeKind { unsafe { llvm_sys::core::LLVMGetTypeKind(self.as_llvm_type_ref()) } }
 }
 
 impl<'a> TypeIntrinsics for TypeRef<'a> {

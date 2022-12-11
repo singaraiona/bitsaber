@@ -1,3 +1,4 @@
+use crate::types::Type;
 use libc::c_char;
 use llvm_sys::core::LLVMGetIntTypeWidth;
 use llvm_sys::core::LLVMGetTypeKind;
@@ -171,7 +172,6 @@ impl<'a> Value<'a> {
         unsafe {
             let llvm_type = LLVMTypeOf(llvm_value);
             let kind = LLVMGetTypeKind(llvm_type);
-            // println!("<<<<<<<<<<<<<   KIND: {:?}", kind);
             match kind {
                 LLVMTypeKind::LLVMFloatTypeKind
                 | LLVMTypeKind::LLVMFP128TypeKind
@@ -200,7 +200,9 @@ pub trait ValueIntrinsics {
     fn as_llvm_value_ref(&self) -> LLVMValueRef;
     fn set_name(self, name: &str);
     fn get_name(&self) -> &CStr;
+    fn get_type(&self) -> Type<'_> { Type::new(self.get_llvm_type_ref()) }
     fn get_llvm_type_ref(&self) -> LLVMTypeRef;
+    fn get_llvm_type_kind(&self) -> LLVMTypeKind { unsafe { LLVMGetTypeKind(self.get_llvm_type_ref()) } }
 }
 
 impl ValueIntrinsics for ValueRef<'_> {
@@ -261,6 +263,7 @@ impl ValueIntrinsics for Value<'_> {
             Value::Phi(v) => v.get_name(),
         }
     }
+
     fn get_llvm_type_ref(&self) -> LLVMTypeRef {
         match self {
             Value::Null(v) => v.get_llvm_type_ref(),
