@@ -1,7 +1,10 @@
 use crate::types::Type;
+use crate::utils::LLVMString;
 use libc::c_char;
 use llvm_sys::core::LLVMGetIntTypeWidth;
 use llvm_sys::core::LLVMGetTypeKind;
+use llvm_sys::core::LLVMPrintTypeToString;
+use llvm_sys::core::LLVMPrintValueToString;
 use llvm_sys::core::LLVMTypeOf;
 use llvm_sys::core::{LLVMGetValueName2, LLVMSetValueName2};
 use llvm_sys::prelude::LLVMTypeRef;
@@ -198,16 +201,19 @@ impl<'a> Value<'a> {
 
 pub trait ValueIntrinsics {
     fn as_llvm_value_ref(&self) -> LLVMValueRef;
-    fn set_name(self, name: &str);
+    fn set_name(&mut self, name: &str);
     fn get_name(&self) -> &CStr;
     fn get_type(&self) -> Type<'_> { Type::new(self.get_llvm_type_ref()) }
     fn get_llvm_type_ref(&self) -> LLVMTypeRef;
     fn get_llvm_type_kind(&self) -> LLVMTypeKind { unsafe { LLVMGetTypeKind(self.get_llvm_type_ref()) } }
+    fn print_to_string(&self) -> LLVMString {
+        unsafe { LLVMString::new(LLVMPrintValueToString(self.as_llvm_value_ref())) }
+    }
 }
 
 impl ValueIntrinsics for ValueRef<'_> {
     fn as_llvm_value_ref(&self) -> LLVMValueRef { self.llvm_value }
-    fn set_name(self, name: &str) {
+    fn set_name(&mut self, name: &str) {
         unsafe { LLVMSetValueName2(self.llvm_value, name.as_ptr() as *const c_char, name.len()) }
     }
 
@@ -236,7 +242,7 @@ impl ValueIntrinsics for Value<'_> {
             Value::Phi(v) => v.as_llvm_value_ref(),
         }
     }
-    fn set_name(self, name: &str) {
+    fn set_name(&mut self, name: &str) {
         match self {
             Value::Bool(val) => val.set_name(name),
             Value::Int64(v) => v.set_name(name),
@@ -292,5 +298,23 @@ impl fmt::Display for Value<'_> {
             Value::Ptr(v) => write!(f, "{:?}", v),
             Value::Phi(v) => write!(f, "{:?}", v),
         }
+    }
+}
+
+impl fmt::Debug for Value<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let llvm_value = self.print_to_string();
+        let llvm_type = unsafe { CStr::from_ptr(LLVMPrintTypeToString(LLVMTypeOf(self.as_llvm_value_ref()))) };
+        let name = self.get_name();
+        let value_kind = format!("{}", self);
+        let llvm_type_kind = self.get_llvm_type_kind();
+
+        f.debug_struct("Value")
+            .field("name", &name)
+            .field("kind", &value_kind)
+            .field("llvm_type_kind", &llvm_type_kind)
+            .field("llvm_value", &llvm_value)
+            .field("llvm_type", &llvm_type)
+            .finish()
     }
 }

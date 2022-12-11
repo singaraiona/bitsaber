@@ -92,13 +92,14 @@ impl<'a> Type<'a> {
     pub fn new(llvm_type: LLVMTypeRef) -> Type<'a> {
         match unsafe { llvm_sys::core::LLVMGetTypeKind(llvm_type) } {
             llvm_sys::LLVMTypeKind::LLVMVoidTypeKind => Type::Null(VoidType::new(llvm_type)),
-            llvm_sys::LLVMTypeKind::LLVMIntegerTypeKind => {
-                if unsafe { llvm_sys::core::LLVMGetIntTypeWidth(llvm_type) } == 1 {
-                    Type::Bool(I1Type::new(llvm_type))
-                } else {
-                    Type::Int64(I64Type::new(llvm_type))
+            llvm_sys::LLVMTypeKind::LLVMIntegerTypeKind => unsafe {
+                let int_width = llvm_sys::core::LLVMGetIntTypeWidth(llvm_type);
+                match int_width {
+                    1 => Type::Bool(I1Type::new(llvm_type)),
+                    8 => Type::Int64(I64Type::new(llvm_type)),
+                    _ => panic!("Unknown integer width: {}", int_width),
                 }
-            }
+            },
             llvm_sys::LLVMTypeKind::LLVMFloatTypeKind | llvm_sys::LLVMTypeKind::LLVMDoubleTypeKind => {
                 Type::Float64(F64Type::new(llvm_type))
             }

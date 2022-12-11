@@ -11,36 +11,21 @@ pub struct I1Value<'a> {
 }
 
 impl<'a> I1Value<'a> {
-    pub(crate) fn new(llvm_value: LLVMValueRef) -> Self {
-        Self {
-            val: ValueRef::new(llvm_value),
-        }
-    }
+    pub(crate) fn new(llvm_value: LLVMValueRef) -> Self { Self { val: ValueRef::new(llvm_value) } }
 
-    pub fn get_constant(self) -> bool {
-        unsafe { LLVMConstIntGetSExtValue(self.as_llvm_value_ref()) != 0 }
-    }
+    pub fn get_constant(self) -> bool { unsafe { LLVMConstIntGetSExtValue(self.as_llvm_value_ref()) != 0 } }
 }
 
 impl ValueIntrinsics for I1Value<'_> {
-    fn as_llvm_value_ref(&self) -> LLVMValueRef {
-        self.val.as_llvm_value_ref()
-    }
-    fn set_name(self, name: &str) {
-        self.val.set_name(name)
-    }
+    fn as_llvm_value_ref(&self) -> LLVMValueRef { self.val.as_llvm_value_ref() }
 
-    fn get_name(&self) -> &CStr {
-        self.val.get_name()
-    }
+    fn set_name(&mut self, name: &str) { self.val.set_name(name) }
 
-    fn get_llvm_type_ref(&self) -> LLVMTypeRef {
-        self.val.get_llvm_type_ref()
-    }
+    fn get_name(&self) -> &CStr { self.val.get_name() }
+
+    fn get_llvm_type_ref(&self) -> LLVMTypeRef { self.val.get_llvm_type_ref() }
 }
 
 impl Into<bool> for I1Value<'_> {
-    fn into(self) -> bool {
-        self.get_constant()
-    }
+    fn into(self) -> bool { self.get_constant() }
 }

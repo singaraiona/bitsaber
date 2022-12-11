@@ -221,7 +221,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         let fn_val = module.add_function(proto.name.as_str(), fn_type);
 
         // set arguments names
-        for (i, arg) in fn_val.get_params_iter().enumerate() {
+        for (i, mut arg) in fn_val.get_params_iter().enumerate() {
             arg.set_name(proto.args[i].0.as_str());
         }
 
@@ -257,20 +257,20 @@ impl<'a, 'b> Compiler<'a, 'b> {
             self.variables.insert(self.function.args[i].0.clone(), alloca.into());
         }
 
-        // compile body
-        let body = {
+        // compile body, returning last expression
+        let last_expr = {
             // TODO: Fix this hack
             let body: &mut Vec<_> = unsafe { std::mem::transmute(&mut self.function.body) };
             body.into_iter().map(|e| self.compile_expr(&e)).last().unwrap()?
         };
 
-        println!("body: {}", body);
+        println!("body: {:?}", last_expr);
 
         // build return instruction according to return type
         if ret_ty.is_scalar() {
-            self.builder.build_return(body);
+            self.builder.build_return(last_expr);
         } else {
-            self.builder.build_aggregate_return(&[body]);
+            self.builder.build_aggregate_return(&[last_expr]);
         }
 
         // return the whole thing after verification and optimization

@@ -78,7 +78,7 @@ impl<'a> FnValue<'a> {
 impl ValueIntrinsics for FnValue<'_> {
     fn as_llvm_value_ref(&self) -> LLVMValueRef { self.val.as_llvm_value_ref() }
 
-    fn set_name(self, name: &str) { self.val.set_name(name) }
+    fn set_name(&mut self, name: &str) { self.val.set_name(name) }
 
     fn get_name(&self) -> &CStr { self.val.get_name() }
 
