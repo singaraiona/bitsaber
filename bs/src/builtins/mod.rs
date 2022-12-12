@@ -1,13 +1,11 @@
 use crate::ffi::external::*;
 use crate::ffi::Type as BSType;
+use crate::ffi::Value as BSValue;
 use crate::rt::runtime::get_runtime;
 use ffi::NULL_VALUE;
 
 #[no_mangle]
-pub extern "C" fn load_global() -> i64 {
-    println!("IOUTYIYYUYOY");
-    999
-}
+pub extern "C" fn test() -> BSValue { BSValue::from(vec![1, 2, 3]) }
 
 #[no_mangle]
 pub extern "C" fn dump_module() -> i64 {
@@ -17,6 +15,6 @@ pub extern "C" fn dump_module() -> i64 {
 }
 
 pub(crate) fn init() {
-    register_external("load_global".into(), vec![], BSType::Int64, load_global as i64);
+    register_external("test".into(), vec![], BSType::VecInt64, test as i64);
     register_external("dump_module".into(), vec![], BSType::Null, dump_module as i64);
 }

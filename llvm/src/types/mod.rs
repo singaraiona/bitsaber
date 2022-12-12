@@ -8,6 +8,7 @@ pub mod i1_type;
 pub mod i64_type;
 pub mod ptr_type;
 pub mod struct_type;
+pub mod vec_type;
 pub mod void_type;
 
 pub mod prelude {
@@ -17,6 +18,7 @@ pub mod prelude {
     pub use super::i64_type::I64Type;
     pub use super::ptr_type::PtrType;
     pub use super::struct_type::StructType;
+    pub use super::vec_type::VecType;
     pub use super::void_type::VoidType;
 }
 
@@ -49,6 +51,7 @@ pub enum Type<'a> {
     Ptr(PtrType<'a>),
     Fn(FnType<'a>),
     Struct(StructType<'a>),
+    Vec(VecType<'a>),
 }
 
 impl<'a> From<I64Type<'a>> for Type<'a> {
@@ -79,6 +82,10 @@ impl<'a> From<VoidType<'a>> for Type<'a> {
     fn from(ty: VoidType<'a>) -> Self { Self::Null(ty) }
 }
 
+impl<'a> From<VecType<'a>> for Type<'a> {
+    fn from(ty: VecType<'a>) -> Self { Self::Vec(ty) }
+}
+
 impl<'a> Into<PtrType<'a>> for Type<'a> {
     fn into(self) -> PtrType<'a> {
         match self {
@@ -96,7 +103,7 @@ impl<'a> Type<'a> {
                 let int_width = llvm_sys::core::LLVMGetIntTypeWidth(llvm_type);
                 match int_width {
                     1 => Type::Bool(I1Type::new(llvm_type)),
-                    8 => Type::Int64(I64Type::new(llvm_type)),
+                    64 => Type::Int64(I64Type::new(llvm_type)),
                     _ => panic!("Unknown integer width: {}", int_width),
                 }
             },
@@ -106,6 +113,7 @@ impl<'a> Type<'a> {
             llvm_sys::LLVMTypeKind::LLVMFunctionTypeKind => Type::Fn(FnType::new(llvm_type)),
             llvm_sys::LLVMTypeKind::LLVMStructTypeKind => Type::Struct(StructType::new(llvm_type)),
             llvm_sys::LLVMTypeKind::LLVMPointerTypeKind => Type::Ptr(PtrType::new(llvm_type)),
+            llvm_sys::LLVMTypeKind::LLVMVectorTypeKind => Type::Vec(VecType::new(llvm_type)),
             kind => panic!("Unknown type kind: {:?}", kind),
         }
     }
@@ -130,6 +138,7 @@ impl<'a> TypeIntrinsics for Type<'a> {
             Type::Fn(t) => t.as_llvm_type_ref(),
             Type::Struct(t) => t.as_llvm_type_ref(),
             Type::Ptr(t) => t.as_llvm_type_ref(),
+            Type::Vec(t) => t.as_llvm_type_ref(),
         }
     }
 }

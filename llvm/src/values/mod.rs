@@ -23,6 +23,7 @@ pub mod instruction_value;
 pub mod phi_value;
 pub mod ptr_value;
 pub mod struct_value;
+pub mod vec_value;
 
 pub mod prelude {
     pub use super::f64_value::F64Value;
@@ -33,6 +34,7 @@ pub mod prelude {
     pub use super::phi_value::PhiValue;
     pub use super::ptr_value::PtrValue;
     pub use super::struct_value::StructValue;
+    pub use super::vec_value::VecValue;
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
@@ -64,6 +66,7 @@ pub enum Value<'a> {
     Instruction(InstructionValue<'a>),
     Ptr(PtrValue<'a>),
     Phi(PhiValue<'a>),
+    Vec(VecValue<'a>),
 }
 
 impl<'a> From<I1Value<'a>> for Value<'a> {
@@ -96,6 +99,10 @@ impl<'a> From<PtrValue<'a>> for Value<'a> {
 
 impl<'a> From<PhiValue<'a>> for Value<'a> {
     fn from(val: PhiValue<'a>) -> Self { Self::Phi(val) }
+}
+
+impl<'a> From<VecValue<'a>> for Value<'a> {
+    fn from(val: VecValue<'a>) -> Self { Self::Vec(val) }
 }
 
 impl<'a> Into<I1Value<'a>> for Value<'a> {
@@ -170,6 +177,15 @@ impl<'a> Into<PhiValue<'a>> for Value<'a> {
     }
 }
 
+impl<'a> Into<VecValue<'a>> for Value<'a> {
+    fn into(self) -> VecValue<'a> {
+        match self {
+            Self::Vec(val) => val,
+            _ => panic!("Expected VecValue"),
+        }
+    }
+}
+
 impl<'a> Value<'a> {
     pub(crate) fn new(llvm_value: LLVMValueRef) -> Self {
         unsafe {
@@ -193,6 +209,7 @@ impl<'a> Value<'a> {
                 LLVMTypeKind::LLVMStructTypeKind => Value::Struct(StructValue::new(llvm_value)),
                 LLVMTypeKind::LLVMFunctionTypeKind => Value::Fn(FnValue::new(llvm_value)),
                 LLVMTypeKind::LLVMPointerTypeKind => Value::Ptr(PtrValue::new(llvm_value)),
+                LLVMTypeKind::LLVMVectorTypeKind => Value::Vec(VecValue::new(llvm_value)),
                 kind => panic!("Unknown value type: {:?}", kind),
             }
         }
@@ -240,6 +257,7 @@ impl ValueIntrinsics for Value<'_> {
             Value::Struct(v) => v.as_llvm_value_ref(),
             Value::Ptr(v) => v.as_llvm_value_ref(),
             Value::Phi(v) => v.as_llvm_value_ref(),
+            Value::Vec(v) => v.as_llvm_value_ref(),
         }
     }
     fn set_name(&mut self, name: &str) {
@@ -253,6 +271,7 @@ impl ValueIntrinsics for Value<'_> {
             Value::Ptr(v) => v.set_name(name),
             Value::Null(v) => v.set_name(name),
             Value::Phi(v) => v.set_name(name),
+            Value::Vec(v) => v.set_name(name),
         }
     }
 
@@ -267,6 +286,7 @@ impl ValueIntrinsics for Value<'_> {
             Value::Struct(v) => v.get_name(),
             Value::Ptr(v) => v.get_name(),
             Value::Phi(v) => v.get_name(),
+            Value::Vec(v) => v.get_name(),
         }
     }
 
@@ -281,6 +301,7 @@ impl ValueIntrinsics for Value<'_> {
             Value::Struct(v) => v.get_llvm_type_ref(),
             Value::Ptr(v) => v.get_llvm_type_ref(),
             Value::Phi(v) => v.get_llvm_type_ref(),
+            Value::Vec(v) => v.get_llvm_type_ref(),
         }
     }
 }
@@ -297,6 +318,7 @@ impl fmt::Display for Value<'_> {
             Value::Struct(v) => write!(f, "{:?}", v),
             Value::Ptr(v) => write!(f, "{:?}", v),
             Value::Phi(v) => write!(f, "{:?}", v),
+            Value::Vec(v) => write!(f, "{:?}", v),
         }
     }
 }
