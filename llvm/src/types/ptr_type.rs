@@ -1,6 +1,6 @@
 use super::{Type, TypeRef};
 use crate::types::TypeIntrinsics;
-use llvm_sys::core::LLVMGetElementType;
+// use llvm_sys::core::LLVMGetElementType;
 use llvm_sys::prelude::LLVMTypeRef;
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
@@ -28,7 +28,7 @@ impl<'a> PtrType<'a> {
     //     }
     // }
 
-    pub fn get_element_type(self) -> Type<'a> { unsafe { Type::new(LLVMGetElementType(self.ty.llvm_type)) } }
+    // pub fn get_element_type(self) -> Type<'a> { unsafe { Type::new(LLVMGetElementType(self.ty.llvm_type)) } }
 }
 
 impl<'a> TypeIntrinsics for PtrType<'a> {

@@ -66,9 +66,9 @@ impl<'a> FnValue<'a> {
 
     pub fn delete(self) { unsafe { LLVMDeleteFunction(self.as_llvm_value_ref()) } }
 
-    pub fn get_return_type(&self) -> Type<'a> {
-        unsafe { Type::new(LLVMGetReturnType(LLVMGetElementType(self.val.get_llvm_type_ref()))) }
-    }
+    // pub fn get_return_type(&self) -> Type<'a> {
+    //     unsafe { Type::new(LLVMGetReturnType(LLVMGetElementType(self.val.get_llvm_type_ref()))) }
+    // }
 
     // pub fn set_linkage(self, linkage: Linkage) {
     //     unsafe { LLVMSetLinkage(self.as_value_ref(), linkage.into()) }
@@ -85,11 +85,12 @@ impl ValueIntrinsics for FnValue<'_> {
     fn get_llvm_type_ref(&self) -> LLVMTypeRef {
         unsafe {
             let llvm_ty_ref = self.val.get_llvm_type_ref();
-            match LLVMGetTypeKind(llvm_ty_ref) {
-                LLVMTypeKind::LLVMFunctionTypeKind => llvm_ty_ref,
-                LLVMTypeKind::LLVMPointerTypeKind => LLVMGetElementType(llvm_ty_ref),
-                _ => unreachable!(),
-            }
+            LLVMInt64Type()
+            // match LLVMGetTypeKind(llvm_ty_ref) {
+            //     LLVMTypeKind::LLVMFunctionTypeKind => llvm_ty_ref,
+            //     LLVMTypeKind::LLVMPointerTypeKind => LLVMGetElementType(llvm_ty_ref),
+            //     _ => unreachable!(),
+            // }
         }
     }
 }

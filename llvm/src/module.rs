@@ -61,7 +61,6 @@ impl<'a> Module<'a> {
     pub fn get_function(&self, name: &str) -> Option<FnValue<'a>> {
         let c_string = to_c_str(name);
         let val = unsafe { LLVMGetNamedFunction(self.llvm_module, c_string.as_ptr()) };
-
         if val.is_null() {
             None
         } else {

@@ -118,7 +118,7 @@ impl<'a> Into<I64Value<'a>> for Value<'a> {
     fn into(self) -> I64Value<'a> {
         match self {
             Self::Int64(val) => val,
-            _ => panic!("Expected I64Value"),
+            val => panic!("Expected I64Value, found: {:?}", val),
         }
     }
 }

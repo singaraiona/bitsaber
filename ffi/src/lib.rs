@@ -29,6 +29,12 @@ pub enum Type {
     List,
 }
 
+#[derive(Debug, Clone)]
+pub struct FnType {
+    pub args: Vec<Type>,
+    pub ret: Type,
+}
+
 impl TryFrom<&str> for Type {
     type Error = ();
     fn try_from(s: &str) -> Result<Self, Self::Error> {

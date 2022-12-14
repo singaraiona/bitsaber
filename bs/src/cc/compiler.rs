@@ -6,6 +6,7 @@ use crate::parse::ast::ExprBody;
 use crate::parse::ast::{infer_types, Expr, Function};
 use crate::result::*;
 use crate::rt::runtime::RuntimeModule;
+use ffi::prelude::I64Value;
 use ffi::Type as BSType;
 use ffi::Value as BSValue;
 use ffi::NULL_VALUE;
@@ -42,9 +43,10 @@ impl<'a, 'b> Compiler<'a, 'b> {
     fn module(&mut self) -> &mut RuntimeModule<'b> { self.modules.get_mut(self.module).unwrap() }
 
     fn compile_load_local(&mut self, name: &str) -> Option<Value<'a>> {
-        self.variables
-            .get(name)
-            .map(|ptr| self.builder.build_load((*ptr).into(), name))
+        // self.variables
+        //     .get(name)
+        //     .map(|ptr| self.builder.build_load((*ptr).into(), name))
+        None
     }
 
     fn compile_load_global(&mut self, name: &str) -> Option<Value<'a>> {
@@ -57,12 +59,34 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     let ptr = ptr.add(1);
                     let ptr_ty = self.context.ptr_type(llvm_type_from_bs_type(ty, self.context).into());
                     let val_ptr = self.context.i64_type().const_value(ptr as _).to_ptr(ptr_ty);
-                    Some(self.builder.build_load(val_ptr.into(), name))
+                    Some(transmute(self.builder.build_load(
+                        llvm_type_from_bs_type(ty, self.context),
+                        val_ptr.into(),
+                        name,
+                    )))
                 } else {
                     let ptr_ty = self.context.ptr_type(llvm_type_from_bs_type(ty, self.context).into());
                     let tag_ptr = self.context.i64_type().const_value(ptr as _).to_ptr(ptr_ty);
-                    let bs_struct = self.builder.build_load(tag_ptr.into(), name);
-                    Some(bs_struct)
+                    let bs_struct =
+                        self.builder
+                            .build_load(llvm_type_from_bs_type(ty, self.context), tag_ptr.into(), name);
+
+                    // // let tag: llvm::values::i64_value::I64Value =
+                    // //     self.builder.build_extract_value(bs_struct, 0, "tmptag").unwrap().into();
+                    // // let val: llvm::values::i64_value::I64Value =
+                    // //     self.builder.build_extract_value(bs_struct, 1, "tmpval").unwrap().into();
+
+                    // let i0 = self.context.i64_type().const_value(0);
+                    // let i1 = self.context.i64_type().const_value(1);
+
+                    // let tag: llvm::values::i64_value::I64Value =
+                    //     self.builder.build_gep(bs_struct, &[i0.into(), i0.into()], "tag").into();
+                    // let val: llvm::values::i64_value::I64Value =
+                    //     self.builder.build_gep(bs_struct, &[i0.into(), i1.into()], "val").into();
+
+                    // let s = transmute(into_llvm_struct(tag.into(), val.into(), &self.context));
+
+                    Some(transmute(bs_struct))
                 }
             },
             None => None,
@@ -125,17 +149,26 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     call_args.push(arg);
                 }
 
-                let function =
-                    self.module()
-                        .module
-                        .get_function(name.as_str())
-                        .ok_or_else(|| BSError::CompileError {
-                            msg: format!("Undefined function '{}'", name),
-                            desc: "Function not found".to_string(),
-                            span: expr.span,
-                        })?;
+                let fn_val = self
+                    .module()
+                    .module
+                    .get_function(name.as_str())
+                    .ok_or_else(|| BSError::CompileError {
+                        msg: format!("Undefined function '{}'", name),
+                        desc: "Function not found".to_string(),
+                        span: expr.span,
+                    })?;
 
-                ok(self.builder.build_call(function.into(), &call_args, "calltmp"))
+                let fn_ty = self
+                    .context
+                    .fn_type(llvm_type_from_bs_type(BSType::Int64, &self.context), &[], false);
+
+                unsafe {
+                    ok(transmute(
+                        self.builder
+                            .build_call(fn_ty.into(), fn_val.into(), &call_args, "calltmp"),
+                    ))
+                }
             }
 
             ExprBody::Cond { cond, cons, altr } => {
@@ -205,7 +238,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
     }
 
     pub fn compile_prototype(&self, ret_type: BSType) -> BSResult<FnValue<'b>> {
-        let module = &self.modules.get(self.module).unwrap().module;
+        let module = self.modules.get(self.module).unwrap();
         let proto = &self.function;
         let args_types = proto
             .args
@@ -218,7 +251,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         let fn_type = self
             .context
             .fn_type(llvm_type_from_bs_type(ret_type, &self.context), args_types, false);
-        let fn_val = module.add_function(proto.name.as_str(), fn_type);
+        let fn_val = module.add_function(proto);
 
         // set arguments names
         for (i, mut arg) in fn_val.get_params_iter().enumerate() {
@@ -264,7 +297,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
             body.into_iter().map(|e| self.compile_expr(&e)).last().unwrap()?
         };
 
-        println!("body: {:?}", last_expr);
+        // println!("body: {:?}", last_expr);
 
         // build return instruction according to return type
         if ret_ty.is_scalar() {

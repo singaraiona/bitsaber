@@ -8,7 +8,7 @@ use llvm::values::prelude::*;
 use llvm::values::Value as LLVMValue;
 use std::mem::{forget, transmute};
 
-fn into_llvm_struct<'a>(tag: i64, val: i64, context: &'a Context) -> LLVMValue<'a> {
+pub(crate) fn into_llvm_struct<'a>(tag: i64, val: i64, context: &'a Context) -> LLVMValue<'a> {
     let ret_struct = llvm_struct_type(context)
         .const_value(&[context.i64_type().const_value(tag).into(), context.i64_type().const_value(val).into()], false);
 
