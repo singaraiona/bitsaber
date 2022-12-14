@@ -6,9 +6,8 @@ use crate::parse::ast::Function;
 use crate::parse::parser::*;
 use crate::result::*;
 use ffi::external;
-use ffi::FnType as BSFnType;
-use ffi::Type as BSType;
-use ffi::Value as BSValue;
+use ffi::types::Type as BSType;
+use ffi::values::Value as BSValue;
 use llvm::builder::Builder;
 use llvm::context::Context;
 use llvm::execution_engine::ExecutionEngine;
@@ -30,8 +29,7 @@ pub fn get_runtime<'a>() -> Option<&'a mut Runtime<'static>> { unsafe { RUNTIME.
 pub struct RuntimeModule<'a> {
     pub(crate) module: Module<'a>,
     pub(crate) engine: ExecutionEngine<'a>,
-    pub(crate) globals: HashMap<String, (BSType, Box<BSValue>)>,
-    pub(crate) functions: HashMap<String, BSFnType>,
+    pub(crate) globals: HashMap<String, Box<BSValue>>,
 }
 
 impl<'a> RuntimeModule<'a> {
@@ -43,10 +41,10 @@ impl<'a> RuntimeModule<'a> {
             .create_mcjit_execution_engine()
             .map_err(|e| BSError::RuntimeError(e.to_string()))?;
 
-        ok(Self { module, engine, globals: HashMap::new(), functions: HashMap::new() })
+        ok(Self { module, engine, globals: HashMap::new() })
     }
 
-    pub fn recreate_module(&mut self, name: String, context: &Context) -> BSResult<()> {
+    pub fn amend_module(&mut self, name: String, context: &Context) -> BSResult<()> {
         self.module = context
             .create_module(name.as_str())
             .map_err(|e| BSError::RuntimeError(e.to_string()))?;
@@ -57,38 +55,13 @@ impl<'a> RuntimeModule<'a> {
         ok(())
     }
 
-    pub fn add_global(&mut self, name: &str, ty: BSType, value: BSValue) {
-        self.globals.insert(name.to_string(), (ty, Box::new(value)));
-    }
+    pub fn add_global(&mut self, name: &str, value: BSValue) { self.globals.insert(name.to_string(), Box::new(value)); }
 
-    pub fn get_global(&self, name: &str) -> Option<(BSType, *const BSValue)> {
+    pub fn get_global(&self, name: &str) -> Option<(BSType, *const i64)> {
         match self.globals.get(name) {
-            Some((ty, value)) => Some((*ty, value.as_ref())),
+            Some(value) => Some((value.get_type().clone(), value.as_ptr())),
             None => None,
         }
-    }
-
-    pub fn add_function(&mut self, proto: &Function, ret_type: BSType, context: &Context) -> BSResult<FnValue<'a>> {
-        let args_types = proto
-            .args
-            .iter()
-            .map(|(_, ty)| llvm_type_from_bs_type(*ty, context))
-            .collect::<Vec<Type<'_>>>();
-
-        let args_types = args_types.as_slice();
-
-        let fn_type = context.fn_type(llvm_type_from_bs_type(ret_type, context), args_types, false);
-        let fn_val = self.module.add_function(&proto.name.as_str(), fn_type);
-
-        // set arguments names
-        for (i, mut arg) in fn_val.get_params_iter().enumerate() {
-            arg.set_name(proto.args[i].0.as_str());
-        }
-
-        let bs_fn_type = BSFnType { ret: ret_type, args: proto.args.iter().map(|(_, ty)| *ty).collect() };
-        self.functions.insert(proto.name.clone(), bs_fn_type);
-
-        ok(fn_val)
     }
 }
 
@@ -139,24 +112,19 @@ impl<'a> Runtime<'a> {
                 .entry("repl".into())
                 .or_insert(RuntimeModule::new("repl".into(), &self.context)?);
 
-            repl_module.recreate_module("repl".into(), &self.context)?;
+            repl_module.amend_module("repl".into(), &self.context)?;
 
             // add external symbols
             external::with(|map| {
                 for (name, ext) in map {
-                    let args = ext.args.iter().map(|t| ("".into(), *t)).collect::<Vec<_>>();
+                    let args = ext.args.iter().map(|t| ("".into(), t.clone())).collect::<Vec<_>>();
                     let f = Function { name: name.clone(), args: args, body: vec![], topl: false };
 
-                    self.modules
-                        .get_mut("repl".into())
-                        .unwrap()
-                        .add_function(&f, ext.ret, &self.context)
-                        .expect("failed to compile external function");
-
-                    self.modules
-                        .get_mut("repl".into())
-                        .unwrap()
-                        .add_global(name, ext.ret, BSValue::Null);
+                    // self.modules
+                    //     .get_mut("repl".into())
+                    //     .unwrap()
+                    //     .add_global(&f, ext.ret, &self.context)
+                    //     .expect("failed to compile external function");
                 }
             });
 
@@ -195,29 +163,32 @@ impl<'a> Runtime<'a> {
                         BSType::Null => {
                             let f: extern "C" fn() -> i64 = mem::transmute(addr);
                             let _ = f();
-                            ok(BSValue::Null)
+                            ok(BSValue::from(()))
                         }
                         BSType::Bool => {
                             let f: extern "C" fn() -> bool = mem::transmute(addr);
                             let result = f();
-                            ok(BSValue::Bool(result))
+                            ok(BSValue::from(result))
                         }
                         BSType::Int64 => {
                             let f: extern "C" fn() -> i64 = mem::transmute(addr);
-                            ok(BSValue::Int64(f().into()))
+                            let result = f();
+                            ok(BSValue::from(result))
                         }
                         BSType::Float64 => {
                             let f: extern "C" fn() -> f64 = mem::transmute(addr);
-                            ok(BSValue::Float64(f().into()))
+                            let result = f();
+                            ok(BSValue::from(result))
                         }
                         _ => {
                             let f: extern "C" fn() -> BSValue = mem::transmute(addr);
-                            ok(f())
+                            let result = f();
+                            ok(result)
                         }
                     }
                 }
 
-                None => ok(BSValue::Null),
+                None => ok(BSValue::from(())),
             }
         }
     }

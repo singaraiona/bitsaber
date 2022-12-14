@@ -2,7 +2,7 @@ use crate::llvm::enums::*;
 use crate::parse::ast::BinaryOp;
 use crate::parse::span::Span;
 use crate::result::*;
-use ffi::Type as BSType;
+use ffi::types::Type as BSType;
 use llvm::builder::Builder;
 use llvm::values::Value;
 use std::collections::HashMap;
@@ -52,11 +52,11 @@ lazy_static! {
 }
 
 pub fn infer_type(op: BinaryOp, lhs: BSType, rhs: BSType, span: Option<Span>) -> BSResult<BSType> {
-    match OPS_TABLE.get(&(op, lhs, rhs)) {
-        Some(&ty) => ok(ty),
+    match OPS_TABLE.get(&(op, lhs.clone(), rhs.clone())) {
+        Some(ty) => ok(ty.clone()),
         None => compile_error(
             "Type inference error".to_string(),
-            format!("No such op: '{}' for types: {} {}", op, lhs, rhs),
+            format!("No such op: '{}' for types: {} {}", op, lhs.clone(), rhs.clone()),
             span,
         ),
     }
@@ -112,9 +112,7 @@ pub fn compile<'a, 'b>(
         (Greater, Float64, Float64) => builder.build_float_compare(FP::UGT, lhs, rhs, "gttmp"),
         (GreaterOrEqual, Bool, Bool) => builder.build_int_compare(IP::SGE, lhs, rhs, "getmp"),
         (GreaterOrEqual, Int64, Int64) => builder.build_int_compare(IP::SGE, lhs, rhs, "getmp"),
-        (GreaterOrEqual, Float64, Float64) => {
-            builder.build_float_compare(FP::UGE, lhs, rhs, "getmp")
-        }
+        (GreaterOrEqual, Float64, Float64) => builder.build_float_compare(FP::UGE, lhs, rhs, "getmp"),
         (NotEqual, Bool, Bool) => builder.build_int_compare(IP::NE, lhs, rhs, "neqtmp"),
         (NotEqual, Int64, Int64) => builder.build_int_compare(IP::NE, lhs, rhs, "neqtmp"),
         (NotEqual, Float64, Float64) => builder.build_float_compare(FP::UNE, lhs, rhs, "neqtmp"),

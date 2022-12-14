@@ -1,6 +1,6 @@
-use ffi::Type as BSType;
-use ffi::Value as BSValue;
-use ffi::NULL_VALUE;
+use ffi::types::Type as BSType;
+use ffi::values::Value as BSValue;
+use ffi::values::NULL_VALUE;
 use llvm::context::Context;
 use llvm::types::prelude::StructType as LLVMStructType;
 use llvm::types::Type as LLVMType;
@@ -20,46 +20,52 @@ fn llvm_struct_type<'a>(context: &'a Context) -> LLVMStructType<'a> {
 }
 
 pub fn llvm_value_from_bs_value<'a>(bs_value: BSValue, context: &'a Context) -> LLVMValue<'a> {
-    unsafe {
-        let tag = bs_value.get_type() as u64 as i64;
-        match bs_value {
-            BSValue::Null => context.i64_type().const_value(NULL_VALUE).into(),
-            BSValue::Bool(b) => context.i1_type().const_value(b).into(),
-            BSValue::Int64(v) => context.i64_type().const_value(v.into()).into(),
-            BSValue::Float64(v) => context.f64_type().const_value(v.into()).into(),
-            BSValue::VecInt64(v) => into_llvm_struct(tag, transmute::<_, i64>(v), context),
-            BSValue::VecFloat64(v) => into_llvm_struct(tag, transmute::<_, i64>(v), context),
+    // unsafe {
+    //     let tag = bs_value.get_type() as u64 as i64;
+    //     match bs_value {
+    //         BSValue::Null => context.i64_type().const_value(NULL_VALUE).into(),
+    //         BSValue::Bool(b) => context.i1_type().const_value(b).into(),
+    //         BSValue::Int64(v) => context.i64_type().const_value(v.into()).into(),
+    //         BSValue::Float64(v) => context.f64_type().const_value(v.into()).into(),
+    //         BSValue::VecInt64(v) => into_llvm_struct(tag, transmute::<_, i64>(v), context),
+    //         BSValue::VecFloat64(v) => into_llvm_struct(tag, transmute::<_, i64>(v), context),
 
-            _ => unimplemented!(),
-        }
-    }
+    //         _ => unimplemented!(),
+    //     }
+    // }
+
+    todo!()
 }
 
 pub fn bs_value_from_llvm_value(value: LLVMValue, ty: BSType, context: &Context) -> BSValue {
     match ty {
-        BSType::Null => BSValue::Null,
+        BSType::Null => BSValue::from(()),
         BSType::Bool => {
             let val: I1Value<'_> = value.into();
-            BSValue::Bool(val.get_constant().into())
+            let val: bool = val.get_constant().into();
+            BSValue::from(val)
         }
         BSType::Int64 => {
             let val: I64Value<'_> = value.into();
-            BSValue::Int64(val.get_constant().into())
+            let val: i64 = val.get_constant().into();
+            BSValue::from(val)
         }
         BSType::Float64 => {
             let val: F64Value<'_> = value.into();
-            BSValue::Float64(val.into())
+            let val: f64 = val.get_constant().into();
+            BSValue::from(val)
         }
-        _ => {
-            let struct_val: StructValue<'_> = value.into();
-            let (tag, val) = struct_val.get_constant(context);
-            let v: BSValue = unsafe { transmute((tag, val)) };
-            // we need here an extra clone because llvm's struct drops the values
-            // on destruction
-            let cloned = v.clone();
-            forget(v);
-            cloned
-        }
+        // BSType::VecInt64 => {
+        //     let struct_val: StructValue<'_> = value.into();
+        //     let (tag, val) = struct_val.get_constant(context);
+        //     let v: BSValue = unsafe { transmute((tag, val)) };
+        //     // we need here an extra clone because llvm's struct drops the values
+        //     // on destruction
+        //     let cloned = v.clone();
+        //     forget(v);
+        //     cloned
+        // }
+        _ => todo!(),
     }
 }
 

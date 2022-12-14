@@ -2,7 +2,7 @@ use crate::parse::ast::*;
 use crate::parse::lexer::{Lexer, Token};
 use crate::parse::span::Span;
 use crate::result::*;
-use ffi::Type as BSType;
+use ffi::types::Type as BSType;
 use Token::*;
 
 pub struct Parser<'a> {

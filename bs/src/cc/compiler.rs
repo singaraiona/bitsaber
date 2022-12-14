@@ -6,10 +6,11 @@ use crate::parse::ast::ExprBody;
 use crate::parse::ast::{infer_types, Expr, Function};
 use crate::result::*;
 use crate::rt::runtime::RuntimeModule;
-use ffi::prelude::I64Value;
-use ffi::Type as BSType;
-use ffi::Value as BSValue;
-use ffi::NULL_VALUE;
+use ffi::types::fn_type::FnType as BsFnType;
+use ffi::types::Type as BSType;
+use ffi::values::fn_value::FnValue as BsFnValue;
+use ffi::values::Value as BSValue;
+use ffi::values::NULL_VALUE;
 use llvm::builder::Builder;
 use llvm::context::Context;
 use llvm::types::Type;
@@ -53,11 +54,11 @@ impl<'a, 'b> Compiler<'a, 'b> {
         match self.module().get_global(name) {
             Some((ty, ptr)) => unsafe {
                 // BSValue layout: [tag, value]
-                let ptr = ptr as *const i64;
 
                 if ty.is_scalar() {
-                    let ptr = ptr.add(1);
-                    let ptr_ty = self.context.ptr_type(llvm_type_from_bs_type(ty, self.context).into());
+                    let ptr_ty = self
+                        .context
+                        .ptr_type(llvm_type_from_bs_type(ty.clone(), self.context).into());
                     let val_ptr = self.context.i64_type().const_value(ptr as _).to_ptr(ptr_ty);
                     Some(transmute(self.builder.build_load(
                         llvm_type_from_bs_type(ty, self.context),
@@ -65,7 +66,9 @@ impl<'a, 'b> Compiler<'a, 'b> {
                         name,
                     )))
                 } else {
-                    let ptr_ty = self.context.ptr_type(llvm_type_from_bs_type(ty, self.context).into());
+                    let ptr_ty = self
+                        .context
+                        .ptr_type(llvm_type_from_bs_type(ty.clone(), self.context).into());
                     let tag_ptr = self.context.i64_type().const_value(ptr as _).to_ptr(ptr_ty);
                     let bs_struct =
                         self.builder
@@ -128,11 +131,10 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 let body = self.compile_expr(&body)?;
 
                 if *global {
-                    self.modules.get_mut(self.module).unwrap().add_global(
-                        name,
-                        ty,
-                        bs_value_from_llvm_value(body.clone(), ty, self.context),
-                    );
+                    self.modules
+                        .get_mut(self.module)
+                        .unwrap()
+                        .add_global(name, bs_value_from_llvm_value(body.clone(), ty.clone(), self.context));
                 } else {
                     let ptr = self.create_entry_block_alloca(name, llvm_type_from_bs_type(ty, &self.context));
                     self.builder.build_store(ptr, body);
@@ -237,21 +239,26 @@ impl<'a, 'b> Compiler<'a, 'b> {
         builder.build_alloca(ini, name)
     }
 
-    pub fn compile_prototype(&self, ret_type: BSType) -> BSResult<FnValue<'b>> {
-        let module = self.modules.get(self.module).unwrap();
+    pub fn compile_prototype(&mut self, ret_type: BSType) -> BSResult<FnValue<'b>> {
+        let rt_module = self.modules.get_mut(self.module).unwrap();
         let proto = &self.function;
         let args_types = proto
             .args
             .iter()
-            .map(|(_, ty)| llvm_type_from_bs_type(*ty, &self.context))
+            .map(|(_, ty)| llvm_type_from_bs_type(ty.clone(), &self.context))
             .collect::<Vec<Type<'_>>>();
 
         let args_types = args_types.as_slice();
 
         let fn_type = self
             .context
-            .fn_type(llvm_type_from_bs_type(ret_type, &self.context), args_types, false);
-        let fn_val = module.add_function(proto);
+            .fn_type(llvm_type_from_bs_type(ret_type.clone(), &self.context), args_types, false);
+        let fn_val = rt_module.module.add_function(proto.name.as_str(), fn_type);
+
+        let bs_ty = BsFnType::new(proto.args.iter().map(|(_, ty)| ty.clone()).collect(), ret_type);
+        let bs_val = BSValue::from(BsFnValue::new(bs_ty, 0 as _));
+
+        rt_module.add_global(proto.name.as_str(), bs_val);
 
         // set arguments names
         for (i, mut arg) in fn_val.get_params_iter().enumerate() {
@@ -265,12 +272,12 @@ impl<'a, 'b> Compiler<'a, 'b> {
     pub fn compile_fn(&mut self) -> BSResult<(FnValue<'b>, BSType)> {
         let mut args_variables = HashMap::new();
         for (a, t) in self.function.args.iter() {
-            args_variables.insert(a.clone(), *t);
+            args_variables.insert(a.clone(), t.clone());
         }
 
         let globals = &self.modules.get(self.module).unwrap().globals;
         let ret_ty = infer_types(&mut self.function.body, globals, &mut args_variables)?;
-        let function = self.compile_prototype(ret_ty)?;
+        let function = self.compile_prototype(ret_ty.clone())?;
 
         // got external function, returning only compiled prototype
         if self.function.body.is_empty() {
@@ -310,11 +317,10 @@ impl<'a, 'b> Compiler<'a, 'b> {
         match function.verify() {
             Ok(_) => {
                 // self.fpm.run_on(&function);
-                self.modules.get_mut(self.module).unwrap().add_global(
-                    self.function.name.as_str(),
-                    ret_ty,
-                    BSValue::Null,
-                );
+                self.modules
+                    .get_mut(self.module)
+                    .unwrap()
+                    .add_global(self.function.name.as_str(), BSValue::from(()));
                 ok((function, ret_ty))
             }
             Err(e) => {

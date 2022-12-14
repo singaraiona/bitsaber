@@ -1,8 +1,8 @@
 use crate::ffi::external::*;
-use crate::ffi::Type as BSType;
-use crate::ffi::Value as BSValue;
+use crate::ffi::types::Type as BSType;
+use crate::ffi::values::Value as BSValue;
 use crate::rt::runtime::get_runtime;
-use ffi::NULL_VALUE;
+use ffi::values::NULL_VALUE;
 
 #[no_mangle]
 #[allow(improper_ctypes_definitions)]

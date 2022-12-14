@@ -1,8 +1,8 @@
 use crate::ops::binary;
 use crate::parse::span::Span;
 use crate::result::*;
-use ffi::Type as BSType;
-use ffi::Value as BSValue;
+use ffi::types::Type as BSType;
+use ffi::values::Value as BSValue;
 use std::collections::HashMap;
 use std::fmt;
 
@@ -97,13 +97,13 @@ impl Expr {
 
     pub fn infer_type(
         &mut self,
-        globals: &HashMap<String, (BSType, Box<BSValue>)>,
+        globals: &HashMap<String, Box<BSValue>>,
         variables: &mut HashMap<String, BSType>,
     ) -> BSResult<BSType> {
         use ExprBody::*;
 
-        if let Some(ty) = self.expr_type {
-            return ok(ty);
+        if let Some(ty) = &self.expr_type {
+            return ok(ty.clone());
         }
 
         match &mut self.body {
@@ -134,7 +134,7 @@ impl Expr {
             Assign { name, body, global } => {
                 let body_ty = body.infer_type(globals, variables)?;
                 self.expr_type = Some(body_ty.clone());
-                variables.insert(name.clone(), body_ty);
+                variables.insert(name.clone(), body_ty.clone());
                 ok(body_ty)
             }
             Variable(name) => match variables.get(name) {
@@ -143,9 +143,9 @@ impl Expr {
                     ok(ty.clone())
                 }
                 None => match globals.get(name) {
-                    Some((ty, _)) => {
-                        self.expr_type = Some(ty.clone());
-                        ok(ty.clone())
+                    Some(val) => {
+                        self.expr_type = Some(val.get_infered_type().clone());
+                        ok(val.get_infered_type().clone())
                     }
                     None => compile_error("Unknown variable".to_string(), name.clone(), self.span),
                 },
@@ -154,16 +154,16 @@ impl Expr {
                 let lhs_type = lhs.infer_type(globals, variables)?;
                 let rhs_type = rhs.infer_type(globals, variables)?;
                 let res_type = binary::infer_type(*op, lhs_type, rhs_type, self.span)?;
-                self.expr_type = Some(res_type);
+                self.expr_type = Some(res_type.clone());
                 ok(res_type)
             }
 
             Call { name, args } => {
                 infer_types(args, globals, variables)?;
                 match globals.get(name) {
-                    Some((ty, _)) => {
-                        self.expr_type = Some(ty.clone());
-                        ok(ty.clone())
+                    Some(val) => {
+                        self.expr_type = Some(val.get_infered_type().clone());
+                        ok(val.get_infered_type().clone())
                     }
                     None => compile_error("Unknown function".to_string(), name.clone(), self.span),
                 }
@@ -190,7 +190,7 @@ impl Expr {
                     );
                 }
 
-                self.expr_type = Some(cons_type);
+                self.expr_type = Some(cons_type.clone());
                 ok(cons_type)
             }
 
@@ -210,7 +210,7 @@ impl Expr {
 
 pub fn infer_types(
     exprs: &mut [Expr],
-    globals: &HashMap<String, (BSType, Box<BSValue>)>,
+    globals: &HashMap<String, Box<BSValue>>,
     variables: &mut HashMap<String, BSType>,
 ) -> BSResult<BSType> {
     let mut res_ty = BSType::Null;

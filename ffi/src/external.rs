@@ -1,4 +1,4 @@
-use crate::Type as BSType;
+use crate::types::Type as BSType;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
