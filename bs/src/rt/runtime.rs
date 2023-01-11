@@ -59,7 +59,7 @@ impl<'a> RuntimeModule<'a> {
 
     pub fn get_global(&self, name: &str) -> Option<(BSType, *const i64)> {
         match self.globals.get(name) {
-            Some(value) => Some((value.get_type().clone(), value.as_ptr())),
+            Some(value) => Some((value.get_type().clone(), value.as_ptr() as _)),
             None => None,
         }
     }
@@ -181,8 +181,9 @@ impl<'a> Runtime<'a> {
                             ok(BSValue::from(result))
                         }
                         _ => {
-                            let f: extern "C" fn() -> BSValue = mem::transmute(addr);
+                            let f: extern "C" fn() -> *const () = mem::transmute(addr);
                             let result = f();
+                            let result = BSValue::from_raw_parts(ty, result as _);
                             ok(result)
                         }
                     }

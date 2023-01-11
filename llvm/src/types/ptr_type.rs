@@ -1,7 +1,13 @@
 use super::{Type, TypeRef};
 use crate::types::TypeIntrinsics;
 // use llvm_sys::core::LLVMGetElementType;
-use llvm_sys::prelude::LLVMTypeRef;
+use crate::values::prelude::PtrValue;
+use llvm_sys::core::LLVMConstInt;
+
+use llvm_sys::{
+    core::{LLVMConstIntToPtr, LLVMGetTypeContext, LLVMInt64TypeInContext},
+    prelude::LLVMTypeRef,
+};
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub struct PtrType<'a> {
@@ -11,11 +17,14 @@ pub struct PtrType<'a> {
 impl<'a> PtrType<'a> {
     pub(crate) fn new(llvm_type: LLVMTypeRef) -> Self { Self { ty: TypeRef::new(llvm_type) } }
 
-    // pub fn const_value(self, value: *const ()) -> PtrValue<'a> { unsafe {
-
-    //     PtrValue::new()
-
-    // } }
+    pub fn const_value(self, ptr: *const ()) -> PtrValue<'a> {
+        unsafe {
+            let context = LLVMGetTypeContext(self.as_llvm_type_ref());
+            let ty = LLVMInt64TypeInContext(context);
+            let ptr = LLVMConstInt(ty, ptr as _, 0);
+            PtrValue::new(LLVMConstIntToPtr(ptr, self.as_llvm_type_ref()))
+        }
+    }
 
     // pub fn const_array(self, values: &[I64Value<'a>]) -> ArrayValue<'a> {
     //     let mut values: Vec<LLVMValueRef> = values.iter().map(|v| v.val.llvm_value).collect();
