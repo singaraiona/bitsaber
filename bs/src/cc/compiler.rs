@@ -43,54 +43,26 @@ impl<'a, 'b> Compiler<'a, 'b> {
 
     fn module(&mut self) -> &mut RuntimeModule<'b> { self.modules.get_mut(self.module).unwrap() }
 
-    fn compile_load_local(&mut self, name: &str) -> Option<Value<'a>> {
-        // self.variables
-        //     .get(name)
-        //     .map(|ptr| self.builder.build_load((*ptr).into(), name))
-        None
+    fn compile_load_local(&mut self, ty: BSType, name: &str) -> Option<Value<'a>> {
+        unsafe {
+            self.variables.get(name).map(|ptr| {
+                self.builder
+                    .build_load(transmute(llvm_type_from_bs_type(ty, self.context)), (*ptr).into(), name)
+            })
+        }
     }
 
     fn compile_load_global(&mut self, name: &str) -> Option<Value<'a>> {
         match self.module().get_global(name) {
             Some((ty, ptr)) => unsafe {
-                // BSValue layout: [tag, value]
-
-                if ty.is_scalar() {
-                    let ptr_ty = self
-                        .context
-                        .ptr_type(llvm_type_from_bs_type(ty.clone(), self.context).into());
-                    let val_ptr = self.context.i64_type().const_value(ptr as _).to_ptr(ptr_ty);
-                    Some(transmute(self.builder.build_load(
-                        llvm_type_from_bs_type(ty, self.context),
-                        val_ptr.into(),
-                        name,
-                    )))
-                } else {
-                    let ptr_ty = self
-                        .context
-                        .ptr_type(llvm_type_from_bs_type(ty.clone(), self.context).into());
-                    let tag_ptr = self.context.i64_type().const_value(ptr as _).to_ptr(ptr_ty);
-                    let bs_struct =
-                        self.builder
-                            .build_load(llvm_type_from_bs_type(ty, self.context), tag_ptr.into(), name);
-
-                    // // let tag: llvm::values::i64_value::I64Value =
-                    // //     self.builder.build_extract_value(bs_struct, 0, "tmptag").unwrap().into();
-                    // // let val: llvm::values::i64_value::I64Value =
-                    // //     self.builder.build_extract_value(bs_struct, 1, "tmpval").unwrap().into();
-
-                    // let i0 = self.context.i64_type().const_value(0);
-                    // let i1 = self.context.i64_type().const_value(1);
-
-                    // let tag: llvm::values::i64_value::I64Value =
-                    //     self.builder.build_gep(bs_struct, &[i0.into(), i0.into()], "tag").into();
-                    // let val: llvm::values::i64_value::I64Value =
-                    //     self.builder.build_gep(bs_struct, &[i0.into(), i1.into()], "val").into();
-
-                    // let s = transmute(into_llvm_struct(tag.into(), val.into(), &self.context));
-
-                    Some(transmute(bs_struct))
-                }
+                let ptr_ty = self
+                    .context
+                    .ptr_type(llvm_type_from_bs_type(ty.clone(), self.context).into());
+                let val_ptr = self.context.i64_type().const_value(ptr as _).to_ptr(ptr_ty);
+                Some(transmute(
+                    self.builder
+                        .build_load(llvm_type_from_bs_type(ty, self.context), val_ptr.into(), name),
+                ))
             },
             None => None,
         }
@@ -109,7 +81,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                 ok(transmute(llvm_value_from_bs_value(BSValue::from(v.clone()), self.context)))
             },
             ExprBody::Variable(ref name) => match self
-                .compile_load_local(name.as_str())
+                .compile_load_local(expr.get_type()?, name.as_str())
                 .or_else(|| self.compile_load_global(name.as_str()))
             {
                 Some(v) => ok(v),
@@ -144,13 +116,6 @@ impl<'a, 'b> Compiler<'a, 'b> {
             }
 
             ExprBody::Call { name, args } => {
-                let mut call_args = vec![];
-
-                for arg in args {
-                    let arg = self.compile_expr(arg)?;
-                    call_args.push(arg);
-                }
-
                 let fn_val = self
                     .module()
                     .module
@@ -161,9 +126,23 @@ impl<'a, 'b> Compiler<'a, 'b> {
                         span: expr.span,
                     })?;
 
-                let fn_ty = self
-                    .context
-                    .fn_type(llvm_type_from_bs_type(BSType::Int64, &self.context), &[], false);
+                let mut call_types = vec![];
+                let mut call_args = vec![];
+
+                for arg in args {
+                    let arg = self.compile_expr(arg)?;
+                    call_args.push(arg);
+                }
+
+                for arg in args {
+                    let ty = arg.get_type()?;
+                    let tp = llvm_type_from_bs_type(ty, &self.context);
+                    call_types.push(tp);
+                }
+
+                let fn_ty =
+                    self.context
+                        .fn_type(llvm_type_from_bs_type(BSType::Int64, &self.context), &call_types, false);
 
                 unsafe {
                     ok(transmute(
@@ -305,13 +284,9 @@ impl<'a, 'b> Compiler<'a, 'b> {
         };
 
         // println!("body: {:?}", last_expr);
+        println!("ret: {:?}", ret_ty);
 
-        // build return instruction according to return type
-        if ret_ty.is_scalar() {
-            self.builder.build_return(last_expr);
-        } else {
-            self.builder.build_aggregate_return(&[last_expr]);
-        }
+        self.builder.build_return(last_expr);
 
         // return the whole thing after verification and optimization
         match function.verify() {

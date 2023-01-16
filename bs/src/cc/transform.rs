@@ -2,37 +2,22 @@ use ffi::types::Type as BSType;
 use ffi::values::Value as BSValue;
 use ffi::values::NULL_VALUE;
 use llvm::context::Context;
-use llvm::types::prelude::StructType as LLVMStructType;
 use llvm::types::Type as LLVMType;
 use llvm::values::prelude::*;
 use llvm::values::Value as LLVMValue;
-use std::mem::{forget, transmute};
-
-pub(crate) fn into_llvm_struct<'a>(tag: i64, val: i64, context: &'a Context) -> LLVMValue<'a> {
-    let ret_struct = llvm_struct_type(context)
-        .const_value(&[context.i64_type().const_value(tag).into(), context.i64_type().const_value(val).into()], false);
-
-    ret_struct.into()
-}
-
-fn llvm_struct_type<'a>(context: &'a Context) -> LLVMStructType<'a> {
-    context.struct_type(&[context.i64_type().into(), context.i64_type().into()], false)
-}
 
 pub fn llvm_value_from_bs_value<'a>(bs_value: BSValue, context: &'a Context) -> LLVMValue<'a> {
-    unsafe {
-        match bs_value.get_type() {
-            BSType::Null => context.i64_type().const_value(NULL_VALUE).into(),
-            BSType::Bool => context.i1_type().const_value(bs_value.into()).into(),
-            BSType::Int64 => context.i64_type().const_value(bs_value.into()).into(),
-            BSType::Float64 => context.f64_type().const_value(bs_value.into()).into(),
-            BSType::VecInt64 => context
-                .ptr_type(context.i64_type().into())
-                .const_value(bs_value.as_ptr())
-                .into(),
-            // BSType::VecFloat64(v) => into_llvm_struct(tag, transmute::<_, i64>(v), context),
-            _ => unimplemented!(),
-        }
+    match bs_value.get_type() {
+        BSType::Null => context.i64_type().const_value(NULL_VALUE).into(),
+        BSType::Bool => context.i1_type().const_value(bs_value.into()).into(),
+        BSType::Int64 => context.i64_type().const_value(bs_value.into()).into(),
+        BSType::Float64 => context.f64_type().const_value(bs_value.into()).into(),
+        BSType::VecInt64 => context
+            .ptr_type(context.i64_type().into())
+            .const_value(bs_value.as_raw() as _)
+            .into(),
+        // BSType::VecFloat64(v) => into_llvm_struct(tag, transmute::<_, i64>(v), context),
+        _ => unimplemented!(),
     }
 }
 
@@ -54,16 +39,10 @@ pub fn bs_value_from_llvm_value(value: LLVMValue, ty: BSType, context: &Context)
             let val: f64 = val.get_constant().into();
             BSValue::from(val)
         }
-        // BSType::VecInt64 => {
-        //     let struct_val: StructValue<'_> = value.into();
-        //     let (tag, val) = struct_val.get_constant(context);
-        //     let v: BSValue = unsafe { transmute((tag, val)) };
-        //     // we need here an extra clone because llvm's struct drops the values
-        //     // on destruction
-        //     let cloned = v.clone();
-        //     forget(v);
-        //     cloned
-        // }
+        BSType::VecInt64 => {
+            let val: PtrValue<'_> = value.into();
+            BSValue::from_raw_parts(ty, val.const_to_i64().into())
+        }
         _ => todo!(),
     }
 }
@@ -74,12 +53,10 @@ pub fn llvm_type_from_bs_type<'a>(bs_type: BSType, context: &'a Context) -> LLVM
         BSType::Bool => context.i1_type().into(),
         BSType::Int64 => context.i64_type().into(),
         BSType::Float64 => context.f64_type().into(),
-        BSType::VecInt64 => context
-            .struct_type(&[context.i64_type().into(), context.i64_type().into()], false)
-            .into(),
-        BSType::VecFloat64 => context
-            .struct_type(&[context.i64_type().into(), context.i64_type().into()], false)
-            .into(),
+        BSType::VecInt64 => context.ptr_type(context.i64_type().into()).into(),
+        // BSType::VecFloat64 => context
+        //     .struct_type(&[context.i64_type().into(), context.i64_type().into()], false)
+        //     .into(),
         _ => unimplemented!(),
     }
 }

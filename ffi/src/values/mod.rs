@@ -101,7 +101,7 @@ impl fmt::Display for Value {
             },
             // VecFloat64 => write!(f, "{:?}", v),
             // Value::List(v) => write!(f, "{:?}", v),
-            // // Value::Fn(_) => write!(f, "{:?}", self.get_type()),
+            Type::Fn(_) => write!(f, "{}", self.get_type()),
             _ => write!(f, "{:?}", "ty"),
         }
     }
@@ -123,5 +123,5 @@ impl Value {
 
     pub fn as_raw(&self) -> i64 { *self.val }
 
-    pub fn as_ptr(&self) -> *const () { *self.val as *const () }
+    pub fn as_ptr(&self) -> *const () { &self.val as *const _ as _ }
 }
