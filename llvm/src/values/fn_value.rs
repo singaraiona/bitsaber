@@ -66,9 +66,7 @@ impl<'a> FnValue<'a> {
 
     pub fn delete(self) { unsafe { LLVMDeleteFunction(self.as_llvm_value_ref()) } }
 
-    // pub fn get_return_type(&self) -> Type<'a> {
-    //     unsafe { Type::new(LLVMGetReturnType(LLVMGetElementType(self.val.get_llvm_type_ref()))) }
-    // }
+    // pub fn get_return_type(&self) -> Type<'a> { unsafe { Type::new(LLVMGetReturnType(self.val.get_llvm_type_ref())) } }
 
     // pub fn set_linkage(self, linkage: Linkage) {
     //     unsafe { LLVMSetLinkage(self.as_value_ref(), linkage.into()) }

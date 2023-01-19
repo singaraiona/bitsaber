@@ -55,11 +55,7 @@ impl<'a> RuntimeModule<'a> {
         ok(())
     }
 
-    pub fn add_global(&mut self, name: &str, value: BSValue) {
-        println!("adding global: {} {}", name, &value);
-
-        self.globals.insert(name.to_string(), Box::new(value));
-    }
+    pub fn add_global(&mut self, name: &str, value: BSValue) { self.globals.insert(name.to_string(), Box::new(value)); }
 
     pub fn get_global(&self, name: &str) -> Option<(BSType, *const i64)> {
         match self.globals.get(name) {

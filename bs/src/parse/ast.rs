@@ -163,7 +163,6 @@ impl Expr {
                 match globals.get(name) {
                     Some(val) => {
                         self.expr_type = Some(val.get_infered_type().clone());
-                        println!("Call {:?} {:?}", name, val.get_infered_type());
                         ok(val.get_infered_type().clone())
                     }
                     None => compile_error("Unknown function".to_string(), name.clone(), self.span),

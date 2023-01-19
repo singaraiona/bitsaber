@@ -116,6 +116,26 @@ impl<'a, 'b> Compiler<'a, 'b> {
             }
 
             ExprBody::Call { name, args } => {
+                let ret_ty = match self.module().get_global(name) {
+                    Some((ty, _)) => match ty {
+                        BSType::Fn(fty) => fty.ret.clone(),
+                        _ => {
+                            return compile_error(
+                                format!("'{}' is not a function", name),
+                                format!("'{}' can not be called", ty),
+                                expr.span,
+                            )
+                        }
+                    },
+                    None => {
+                        return compile_error(
+                            format!("Undefined function '{}'", name),
+                            "Function not found".to_string(),
+                            expr.span,
+                        )
+                    }
+                };
+
                 let fn_val = self
                     .module()
                     .module
@@ -140,9 +160,11 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     call_types.push(tp);
                 }
 
-                let fn_ty =
-                    self.context
-                        .fn_type(llvm_type_from_bs_type(BSType::Int64, &self.context), &call_types, false);
+                let fn_ty = self.context.fn_type(
+                    llvm_type_from_bs_type(ret_ty.as_ref().clone(), &self.context),
+                    &call_types,
+                    false,
+                );
 
                 unsafe {
                     ok(transmute(
@@ -284,7 +306,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
         };
 
         // println!("body: {:?}", last_expr);
-        println!("ret: {:?}", ret_ty);
+        // println!("ret: {:?}", ret_ty);
 
         self.builder.build_return(last_expr);
 
@@ -292,10 +314,13 @@ impl<'a, 'b> Compiler<'a, 'b> {
         match function.verify() {
             Ok(_) => {
                 // self.fpm.run_on(&function);
+                let fn_ty =
+                    BsFnType::new(self.function.args.iter().map(|(_, ty)| ty.clone()).collect(), ret_ty.clone());
+                let fn_val = BsFnValue::new(fn_ty, function.as_llvm_value_ref() as _);
                 self.modules
                     .get_mut(self.module)
                     .unwrap()
-                    .add_global(self.function.name.as_str(), BSValue::from(()));
+                    .add_global(self.function.name.as_str(), fn_val.into());
                 ok((function, ret_ty))
             }
             Err(e) => {
