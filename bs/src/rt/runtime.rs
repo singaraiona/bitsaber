@@ -68,7 +68,7 @@ impl<'a> RuntimeModule<'a> {
 pub struct Runtime<'a> {
     modules: HashMap<String, RuntimeModule<'a>>,
     builder: Builder<'a>,
-    previous_functions: Vec<Function>,
+    previous_functions: HashMap<String, Function>,
     context: Context,
 }
 
@@ -92,7 +92,7 @@ impl<'a> Runtime<'a> {
         });
 
         unsafe {
-            let rt = Box::new(transmute(Self { context, modules, builder, previous_functions: Vec::new() }));
+            let rt = Box::new(transmute(Self { context, modules, builder, previous_functions: HashMap::new() }));
             let ptr = Box::into_raw(rt);
             set_runtime(ptr);
             ok(Box::from_raw(ptr))
@@ -129,7 +129,7 @@ impl<'a> Runtime<'a> {
             });
 
             // recompile every previously parsed function into the new module
-            for f in &self.previous_functions {
+            for f in self.previous_functions.values() {
                 Compiler::new("repl", &mut self.context, &mut self.builder, &mut self.modules, f.clone()).compile()?;
             }
 
@@ -146,7 +146,7 @@ impl<'a> Runtime<'a> {
                 if is_top_level {
                     top_level_fn = Some((compiled_fn, ret_ty));
                 } else {
-                    self.previous_functions.push(f);
+                    self.previous_functions.insert(f.name.clone(), f);
                 }
             }
 
