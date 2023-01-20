@@ -355,29 +355,39 @@ impl<'a> Parser<'a> {
             _ => parse_error("Invalid syntax", "Expected identifier".into(), self.span()),
         }?;
 
-        self.expect(Bar)?;
-        let mut unique_names = HashSet::new();
         let mut args = vec![];
-        while self.curr != Bar {
-            let arg_name = match self.curr {
-                Token::Ident(name) => name,
-                _ => return parse_error("Invalid syntax", "Expected identifier here".to_string(), self.span()),
-            };
 
-            if !unique_names.insert(arg_name) {
-                return parse_error("Invalid function definition", "Duplicate argument name".to_string(), self.span());
-            }
-
+        if self.curr == Or {
             self.advance()?;
-            self.expect(Colon)?;
-            let ty = self.parse_type()?;
-            args.push((arg_name.to_string(), ty));
-            if self.curr == Comma {
-                self.advance()?;
-            }
-        }
+        } else {
+            self.expect(Bar)?;
+            let mut unique_names = HashSet::new();
 
-        self.expect(Bar)?;
+            while self.curr != Bar {
+                let arg_name = match self.curr {
+                    Token::Ident(name) => name,
+                    _ => return parse_error("Invalid syntax", "Expected identifier here".to_string(), self.span()),
+                };
+
+                if !unique_names.insert(arg_name) {
+                    return parse_error(
+                        "Invalid function definition",
+                        "Duplicate argument name".to_string(),
+                        self.span(),
+                    );
+                }
+
+                self.advance()?;
+                self.expect(Colon)?;
+                let ty = self.parse_type()?;
+                args.push((arg_name.to_string(), ty));
+                if self.curr == Comma {
+                    self.advance()?;
+                }
+            }
+
+            self.expect(Bar)?;
+        }
 
         ok(Function { name: name.into(), args, body: vec![], topl: false })
     }
