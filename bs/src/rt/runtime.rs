@@ -13,9 +13,7 @@ use llvm::context::Context;
 use llvm::execution_engine::ExecutionEngine;
 use llvm::llvm_sys::support::LLVMAddSymbol;
 use llvm::module::Module;
-use llvm::types::Type;
 use llvm::utils::to_c_str;
-use llvm::values::fn_value::FnValue;
 use std::collections::HashMap;
 use std::mem;
 use std::mem::transmute;
@@ -87,7 +85,7 @@ impl<'a> Runtime<'a> {
         // add external symbols
         external::with(|map| {
             for (name, ext) in map {
-                Self::add_symbol(name, ext.addr);
+                Self::add_symbol(name, ext.get_ptr() as _);
             }
         });
 
@@ -116,15 +114,29 @@ impl<'a> Runtime<'a> {
 
             // add external symbols
             external::with(|map| {
-                for (name, ext) in map {
-                    let args = ext.args.iter().map(|t| ("".into(), t.clone())).collect::<Vec<_>>();
-                    let f = Function { name: name.clone(), args: args, body: vec![], topl: false };
+                for (name, fn_val) in map {
+                    let fn_ty = fn_val.get_type();
+                    let fn_args: Vec<_> = fn_ty
+                        .args
+                        .iter()
+                        .map(|arg| llvm_type_from_bs_type(arg.clone(), &self.context))
+                        .collect();
 
-                    // self.modules
-                    //     .get_mut("repl".into())
-                    //     .unwrap()
-                    //     .add_global(&f, ext.ret, &self.context)
-                    //     .expect("failed to compile external function");
+                    let fn_type = self.context.fn_type(
+                        llvm_type_from_bs_type(fn_ty.ret.as_ref().clone(), &self.context),
+                        &fn_args,
+                        false,
+                    );
+                    self.modules
+                        .get_mut("repl".into())
+                        .unwrap()
+                        .module
+                        .add_function(name.as_str(), fn_type);
+
+                    self.modules
+                        .get_mut("repl".into())
+                        .unwrap()
+                        .add_global(name, BSValue::from(fn_val.clone()))
                 }
             });
 

@@ -17,11 +17,11 @@ pub mod prelude {
 use prelude::*;
 
 pub const NULL_VALUE: i64 = std::i64::MAX;
-type Discriminant = i64;
+pub type Discriminant = i64;
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]
-struct OpaqueValue(Discriminant);
+pub struct OpaqueValue(Discriminant);
 
 impl Deref for OpaqueValue {
     type Target = Discriminant;
@@ -86,6 +86,10 @@ impl Into<f64> for Value {
     fn into(self) -> f64 { unsafe { transmute(*self.val) } }
 }
 
+impl Into<OpaqueValue> for Value {
+    fn into(self) -> OpaqueValue { self.val }
+}
+
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.ty {
@@ -124,4 +128,6 @@ impl Value {
     pub fn as_raw(&self) -> i64 { *self.val }
 
     pub fn as_ptr(&self) -> *const () { &self.val as *const _ as _ }
+
+    pub fn into_raw(self) -> i64 { *self.val }
 }

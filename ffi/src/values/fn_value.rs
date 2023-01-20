@@ -13,3 +13,6 @@ impl FnValue {
 
     pub fn get_ptr(&self) -> *const () { self.ptr }
 }
+
+unsafe impl Send for FnValue {}
+unsafe impl Sync for FnValue {}
