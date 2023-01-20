@@ -118,7 +118,44 @@ impl<'a, 'b> Compiler<'a, 'b> {
             ExprBody::Call { name, args } => {
                 let ret_ty = match self.module().get_global(name) {
                     Some((ty, _)) => match ty {
-                        BSType::Fn(fty) => fty.ret.clone(),
+                        BSType::Fn(fn_ty) => {
+                            // check if args of call match the args of the function
+                            if fn_ty.args.len() != args.len() {
+                                return compile_error(
+                                    format!(
+                                        "'{}' takes {} arguments, but {} were given",
+                                        name,
+                                        fn_ty.args.len(),
+                                        args.len()
+                                    ),
+                                    format!(
+                                        "'{}' takes {} arguments, but {} were given",
+                                        name,
+                                        fn_ty.args.len(),
+                                        args.len()
+                                    ),
+                                    expr.span,
+                                );
+                            }
+
+                            for (i, (arg, ty)) in args.iter().zip(fn_ty.args.iter()).enumerate() {
+                                if arg.get_type()? != *ty {
+                                    return compile_error(
+                                        "Invalid arguments".into(),
+                                        format!(
+                                            "Argument {} of '{}' is of type '{}', but '{}' was given",
+                                            i,
+                                            name,
+                                            ty,
+                                            arg.get_type()?
+                                        ),
+                                        expr.span,
+                                    );
+                                }
+                            }
+
+                            fn_ty.ret.clone()
+                        }
                         _ => {
                             return compile_error(
                                 format!("'{}' is not a function", name),
@@ -243,6 +280,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
     pub fn compile_prototype(&mut self, ret_type: BSType) -> BSResult<FnValue<'b>> {
         let rt_module = self.modules.get_mut(self.module).unwrap();
         let proto = &self.function;
+
         let args_types = proto
             .args
             .iter()

@@ -3,6 +3,7 @@ use crate::parse::lexer::{Lexer, Token};
 use crate::parse::span::Span;
 use crate::result::*;
 use ffi::types::Type as BSType;
+use std::collections::HashSet;
 use Token::*;
 
 pub struct Parser<'a> {
@@ -59,13 +60,22 @@ impl<'a> Parser<'a> {
 
     fn parse_type(&mut self) -> BSResult<BSType> {
         match self.curr {
-            Token::Ident(name) => match BSType::try_from(name) {
-                Ok(ty) => {
+            Token::Ident(name) => {
+                self.advance()?;
+                if self.curr == Token::LeftSquare {
                     self.advance()?;
-                    ok(ty)
+                    self.expect(Token::RightSquare)?;
+                    match BSType::try_from(format!("{}[]", name).as_str()) {
+                        Ok(ty) => ok(ty),
+                        Err(_) => parse_error("Invalid type", format!("'{}' is not a valid type", name), self.span()),
+                    }
+                } else {
+                    match BSType::try_from(name) {
+                        Ok(ty) => ok(ty),
+                        Err(_) => parse_error("Invalid type", format!("'{}' is not a valid type", name), self.span()),
+                    }
                 }
-                Err(_) => parse_error("Invalid type", format!("'{}' is not a valid type", name), self.span()),
-            },
+            }
             _ => parse_error("Invalid syntax", "Expected type name here".into(), self.span()),
         }
     }
@@ -346,12 +356,18 @@ impl<'a> Parser<'a> {
         }?;
 
         self.expect(Bar)?;
+        let mut unique_names = HashSet::new();
         let mut args = vec![];
         while self.curr != Bar {
             let arg_name = match self.curr {
                 Token::Ident(name) => name,
                 _ => return parse_error("Invalid syntax", "Expected identifier here".to_string(), self.span()),
             };
+
+            if !unique_names.insert(arg_name) {
+                return parse_error("Invalid function definition", "Duplicate argument name".to_string(), self.span());
+            }
+
             self.advance()?;
             self.expect(Colon)?;
             let ty = self.parse_type()?;
