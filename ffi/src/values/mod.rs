@@ -87,7 +87,7 @@ impl Into<f64> for Value {
 }
 
 impl Into<OpaqueValue> for Value {
-    fn into(self) -> OpaqueValue { self.val }
+    fn into(self) -> OpaqueValue { OpaqueValue(*self.val) }
 }
 
 impl fmt::Display for Value {
@@ -130,4 +130,15 @@ impl Value {
     pub fn as_ptr(&self) -> *const () { &self.val as *const _ as _ }
 
     pub fn into_raw(self) -> i64 { *self.val }
+}
+
+impl Drop for Value {
+    fn drop(&mut self) {
+        match self.ty {
+            Type::VecInt64 => {
+                println!("DROP!!!!!!!");
+            }
+            _ => {}
+        }
+    }
 }

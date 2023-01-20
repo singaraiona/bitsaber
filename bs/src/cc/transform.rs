@@ -21,7 +21,7 @@ pub fn llvm_value_from_bs_value<'a>(bs_value: BSValue, context: &'a Context) -> 
     }
 }
 
-pub fn bs_value_from_llvm_value(value: LLVMValue, ty: BSType, context: &Context) -> BSValue {
+pub fn bs_value_from_llvm_value(value: LLVMValue, ty: BSType) -> BSValue {
     match ty {
         BSType::Null => BSValue::from(()),
         BSType::Bool => {

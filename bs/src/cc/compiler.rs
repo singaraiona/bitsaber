@@ -106,7 +106,7 @@ impl<'a, 'b> Compiler<'a, 'b> {
                     self.modules
                         .get_mut(self.module)
                         .unwrap()
-                        .add_global(name, bs_value_from_llvm_value(body.clone(), ty.clone(), self.context));
+                        .add_global(name, bs_value_from_llvm_value(body.clone(), ty.clone()));
                 } else {
                     let ptr = self.create_entry_block_alloca(name, llvm_type_from_bs_type(ty, &self.context));
                     self.builder.build_store(ptr, body);

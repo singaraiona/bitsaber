@@ -1,12 +1,12 @@
 use crate::builtins;
 use crate::cc::compiler::Compiler;
 use crate::cc::transform::llvm_type_from_bs_type;
-use crate::llvm::values::ValueIntrinsics;
 use crate::parse::ast::Function;
 use crate::parse::parser::*;
 use crate::result::*;
 use ffi::external;
 use ffi::types::Type as BSType;
+use ffi::values::OpaqueValue;
 use ffi::values::Value as BSValue;
 use llvm::builder::Builder;
 use llvm::context::Context;
@@ -171,34 +171,9 @@ impl<'a> Runtime<'a> {
                         .get_function_address("top-level")
                         .map_err(|e| BSError::RuntimeError(e.to_string()))?;
 
-                    match ty {
-                        BSType::Null => {
-                            let f: extern "C" fn() -> i64 = mem::transmute(addr);
-                            let _ = f();
-                            ok(BSValue::from(()))
-                        }
-                        BSType::Bool => {
-                            let f: extern "C" fn() -> bool = mem::transmute(addr);
-                            let result = f();
-                            ok(BSValue::from(result))
-                        }
-                        BSType::Int64 => {
-                            let f: extern "C" fn() -> i64 = mem::transmute(addr);
-                            let result = f();
-                            ok(BSValue::from(result))
-                        }
-                        BSType::Float64 => {
-                            let f: extern "C" fn() -> f64 = mem::transmute(addr);
-                            let result = f();
-                            ok(BSValue::from(result))
-                        }
-                        _ => {
-                            let f: extern "C" fn() -> *const () = mem::transmute(addr);
-                            let result = f();
-                            let result = BSValue::from_raw_parts(ty, result as _);
-                            ok(result)
-                        }
-                    }
+                    let f: extern "C" fn() -> OpaqueValue = mem::transmute(addr);
+                    let res = f();
+                    ok(BSValue::from_raw_parts(ty, *res))
                 }
 
                 None => ok(BSValue::from(())),
