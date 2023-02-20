@@ -136,7 +136,7 @@ impl Drop for Value {
     fn drop(&mut self) {
         match self.ty {
             Type::VecInt64 => {
-                println!("DROP!!!!!!!");
+                // println!("DROP!!!!!!!");
             }
             _ => {}
         }

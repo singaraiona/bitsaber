@@ -334,7 +334,7 @@ impl<'a> Lexer<'a> {
                     "null" => ok(Token::Null),
                     "true" => ok(Token::Bool(true)),
                     "false" => ok(Token::Bool(false)),
-                    "def" => ok(Token::Def),
+                    "fn" => ok(Token::Def),
                     "extern" => ok(Token::Extern),
                     "if" => ok(Token::If),
                     "else" => ok(Token::Else),

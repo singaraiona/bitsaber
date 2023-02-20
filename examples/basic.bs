@@ -1,5 +1,5 @@
-a = |a: Int64, b: Int64| {
-    a + b
-}
+a = [1,2,3];
+
+fn f |x:Int64| { if x < 2 { 1 } else { 2 }};
 
 a
